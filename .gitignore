@@ -1,32 +1,76 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
+# === OpenSUP C++ Project ===
+
+# Build directories
 build/
-*.egg
-.venv/
-venv/
-env/
+cmake-build-*/
+out/
+dist/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!cmake/*.cmake
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-src/opensup/bin/pngquant.exe
-src/opensup/lib/libimagequant_x86_64.dll
-tests/fixtures/*.png
-!tests/fixtures/BDN_Index.xml
-repomix-output.xml
-.opencode/
-.opencode-mem/
+*~
+.project
+.cproject
+.settings/
+*.code-workspace
+
+# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
-*.log
+
+# Environment
 .env
 .env.local
-tools/
-tests/
-Ejemplos/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+
+# Test fixtures
+tests/fixtures/*.png
+!tests/fixtures/BDN_Index.xml
+
+# Opencode
+.opencode/
+.opencode-mem/
+
+# === Legacy Python (preserved in legacy/) ===
+# These rules apply if someone runs Python from legacy/
+legacy/src/opensup/__pycache__/
+legacy/src/opensup/**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+legacy/dist/
+legacy/build/
+legacy/src/opensup/bin/pngquant.exe
+legacy/src/opensup/lib/libimagequant_x86_64.dll
+
+# Reference project (read-only)
+Referencias/
+legacy/
