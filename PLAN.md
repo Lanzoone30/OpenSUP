@@ -173,9 +173,13 @@ OpenSUP-dev/
 │       │   ├── main.cpp
 │       │   └── cli_parser.h/.cpp    ← CLI11 wrapper
 │       │
-│       └── gui/                     ← Qt6 GUI (Fase 5)
-│           ├── main_window.h/.cpp
-│           └── forms/
+│       └── gui/                     ← Qt6 GUI (Fase 5 ✅)
+│           ├── CMakeLists.txt
+│           ├── main_window.h/.cpp   ← MainWindow + signals/slots
+│           ├── encode_worker.h/.cpp ← Worker QThread
+│           ├── qt_log_handler.h/.cpp← Logger → Qt bridge
+│           ├── main.cpp             ← QApplication entry point
+│           └── main_window.ui       ← Diseñado en Qt Designer
 │
 ├── tests/
 │   ├── CMakeLists.txt               ← Google Test (FetchContent)
@@ -188,12 +192,19 @@ OpenSUP-dev/
 │   │   ├── color_matrix_test.cpp
 │   │   └── memory_test.cpp
 │   │
-│   ├── core/                        ← Tests Fase 2-3
-│   └── media/                       ← Tests Fase 2-3
+│   ├── core/                        ← Tests Fase 2 ✅ (13 tests)
+│   │   ├── CMakeLists.txt
+│   │   └── segments_test.cpp
+│   │
+│   └── media/                       ← Tests Fase 2 ✅ (24 tests)
+│       ├── CMakeLists.txt
+│       ├── palette_test.cpp
+│       └── pgraphics_test.cpp
 │
 ├── build/                           ← Build directory (gitignored)
 │
 ├── docs/
+│   ├── GUI_PLAN.md                    ← Diseño detallado de GUI Qt6
 │   └── diagrams/
 │
 ├── .gitignore
@@ -220,6 +231,7 @@ OpenSUP-dev/
 | `piliq` (libimagequant) | libimagequant C API directo | Externa | Quantizer principal |
 | `timecode` | Reimplementación propia en `common/timecode.cpp` | Interna | ✅ 85 líneas |
 | `SSIM-PIL` | OpenCV SSIM o custom | Externa | Quality metric (stub en Fase 1) |
+| `argparse` | CLI11 v2.6.2 (FetchContent) | Interna/Header | CLI argument parsing |
 | `customtkinter` | Qt6 | Externa | GUI (Fase 5) |
 | `tqdm` | Custom progress en Qt6/CLI | Interna | UI concern |
 
@@ -230,11 +242,11 @@ OpenSUP-dev/
 | **C++17** stdlib | ✅ Instalada | g++ 15.2.1, Fedora 43 |
 | **CMake** ≥ 3.16 | ✅ 3.31.11 | |
 | **Google Test** | ✅ v1.14.0 (FetchContent) | 38 tests pasando |
-| **CLI11** | 🔴 Pendiente | Fase 4 (CLI) |
-| **stb_image** | 🔴 Pendiente | Fase 2 (BDN XML PNG loading) |
-| **pugixml** | 🔴 Pendiente | Fase 3 (BDN XML parsing) |
-| **libimagequant** | 🔴 Pendiente | Fase 3 (quantizer) |
-| **OpenCV** | 🔴 Pendiente | Fase 3 (SSIM, filtros) |
+| **CLI11** | ✅ v2.6.2 (FetchContent) | Fase 4 |
+| **stb_image** | ✅ Descargado a `extern/` | Fase 2 |
+| **pugixml** | ✅ 1.16 (dnf) | Fase 3 |
+| **libimagequant** | ✅ 4.0.3 (dnf) | Fase 3 |
+| **OpenCV** | 🔴 Pendiente | SSIM, filtros (baja prioridad) |
 | **Qt6** | 🔴 Pendiente | Fase 5 (GUI) |
 
 ---
@@ -275,11 +287,10 @@ OpenSUP-dev/
    - `pcs_t`, `wds_t`, `pds_t`, `ods_t`, `ends_t`
    - `c_object_t`, `window_definition_t`
    - `display_set_t` (contenedor ordenado)
-   - `epoch_t` (lista de display sets)
    - Serialización: `to_bytes()` / `from_bytes()` con `std::vector<uint8_t>`
 2. `media/palette.cpp`:
    - `palette_entry_t` — struct {y, cr, cb, alpha}
-   - `palette_t` — `std::array<palette_entry_t, 256>` + bitmask
+   - `palette_t` — `std::map<uint8_t, palette_entry_t>` (sparse palette)
    - Operaciones de color: `to_rgba()`, `from_rgba()`, `diff()`
 3. `media/pgraphics.cpp`:
    - RLE encoder/decoder (port del C extension de brule, ~200 líneas)
@@ -333,7 +344,7 @@ OpenSUP-dev/
 
 **Tareas:**
 1. `cli/main.cpp` — Entry point completo
-2. `cli/cli_parser.h/.cpp` — CLI11 wrapper (parsing de argumentos)
+2. CLI11 vía FetchContent (v2.6.2) + `cli/cli_parser.h/.cpp` — CLI11 wrapper
 3. Paridad de opciones con `cli.py`:
    - `-i` input, `output`, `-c` compression, `-a` acqrate
    - `-q` quantizer (0-3), `-b` BT matrix, `-p` palette
@@ -350,22 +361,83 @@ OpenSUP-dev/
 
 **Objetivo:** Interfaz gráfica moderna con Qt6.
 
+**Documento de diseño detallado:** `docs/GUI_PLAN.md`
+
 **Tareas:**
-1. `gui/main_window.cpp` — MainWindow con QStackedWidget
-2. `gui/merge_tool.cpp` — Panel principal con:
-   - File selector para BDN XML
-   - Output path selector
-   - Sliders: compression, acquisition rate
-   - Dropdown: quantizer (dinámico), color space
-   - Checkboxes: 6 modos
-   - Thread count selector
-   - Progress bar con ETA
-   - Log panel con colores por fase
-   - Abort button
-3. Forms `.ui` en Qt Designer
-4. Signal/slot connections al backend C++
+1. **Diseño de UI en Qt Designer** (tú):
+   - Crear `src/opensup/gui/forms/main_window.ui` con todos los widgets
+   - Seguir la especificación en `docs/GUI_PLAN.md`
+2. **Código C++** (yo):
+   - `gui/main_window.h/.cpp` — MainWindow + slots
+   - `gui/encode_worker.h/.cpp` — Worker para QThread
+   - `gui/qt_log_handler.h/.cpp` — Bridge logger → Qt signals
+3. **Build system**:
+   - `gui/CMakeLists.txt` com `find_package(Qt6)`, `qt_add_executable`, `qt_add_ui`
+4. **Integración**:
+   - Conectar signals de worker (progress, logLine, finished, etaUpdated)
+   - Llamar a `bdn_render_c` desde el worker thread
+   - Colorear log por nivel (PASS/FAIL verde/rojo)
 
 **Criterio de éxito:** GUI funcional que puede cargar BDN XML y generar .sup.
+
+### Fase 5.1: Refinamiento Log + Resolución + Extensión (Sesión 2)
+
+**Objetivo:** Mejorar la experiencia de usuario con log detallado, validación de resolución y manejo de extensiones de archivo.
+
+**Tareas:**
+
+1. **Log GUI mejorado** (4 archivos):
+   - `gui/main_window.ui`: Ajustar ventana (640x800), fuente Consolas 10pt, minimumSize log (300px)
+   - `gui/main_window.cpp`: Formato `HH:MM:SS │ LEVEL │ msg`, arreglar bridge Qt (`qobject_cast` fix), persistencia (eliminar clear en start_encode), auto-append `.sup` extension, leer checkbox `chk_both_formats`
+   - `gui/encode_worker.cpp`: Remover banners, mensajes limpios, emitir resultado del pipeline (eventos/epochs/segmentos/duration)
+   - `common/logger.cpp`: Callback pasa mensaje crudo (no línea formateada) para evitar double timestamp; `log_fatal` usa level 9
+
+2. **Validación de resolución** (4 archivos):
+   - `core/interface.h` (`encode_config_t`): Nuevos campos `ignore_resolution` and `both_formats`
+   - `core/interface.cpp`: Pasar `ignore_resolution` a `xml.parse()`, derivar paths si `both_formats`
+   - `core/filestreams.cpp`: Validar resolución Blu-ray estándar (1080p/720p/576p/480p)
+   - `cli/cli_parser.cpp`: Forward `ignore_resolution` and `both_formats`
+
+3. **Filtrado de mensajes verbosos** (3 archivos, 6 puntos):
+   - `core/filestreams.cpp`: Demover "Parsed N events" a hdebug, "Removed N duplicate" a hdebug, "Deduplication range mismatch" a hdebug
+   - `core/interface.cpp`: Demover "Output: path" a hdebug
+   - `media/optimizer.cpp`: Demover "libimagequant: N colors" e "HexTree: N colors" a hdebug
+
+4. **Extensiones CLI** (2 archivos):
+   - `cli/main.cpp`: Auto‑append `.sup` si no hay extensión
+   - `cli/cli_parser.cpp`: Agregar opción `-w/--withsup` para both formats
+
+**Criterio de éxito:** Log GUI mostra resumen detallado (resolución, eventos, epochs, segments, duración), sin mensajes verbosos. Auto‑append de extensión `.sup` y soporte para Both formats (PES stub).
+
+### Fase 5.2: Bugfixes Encoding Pipeline (Sesión 2)
+
+**Objetivo:** Corregir 9 bugs en el pipeline de encoding que causaban subtítulos invisibles en el .sup generado.
+
+**Fase A — Críticos (subtítulos invisibles):**
+
+| # | Bug | Archivo | Fix |
+|---|-----|---------|-----|
+| 1 | RLE encoder sin marcadores EOL/EOB | `media/pgraphics.cpp` | Agregar `0x00 0xFF 0x00` tras cada scanline + `0x00 0xFF 0x01` al final del bitmap |
+| 2 | Zero‑run máximo 256 emite escape | `media/pgraphics.cpp` | Limitar chunk a 255 |
+| 3 | ODS data_length off by 4 | `core/segments.cpp` | `rle_data.size() + 4` |
+| 4 | CObject byte extra reservado | `core/segments.cpp` | Non‑cropped 8B (no 9), cropped 16B (no 17) |
+
+**Fase B — Altos (renderizado incorrecto):**
+
+| # | Bug | Archivo | Fix |
+|---|-----|---------|-----|
+| 5 | PCS state `normal` para eventos con ODS | `core/renderer.cpp` | Usar `acquisition` (0x40) siempre que haya ODS |
+| 6 | Timestamps idénticos para todos los segments | `core/renderer.cpp` | Per‑segment PTS/DTS: PCS=presentation, WDS=‑wipe, PDS=base_dts, ODS=base_pts, ENDS=base_pts |
+
+**Fase C — Medios (completitud):**
+
+| # | Bug | Archivo | Fix |
+|---|-----|---------|-----|
+| 7 | Bitmap 8x8 padding calculado pero no usado | `core/renderer.cpp` | Pad indexed bitmap + usar dims padded para ODS/WDS |
+| 8 | Palette 0xFF colisiona con escape RLE | `core/renderer.cpp` | Limitar quantizer a 254 colores |
+| 9 | pcs_c::from_scratch pre‑alloca ceros | `core/segments.cpp` | `pl(11)` en vez de `pl(11 + N*9)` |
+
+**Criterio de éxito:** .sup generado se multiplexa correctamente y los subtítulos son visibles en el reproductor.
 
 ---
 
@@ -726,11 +798,15 @@ Orquestación                → Fase 3-4
 
 | Fase | Estado |
 |------|--------|
+| Fase | Estado |
+|------|--------|
 | Fase 1: Fundación | ✅ Completada |
-| Fase 2: Serialización + I/O | 🔴 No iniciada |
-| Fase 3: Core Engine | 🔴 No iniciada |
-| Fase 4: CLI | 🔴 No iniciada |
-| Fase 5: GUI Qt6 | 🔴 No iniciada |
+| Fase 2: Serialización + I/O | ✅ Completada |
+| Fase 3: Core Engine | ✅ Completada |
+| Fase 4: CLI | ✅ Completada |
+| Fase 5: GUI Qt6 | ✅ Completada |
+| Fase 5.1: Refinamiento (Log/Resolución/Extensión) | ✅ Completada |
+| Fase 5.2: Bugfixes Pipeline (9 bugs) | ✅ Completada |
 | Fase 6: Empaquetado | 🔴 No iniciada |
 
 ---

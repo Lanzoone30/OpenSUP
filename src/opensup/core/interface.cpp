@@ -1,0 +1,147 @@
+#include "opensup/pch.h"
+#include "opensup/core/interface.h"
+#include "opensup/core/renderer.h"
+#include "opensup/core/filestreams.h"
+#include "opensup/media/pgstream.h"
+#include "opensup/common/logger.h"
+
+#include <filesystem>
+#include <fstream>
+#include <chrono>
+
+namespace opensup {
+namespace core {
+
+using common::logger_c;
+
+// ── Epoch Worker ──
+epoch_worker_c::epoch_worker_c(std::queue<epoch_job_t>& jobs,
+                                 std::mutex& mutex,
+                                 std::condition_variable& cv,
+                                 std::atomic<bool>& done,
+                                 double fps, int width, int height)
+    : m_jobs(jobs), m_mutex(mutex), m_cv(cv), m_done(done)
+    , m_fps(fps), m_width(width), m_height(height) {}
+
+void
+epoch_worker_c::operator()()
+{
+    // ponytail: single-thread encoding per worker, fine for <100 epochs
+    epoch_encoder_c encoder(m_fps, m_width, m_height);
+
+    while (true) {
+        epoch_job_t job;
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_cv.wait(lock, [this]() {
+                return !m_jobs.empty() || m_done.load();
+            });
+            if (m_jobs.empty() && m_done.load())
+                return;
+            job = std::move(m_jobs.front());
+            m_jobs.pop();
+        }
+
+        auto segments = encoder.encode_epoch(job.events, job.redraw_flags,
+                                               job.fps, job.palette_base);
+        // segments are accumulated by the caller
+        // ponytail: direct accumulation, no return queue needed for single-thread debug
+    }
+}
+
+// ── BDN Render ──
+bdn_render_c::bdn_render_c(const encode_config_t& config)
+    : m_config(config) {}
+
+encode_result_t
+bdn_render_c::execute()
+{
+    encode_result_t result;
+    auto start_time = std::chrono::steady_clock::now();
+
+    // Parse BDN XML
+    bdn_xml_c xml;
+    if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
+        result.error = "Failed to parse BDN XML: " + m_config.input_path;
+        logger_c::instance().error(result.error);
+        return result;
+    }
+
+    m_config.fps = xml.fps().to_double();
+    m_config.width = xml.width();
+    m_config.height = xml.height();
+
+    logger_c::instance().info("Input: " + std::to_string(xml.events().size()) +
+                               " events, " + std::to_string(m_config.width) + "x" +
+                               std::to_string(m_config.height) +
+                               " @" + std::to_string(m_config.fps) + " fps");
+
+    // Split events into epochs
+    auto event_groups = xml.groups(m_config.compression);
+    result.events = static_cast<int>(xml.events().size());
+    result.epochs = static_cast<int>(event_groups.size());
+
+    logger_c::instance().info("Split into " + std::to_string(result.epochs) +
+                               " epoch(s)");
+
+    // Encode each epoch
+    int palette_base = 0;
+    int total_segments = 0;
+
+    auto fps_enum = xml.fps();
+
+    for (auto& group : event_groups) {
+        // Encode events directly (remove_dupes removed — was incorrectly dropping
+        // events by comparing position/shape only, not pixel content)
+        std::vector<bool> no_redraw;
+
+        // Encode
+        epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height, m_config.quantizer_id);
+        auto segs = encoder.encode_epoch(group, no_redraw,
+                                          fps_enum, palette_base);
+        m_segments.insert(m_segments.end(), segs.begin(), segs.end());
+        total_segments += static_cast<int>(segs.size());
+    }
+
+    // fix_composition_id: ensure sequential composition numbers across all epochs
+    {
+        uint16_t comp_n = 0;
+        for (auto& seg : m_segments) {
+            if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg))
+                pcs->set_composition_n(comp_n++);
+        }
+    }
+
+    // Write output SUP
+    sup_file_c::write_sup(m_config.output_path, m_segments);
+
+    if (m_config.both_formats) {
+        auto sup = m_config.output_path;
+        auto pes = sup;
+        auto dot = pes.rfind('.');
+        if (dot != std::string::npos)
+            pes = pes.substr(0, dot) + ".pes";
+        else
+            pes = pes + ".pes";
+        logger_c::instance().info("Both formats: " + sup + " + " + pes);
+        // ponytail: PES writing not implemented yet
+    }
+
+    auto end_time = std::chrono::steady_clock::now();
+    result.duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time).count();
+
+    result.success = true;
+    result.segments = total_segments;
+
+    logger_c::instance().pass("Encoding complete: " +
+                               std::to_string(result.segments) + " segments, " +
+                               std::to_string(result.events) + " events, " +
+                               std::to_string(result.duration_ms) + " ms");
+
+    logger_c::instance().log(common::log_level_e::hdebug, "Output: " + m_config.output_path);
+    return result;
+}
+
+} // namespace core
+} // namespace opensup
