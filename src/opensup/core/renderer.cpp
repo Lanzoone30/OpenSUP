@@ -141,8 +141,14 @@ trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height
 }
 
 // ── Epoch Encoder ──
-epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id)
-    : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id) {}
+epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id,
+                                 bool allow_normal_case, bool overlap,
+                                 bool full_palette, double ssim_tol,
+                                 double compression, double acqrate)
+    : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
+    , m_allow_normal_case(allow_normal_case), m_overlap(overlap)
+    , m_full_palette(full_palette), m_ssim_tol(ssim_tol)
+    , m_compression(compression), m_acqrate(acqrate) {}
 
 std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
@@ -193,10 +199,16 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
 
+    // ponytail: SSIM and drought algorithm disabled — always emit full acquisition.
+    // The decoder requires ODS for every event to display fresh pixel data.
+    // Re-enable when real SSIM (not pixel-diff stub) and palette chain pre-computation
+    // are implemented, matching SUPer Optimise.solve_and_remap.
+    m_drought = 0.0;
+
     for (size_t k = 0; k < events.size(); k++) {
         auto& ev = events[k];
 
-        // Insert clear DS before every non-first event (SUPer: per-event epoch close)
+        // Full acquisition: clear DS before every non-first event
         if (have_prev) {
             logger_c::instance().log(common::log_level_e::hdebug,
                 "Clear DS at " + std::to_string(prev_tc_out) +
@@ -222,6 +234,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         // Quantize the trimmed RGBA image
         auto opt = optimiser_c::get_available();
+
+        // Phase A: build transparent pixel mask (PGS: palette[0] must be fully transparent)
+        size_t np = static_cast<size_t>(obj_w) * static_cast<size_t>(obj_h);
+        std::vector<bool> trans_mask(np, false);
+        for (size_t i = 0; i < np; i++) {
+            trans_mask[i] = (trimmed_rgba[i * 4 + 3] < 128);
+        }
+
         palette_t palette;
         std::vector<uint8_t> indexed;
 
@@ -229,7 +249,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         if (!opt.empty()) {
             auto qid = static_cast<size_t>(m_quantizer_id);
             if (qid >= opt.size()) qid = 0;
-            auto quant_result = opt[qid]->quantize(trimmed_rgba, obj_w, obj_h, 254);
+            int max_colors = m_full_palette ? 255 : 254;
+            auto quant_result = opt[qid]->quantize(trimmed_rgba, obj_w, obj_h, max_colors);
             if (!quant_result.palette.empty() && !quant_result.indexed.empty()) {
                 palette = std::move(quant_result.palette);
                 indexed = std::move(quant_result.indexed);
@@ -239,7 +260,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         if (!quant_ok && opt.size() > 1) {
             size_t fallback_id = (m_quantizer_id == 0 && opt.size() > 1) ? 1 : 0;
             if (fallback_id < opt.size()) {
-                auto quant_result = opt[fallback_id]->quantize(trimmed_rgba, obj_w, obj_h, 254);
+                int max_colors = m_full_palette ? 255 : 254;
+                auto quant_result = opt[fallback_id]->quantize(trimmed_rgba, obj_w, obj_h, max_colors);
                 if (!quant_result.palette.empty() && !quant_result.indexed.empty()) {
                     palette = std::move(quant_result.palette);
                     indexed = std::move(quant_result.indexed);
@@ -247,13 +269,27 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 }
             }
         }
-        if (!quant_ok) {
-            palette.set(0, palette_entry_t(16, 128, 128, 255));
-            indexed.resize(static_cast<size_t>(obj_w) * static_cast<size_t>(obj_h), 0);
+
+        if (quant_ok) {
+            if (!m_full_palette) {
+                // PGS fix: shift palette to make index 0 = fully transparent
+                palette.offset(1);
+                palette.set(0, palette_entry_t::from_rgba(0, 0, 0, 0));
+                // Remap indexed image: transparent pixels → 0, others → old_idx + 1
+                for (size_t i = 0; i < indexed.size(); i++) {
+                    indexed[i] = trans_mask[i] ? 0 : static_cast<uint8_t>(indexed[i] + 1);
+                }
+            }
+        } else {
+            palette.set(0, palette_entry_t::from_rgba(0, 0, 0, 0));
+            indexed.resize(np, 0);
         }
 
-        // Composition state: always epoch_start (legacy SUPer pattern)
-        auto comp_state = pcs_c::composition_state_e::epoch_start;
+        // Full acquisition: emit all segments
+        // Composition state: epoch_start by default, normal if allow_normal_case set
+        auto comp_state = (m_allow_normal_case)
+            ? pcs_c::composition_state_e::normal
+            : pcs_c::composition_state_e::epoch_start;
 
         // Object ID double-buffering (SUPer: alternating 0/1 for single window)
         double_buffer = 1 - double_buffer;
@@ -304,9 +340,18 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         auto wds = wds_c::from_scratch({wd}, wds_pts, base_dts);
         result.push_back(std::make_shared<wds_c>(std::move(wds)));
 
-        // PDS: PTS = DTS (instant)
+        // PDS: PTS = DTS (instant), or earlier in overlap mode
+        double pds_pts = base_dts;
+        double pds_dts = base_dts;
+        if (m_overlap && result.size() >= 3) {
+            auto prev_seg = result[result.size() - 3];
+            if (auto prev_ends = std::dynamic_pointer_cast<ends_c>(prev_seg)) {
+                pds_pts = prev_ends->pts();
+                pds_dts = prev_ends->dts();
+            }
+        }
         auto p_vn = static_cast<uint8_t>(m_palette_vn++);
-        auto pds = pds_c::from_scratch(palette, p_vn, palette_id, base_dts, base_dts);
+        auto pds = pds_c::from_scratch(palette, p_vn, palette_id, pds_pts, pds_dts);
         result.push_back(std::make_shared<pds_c>(std::move(pds)));
 
         // ODS: PTS = DTS + obj_decode_time, DTS = base_dts
@@ -339,7 +384,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     }
 
     logger_c::instance().info("Encoded epoch with " + std::to_string(events.size()) +
-                               " events, " + std::to_string(result.size()) + " segments.");
+                                " events, " + std::to_string(result.size()) + " segments.");
     return result;
 }
 

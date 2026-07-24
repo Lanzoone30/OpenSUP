@@ -33,6 +33,10 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->btn_abort, &QPushButton::clicked, this, &MainWindow::abort_encode);
     connect(ui->btn_copy_log, &QPushButton::clicked, this, &MainWindow::copy_log);
     connect(ui->btn_clear_log, &QPushButton::clicked, this, &MainWindow::clear_log);
+
+    // GUI interactions: prefer_normal -> allow_normal, both_formats -> full_palette
+    connect(ui->chk_prefer_normal, &QCheckBox::toggled, this, &MainWindow::on_prefer_normal_changed);
+    connect(ui->chk_both_formats, &QCheckBox::toggled, this, &MainWindow::on_both_formats_changed);
 }
 
 MainWindow::~MainWindow()
@@ -76,6 +80,21 @@ void MainWindow::check_ready()
     ui->btn_encode->setEnabled(ready);
 }
 
+// ── GUI interaction slots ──
+void MainWindow::on_prefer_normal_changed(bool checked)
+{
+    // prefer_normal forces allow_normal ON and disables it
+    ui->chk_allow_normal->setChecked(checked);
+    ui->chk_allow_normal->setEnabled(!checked);
+}
+
+void MainWindow::on_both_formats_changed(bool checked)
+{
+    // PES output requires full palette
+    ui->chk_full_palette->setChecked(checked);
+    ui->chk_full_palette->setEnabled(!checked);
+}
+
 void MainWindow::start_encode()
 {
     ui->btn_encode->setEnabled(false);
@@ -94,6 +113,11 @@ void MainWindow::start_encode()
     cfg.overwrite = true;
     cfg.ignore_resolution = ui->chk_ignore_res->isChecked();
     cfg.both_formats = ui->chk_both_formats->isChecked();
+    cfg.allow_normal_case = ui->chk_allow_normal->isChecked();
+    cfg.full_palette = ui->chk_full_palette->isChecked();
+    cfg.overlap = ui->chk_overlap->isChecked();
+    static const char* cs_map[] = { "bt709", "bt601", "bt2020" };
+    cfg.bt_matrix = cs_map[ui->combo_colorspace->currentIndex()];
 
     m_worker_thread = new QThread(this);
     auto* worker = new encode_worker_c(cfg);

@@ -53,6 +53,11 @@ parse_args(int argc, char** argv)
     app.add_flag("-p,--palette", opts.full_palette,
                   "Use full palette for all epochs");
 
+    app.add_flag("--allow-normal", opts.allow_normal_case,
+                  "Update only one composition object when decode time is tight");
+    app.add_flag("--overlap", opts.overlap,
+                  "Buffer palette updates to reduce dropped events");
+
     app.add_option("--redraw-period", opts.redraw_period,
                     "Periodic redraw in seconds (0 = disable)");
 
@@ -80,6 +85,12 @@ options_to_config(const cli_options_t& opts)
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
+    cfg.allow_normal_case = opts.allow_normal_case;
+    cfg.overlap = opts.overlap;
+    cfg.bt_matrix = opts.bt_matrix;
+    cfg.ssim_tol = opts.ssim_tol;
+    cfg.full_palette = opts.full_palette;
+    cfg.redraw_period = opts.redraw_period;
     return cfg;
 }
 

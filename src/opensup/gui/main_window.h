@@ -31,6 +31,9 @@ private slots:
     void update_eta(const QString& eta);
     void encode_done(bool success);
 
+    void on_prefer_normal_changed(bool checked);
+    void on_both_formats_changed(bool checked);
+
 private:
     void check_ready();
 

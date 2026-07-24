@@ -1,4 +1,6 @@
 build/
+build-linux
+build-mingw
 cmake-build-*/
 out/
 dist/

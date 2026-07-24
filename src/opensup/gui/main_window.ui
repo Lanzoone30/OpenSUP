@@ -180,7 +180,8 @@
            <item row="0" column="1">
              <widget class="QSpinBox" name="spin_compression">
               <property name="toolTip">
-               <string>Minimum percentage of time between two events to trigger an acquisition. 0: update as often as possible, 100: as few times as possible.</string>
+                <string>Minimum percentage of time between two events to trigger an acquisition.
+0: update as often as possible, 100: as few times as possible.</string>
               </property>
               <property name="suffix">
                <string>%</string>
@@ -200,7 +201,8 @@
             <item row="1" column="1">
              <widget class="QSpinBox" name="spin_acqrate">
               <property name="toolTip">
-               <string>Decay ratio that determines the compression factor. Lower values: fewer acquisitions. Higher values: more frequent acquisitions.</string>
+                <string>Decay ratio that determines the compression factor.
+Lower values: fewer acquisitions. Higher values: more frequent acquisitions.</string>
               </property>
               <property name="suffix">
                <string>%</string>
@@ -317,7 +319,8 @@
            <item>
              <widget class="QCheckBox" name="chk_allow_normal">
               <property name="toolTip">
-               <string>Update only one composition object when timing constraints prevent updating both. Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
+                <string>Update only one composition object when timing constraints prevent updating both.
+Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
               </property>
               <property name="text">
                <string>Allow Normal Case</string>
@@ -327,7 +330,8 @@
             <item>
              <widget class="QCheckBox" name="chk_prefer_normal">
               <property name="toolTip">
-               <string>Update only one composition object even when sufficient decode time is available. Reduces bitrate but palette is not shared across objects.</string>
+                <string>Update only one composition object even when sufficient decode time is available.
+Reduces bitrate but palette is not shared across objects.</string>
               </property>
               <property name="text">
                <string>Prefer Normal Case</string>
@@ -337,7 +341,8 @@
             <item>
              <widget class="QCheckBox" name="chk_full_palette">
               <property name="toolTip">
-               <string>Write the full palette on every update. Ensures palette consistency when authoring suites may alter imported files.</string>
+                <string>Write the full palette on every update.
+Ensures palette consistency when authoring suites may alter imported files.</string>
               </property>
               <property name="text">
                <string>Write Full Palette</string>
@@ -357,7 +362,8 @@
             <item>
              <widget class="QCheckBox" name="chk_overlap">
               <property name="toolTip">
-               <string>Buffer palette updates to reduce the number of dropped events. Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
+                <string>Buffer palette updates to reduce the number of dropped events.
+Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
               </property>
               <property name="text">
                <string>Overlap Buffering</string>
@@ -367,41 +373,15 @@
             <item>
              <widget class="QCheckBox" name="chk_ignore_res">
               <property name="toolTip">
-               <string>Bypass standard Blu-ray resolution validation (1920x1080, 1280x720, 720x576, 720x480).</string>
+                <string>Bypass standard Blu-ray resolution validation
+(1920x1080, 1280x720, 720x576, 720x480).</string>
               </property>
               <property name="text">
                <string>Ignore Resolution Validation</string>
               </property>
              </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="bitrateRow_3">
-             <item>
-              <widget class="QLabel" name="label_56">
-               <property name="text">
-                <string>Max Bitrate</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-               <widget class="QSpinBox" name="spin_max_kbps">
-                <property name="toolTip">
-                 <string>Validate stream against a maximum bitrate. Does NOT shape the output. 0 = disabled.</string>
-                </property>
-                <property name="suffix">
-                 <string> kbps</string>
-                </property>
-               <property name="maximum">
-                <number>100000</number>
-               </property>
-               <property name="value">
-                <number>16000</number>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
+            </item>
+           </layout>
          </widget>
         </item>
         <item>

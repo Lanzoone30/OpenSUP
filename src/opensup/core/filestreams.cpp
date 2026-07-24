@@ -89,7 +89,18 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
     auto fps_str = header.attribute("FrameRate").as_string();
     m_dropframe = std::string(header.attribute("DropFrame").as_string()) == "true";
-    m_fps = common::fps_e::from_double(std::stod(fps_str));
+    // Parse FrameRate: may be "24", "24000/1001", "25/1", etc.
+    double fps_val;
+    auto fps_s = std::string(fps_str);
+    auto slash = fps_s.find('/');
+    if (slash != std::string::npos) {
+        double num = std::stod(fps_s.substr(0, slash));
+        double den = std::stod(fps_s.substr(slash + 1));
+        fps_val = num / den;
+    } else {
+        fps_val = std::stod(fps_s);
+    }
+    m_fps = common::fps_e::from_double(fps_val);
 
     // Parse video format (WIDTHxHEIGHT or just HEIGHT)
     auto vf_str = header.attribute("VideoFormat").as_string();
@@ -267,6 +278,70 @@ sup_file_c::write_sup(const std::string& path,
         f.write(reinterpret_cast<const char*>(bytes.data()),
                 static_cast<std::streamsize>(bytes.size()));
     }
+}
+
+// ── PES/MUI Writer ──
+// ponytail: PES strips 13-byte PG header, MUI stores timestamps in 54MHz custom format
+static constexpr uint64_t MUI_TS_OFFSET = 54'000'000;
+
+void
+sup_file_c::write_pes_mui(const std::string& pes_path,
+                           const std::string& mui_path,
+                           const std::vector<std::shared_ptr<pg_segment_c>>& segments)
+{
+    std::ofstream fpes(pes_path, std::ios::binary);
+    if (!fpes) throw std::runtime_error("Cannot write PES file: " + pes_path);
+
+    std::ofstream fmui(mui_path, std::ios::binary);
+    if (!fmui) throw std::runtime_error("Cannot write MUI file: " + mui_path);
+
+    // MUI header: 0x00000003 (GRAPHICS type)
+    uint8_t mui_hdr[4] = {0x00, 0x00, 0x00, 0x03};
+    fmui.write(reinterpret_cast<const char*>(mui_hdr), 4);
+
+    for (auto& seg : segments) {
+        auto bytes = seg->to_bytes();
+
+        // PES: write segment type + length + payload (skip PG magic + PTS/DTS)
+        // bytes[0:1] = "PG", bytes[2:5] = PTS, bytes[6:9] = DTS = 10 bytes to skip
+        // bytes[10] = type, bytes[11:12] = length, bytes[13:] = payload
+        auto pes_start = static_cast<std::streamsize>(PGS_HEADER_LEN - 3);
+        auto pes_len = static_cast<std::streamsize>(bytes.size()) - pes_start;
+        fpes.write(reinterpret_cast<const char*>(bytes.data() + pes_start), pes_len);
+
+        // MUI: convert PTS/DTS to 54MHz timestamps
+        uint32_t raw_dts = seg->tdts();
+        uint32_t raw_pts = seg->tpts();
+        uint64_t mui_dts = static_cast<uint64_t>(raw_dts) + MUI_TS_OFFSET;
+        uint64_t mui_pts = static_cast<uint64_t>(raw_pts) + MUI_TS_OFFSET;
+
+        uint8_t mui_entry[14];
+        // Entry header: segment type + block length (length + 3 for MUI prefix)
+        mui_entry[0] = bytes[10];  // segment type
+        uint32_t block_len = static_cast<uint32_t>(bytes.size() - PGS_HEADER_LEN + 3);
+        mui_entry[1] = static_cast<uint8_t>((block_len >> 24) & 0xFF);
+        mui_entry[2] = static_cast<uint8_t>((block_len >> 16) & 0xFF);
+        mui_entry[3] = static_cast<uint8_t>((block_len >> 8) & 0xFF);
+        mui_entry[4] = static_cast<uint8_t>(block_len & 0xFF);
+
+        // 9-byte MUI timestamp: DTS (33 bits) + PTS (39 bits)
+        mui_entry[5]  = static_cast<uint8_t>((mui_dts >> 25) & 0xFF);  // DTS[32:25]
+        mui_entry[6]  = static_cast<uint8_t>((mui_dts >> 17) & 0xFF);  // DTS[24:17]
+        mui_entry[7]  = static_cast<uint8_t>((mui_dts >> 9) & 0xFF);   // DTS[16:9]
+        mui_entry[8]  = static_cast<uint8_t>((mui_dts >> 1) & 0xFF);   // DTS[8:1]
+        mui_entry[9]  = static_cast<uint8_t>((mui_dts & 1) << 7);      // DTS[0] in MSB
+        mui_entry[9] |= static_cast<uint8_t>((mui_pts >> 32) & 0x7F);  // PTS[38:32]
+        mui_entry[10] = static_cast<uint8_t>((mui_pts >> 24) & 0xFF);  // PTS[31:24]
+        mui_entry[11] = static_cast<uint8_t>((mui_pts >> 16) & 0xFF);  // PTS[23:16]
+        mui_entry[12] = static_cast<uint8_t>((mui_pts >> 8) & 0xFF);   // PTS[15:8]
+        mui_entry[13] = static_cast<uint8_t>(mui_pts & 0xFF);          // PTS[7:0]
+
+        fmui.write(reinterpret_cast<const char*>(mui_entry), 14);
+    }
+
+    // MUI tail: 0xFF + 13 zero bytes
+    uint8_t mui_tail[14] = {0xFF, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0};
+    fmui.write(reinterpret_cast<const char*>(mui_tail), 14);
 }
 
 // ── Event helpers ──

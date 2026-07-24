@@ -15,6 +15,8 @@ constexpr double PGS_FREQ = 90000.0;
 constexpr size_t PGS_HEADER_LEN = 13;
 constexpr uint8_t PGS_MAGIC[2] = {'P', 'G'};
 
+// PGS segment types per Blu-ray spec: PDS=0x14, ODS=0x15, PCS=0x16, WDS=0x17, ENDS=0x80
+// Verified against SUPer-main (segments.py:43) and PGSEncoder-master (PGSStructures.h:25-29)
 enum class segment_type_e : uint8_t {
     pds  = 0x14,
     ods  = 0x15,

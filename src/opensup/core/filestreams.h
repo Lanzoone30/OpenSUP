@@ -82,6 +82,10 @@ public:
     static void write_sup(const std::string& path,
                            const std::vector<std::shared_ptr<pg_segment_c>>& segments);
 
+    static void write_pes_mui(const std::string& pes_path,
+                               const std::string& mui_path,
+                               const std::vector<std::shared_ptr<pg_segment_c>>& segments);
+
 private:
     std::string m_filepath;
 };

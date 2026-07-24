@@ -63,7 +63,10 @@ public:
 // ── Epoch Encoder ──
 class epoch_encoder_c {
 public:
-    epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0);
+    epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0,
+                     bool allow_normal_case = false, bool overlap = false,
+                     bool full_palette = false, double ssim_tol = 0.0,
+                     double compression = 1.0, double acqrate = 1.0);
 
     std::vector<std::shared_ptr<pg_segment_c>>
     encode_epoch(const std::vector<bdn_xml_event_c>& events,
@@ -75,6 +78,13 @@ private:
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
+    bool m_allow_normal_case = false;
+    bool m_overlap = false;
+    bool m_full_palette = false;
+    double m_ssim_tol = 0.0;
+    double m_acqrate = 1.0;
+    double m_compression = 1.0;
+    double m_drought = 0.0;
     int m_composition_n = 1;
     int m_palette_vn = 0;
 };

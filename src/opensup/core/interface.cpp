@@ -82,7 +82,14 @@ bdn_render_c::execute()
     result.epochs = static_cast<int>(event_groups.size());
 
     logger_c::instance().info("Split into " + std::to_string(result.epochs) +
-                               " epoch(s)");
+                                " epoch(s)");
+
+    // Overwrite guard
+    if (!m_config.overwrite && std::filesystem::exists(m_config.output_path)) {
+        result.error = "Output file exists, use -y to overwrite";
+        logger_c::instance().error(result.error);
+        return result;
+    }
 
     // Encode each epoch
     int palette_base = 0;
@@ -91,12 +98,21 @@ bdn_render_c::execute()
     auto fps_enum = xml.fps();
 
     for (auto& group : event_groups) {
-        // Encode events directly (remove_dupes removed — was incorrectly dropping
-        // events by comparing position/shape only, not pixel content)
         std::vector<bool> no_redraw;
 
+        // Periodic redraw: split events if redraw_period > 0
+        if (m_config.redraw_period > 0.0) {
+            auto [expanded, flags] = add_periodic_refreshes(group, m_config.fps, m_config.redraw_period);
+            group = std::move(expanded);
+            no_redraw = std::move(flags);
+        }
+
         // Encode
-        epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height, m_config.quantizer_id);
+        epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
+                                m_config.quantizer_id,
+                                m_config.allow_normal_case, m_config.overlap,
+                                m_config.full_palette, m_config.ssim_tol,
+                                m_config.compression, m_config.acquisition_rate);
         auto segs = encoder.encode_epoch(group, no_redraw,
                                           fps_enum, palette_base);
         m_segments.insert(m_segments.end(), segs.begin(), segs.end());
@@ -123,8 +139,9 @@ bdn_render_c::execute()
             pes = pes.substr(0, dot) + ".pes";
         else
             pes = pes + ".pes";
-        logger_c::instance().info("Both formats: " + sup + " + " + pes);
-        // ponytail: PES writing not implemented yet
+        auto mui = pes + ".mui";
+        logger_c::instance().info("Both formats: " + sup + " + " + pes + " + " + mui);
+        sup_file_c::write_pes_mui(pes, mui, m_segments);
     }
 
     auto end_time = std::chrono::steady_clock::now();

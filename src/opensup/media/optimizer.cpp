@@ -53,6 +53,7 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
         auto entry = palette_entry_t::from_rgba(e.r, e.g, e.b, e.a);
         result.palette.set(static_cast<uint8_t>(i), entry);
     }
+    int pal_count = pal->count;  // save before destroy (use-after-free on MinGW)
 
     // Get indexed pixels
     auto w = static_cast<size_t>(width);
@@ -70,7 +71,7 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
     liq_attr_destroy(handle);
 
     logger_c::instance().log(common::log_level_e::hdebug, "libimagequant: " +
-                                std::to_string(pal->count) + " colors");
+                                std::to_string(pal_count) + " colors");
     return result;
 }
 

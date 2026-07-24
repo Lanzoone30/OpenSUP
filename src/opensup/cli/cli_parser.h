@@ -20,6 +20,8 @@ struct cli_options_t {
     bool ignore_resolution = false;
     bool both_formats = false;
     bool full_palette = false;
+    bool allow_normal_case = false;
+    bool overlap = false;
     double redraw_period = 0.0;
 };
 

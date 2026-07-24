@@ -14,6 +14,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/third_party")
 
+if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND CMAKE_PREFIX_PATH "/usr/x86_64-w64-mingw32/sys-root/mingw")
+    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include(CompilerWarnings)
@@ -73,13 +78,22 @@ else()
 
     # Build libimagequant from source using Cargo
     set(LIBIMAGEQUANT_BUILD_DIR "${CMAKE_BINARY_DIR}/libimagequant-build")
-    set(LIBIMAGEQUANT_STATIC_LIB "${LIBIMAGEQUANT_BUILD_DIR}/release/libimagequant_sys.a")
+
+    if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set(LIBIMAGEQUANT_CARGO_TARGET "--target" "x86_64-pc-windows-gnu")
+        set(LIBIMAGEQUANT_STATIC_LIB "${LIBIMAGEQUANT_BUILD_DIR}/x86_64-pc-windows-gnu/release/libimagequant_sys.a")
+    else()
+        set(LIBIMAGEQUANT_CARGO_TARGET "")
+        set(LIBIMAGEQUANT_STATIC_LIB "${LIBIMAGEQUANT_BUILD_DIR}/release/libimagequant_sys.a")
+    endif()
 
     file(MAKE_DIRECTORY "${LIBIMAGEQUANT_BUILD_DIR}")
 
     add_custom_command(
         OUTPUT "${LIBIMAGEQUANT_STATIC_LIB}"
-        COMMAND cargo build --release --lib --target-dir="${LIBIMAGEQUANT_BUILD_DIR}"
+        # ponytail: --no-default-features disables rayon threading which crashes
+        # on Windows (MinGW-w64 + Rust runtime incompatibility)
+        COMMAND cargo build --release --lib --no-default-features ${LIBIMAGEQUANT_CARGO_TARGET} --target-dir="${LIBIMAGEQUANT_BUILD_DIR}"
         WORKING_DIRECTORY "${LIBIMAGEQUANT_SRC_DIR}/imagequant-sys"
         COMMENT "Building libimagequant (cargo build --release)..."
     )
@@ -97,6 +111,10 @@ else()
 
     if(UNIX AND NOT APPLE)
         set_property(TARGET imagequant APPEND PROPERTY INTERFACE_LINK_LIBRARIES pthread dl)
+    endif()
+
+    if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set_property(TARGET imagequant APPEND PROPERTY INTERFACE_LINK_LIBRARIES ws2_32 ntdll userenv iphlpapi bcrypt)
     endif()
 endif()
 
