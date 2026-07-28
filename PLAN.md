@@ -792,12 +792,66 @@ Orquestación                → Fase 3-4
   └── interface.py → interface.cpp
 ```
 
+### Fase 7: Empaquetado y Distribución (Pendiente)
+
+- CPack: .deb / .AppImage / NSIS installer
+- Cross-compilation Windows
+- GitHub Actions CI/CD
+
+---
+
+### Fase Futura: Drought/Compression Algorithm (Stream Shaping)
+
+**Objetivo:** Implementar el algoritmo de compresión PGS (palette chain + SSIM + stream shaping) para reducir el tamaño de los SUP sin perder eventos visibles.
+
+**Estado actual:** El algoritmo drought está **deshabilitado intencionalmente** por un bug crítico: generaba eventos "palette-only" (PCS + PDS + ENDS sin ODS) que los decodificadores PGS no mostraban porque no tenían datos de píxeles frescos en el buffer. Los parámetros `-c` (compression) y `-a` (acqrate) son no-op hasta que la implementación completa esté lista.
+
+**Referencia:** SUPer-main (Python) es la implementación de referencia. El algoritmo completo está documentado en:
+- `Referencias/SUPer-main/SUPer/render2.py` — Stream shaping (`shape_stream`), SSIM (`CTU`), DS generation (`_convert`)
+- `Referencias/SUPer-main/SUPer/optim.py` — Palette chain solver (`solve_sequence_fast`), `diff_cluts`
+- Patentes: US20090185789A1 (Panasonic), US8638861B2 (Sony), US7620297B2 (Panasonic)
+
+#### Cómo funciona (resumen)
+
+1. **Window Analyzer** — Agrupa eventos por similitud visual (SSIM/CTU)
+2. **ProspectiveObject** — Cada grupo comparte UN bitmap (indexed image)
+3. **Palette Chain Solver** (`solve_sequence_fast`) — Cuantiza N imágenes para que compartan el mismo bitmap, generando secuencias de paleta
+4. **diff_cluts** — Solo envía las entradas de paleta que cambian entre eventos
+5. **shape_stream** — Decide entre "acquisition" (ODS completo) vs "palette update" (solo PDS) basándose en timing y similitud
+
+**La clave:** SUPer pre-computa una paleta compartida para eventos similares. El ODS se envía UNA VEZ (en la acquisition), y los eventos siguientes solo cambian la paleta — el decodificador ya tiene los píxeles en su buffer, solo los recolorea.
+
+#### Componentes necesarios
+
+| Componente | Archivo SUPer | Complejidad | Estado actual |
+|-----------|---------------|-------------|---------------|
+| `solve_sequence_fast` | `optim.py:278` | **Alta** | No existe |
+| `diff_cluts` | `optim.py:393` | Media | No existe |
+| Window Analyzer real (SSIM/CTU) | `render2.py:1304` | Media | Stub pixel-diff |
+| `shape_stream` | `render2.py:214` | Baja | Código eliminado |
+| DS assembly dual (acq vs palette) | `render2.py:818` | Baja | Parcialmente existe |
+| Normal case (1 de 2 objetos) | `render2.py:~550` | Media | No existe |
+| Overlay shift (ventanas duales) | `render2.py:315` | Alta | No existe |
+
+#### Estimación de esfuerzo
+
+| Fase | Descripción | Tiempo |
+|------|-------------|--------|
+| Fase 1 | `solve_sequence_fast` + `diff_cluts` (C++) | 3-5 días |
+| Fase 2 | Window Analyzer con SSIM real | 2-3 días |
+| Fase 3 | Stream shaping + DS assembly | 1-2 días |
+| Fase 4 | Testing + compliance checker | 2-3 días |
+| **Total** | | **8-13 días** |
+
+#### Cuando implementarlo
+
+- **Cuándo:** Después de Fase 6 (empaquetado) o cuando SSIM real esté disponible (OpenCV u otro)
+- **Nota:** No implementar antes a menos que la reducción de tamaño sea un requisito crítico — el encoder actual produce SUP válidos y funcionales sin compresión
+
 ---
 
 ## Estado del Proyecto
 
-| Fase | Estado |
-|------|--------|
 | Fase | Estado |
 |------|--------|
 | Fase 1: Fundación | ✅ Completada |
@@ -808,7 +862,8 @@ Orquestación                → Fase 3-4
 | Fase 5.1: Refinamiento (Log/Resolución/Extensión) | ✅ Completada |
 | Fase 5.2: Bugfixes Pipeline (9 bugs) | ✅ Completada |
 | Fase 6: Empaquetado | 🔴 No iniciada |
+| **Fase Futura: Drought/Compression** | **⏸️ Pospuesta** (parámetros -c, -a son no-op) |
 
 ---
 
-*Última actualización: Jul 21, 2026*
+*Última actualización: Jul 24, 2026*

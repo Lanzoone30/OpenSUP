@@ -2,37 +2,16 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>970</width>
-    <height>689</height>
-   </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>970</width>
-    <height>689</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>970</width>
-    <height>689</height>
-   </size>
-  </property>
-  <property name="windowTitle">
-   <string>OpenSUP</string>
-  </property>
   <widget class="QWidget" name="centralwidget">
-    <layout class="QVBoxLayout" name="mainLayout_4">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>871</width>
+     <height>602</height>
+    </rect>
+   </property>
+   <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -40,26 +19,26 @@
      <number>32</number>
     </property>
     <item>
-     <layout class="QHBoxLayout" name="headerRow_4">
+     <layout class="QHBoxLayout" name="headerRow">
       <item>
-       <layout class="QVBoxLayout" name="brandStack_4">
+       <layout class="QVBoxLayout" name="brandStack">
         <property name="spacing">
          <number>4</number>
         </property>
         <item>
-         <widget class="QLabel" name="lbl_header">
-          <property name="styleSheet">
-           <string notr="true">font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -1px;</string>
-          </property>
-          <property name="text">
-           <string>OpenSUP</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="lbl_version">
-          <property name="styleSheet">
-           <string notr="true">color: #64748b; font-size: 13px;</string>
+         <widget class="QLabel" name="lbl_header_2">
+<property name="styleSheet">
+            <string notr="true">font-size: 32px; font-weight: 800; letter-spacing: -1px;</string>
+           </property>
+           <property name="text">
+            <string>OpenSUP</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_version_2">
+           <property name="styleSheet">
+            <string notr="true">font-size: 13px;</string>
           </property>
           <property name="text">
            <string>v1.0.0 • Professional PGS Subtitle Encoder</string>
@@ -69,22 +48,61 @@
        </layout>
       </item>
       <item>
-       <spacer name="hSpacer1_4">
+       <spacer name="hSpacer1">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>0</width>
-          <height>0</height>
+          <width>40</width>
+          <height>20</height>
          </size>
         </property>
        </spacer>
       </item>
+      <item>
+<widget class="QComboBox" name="cmb_language">
+         <property name="toolTip">
+          <string>Interface Language / Idioma de interfaz</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>EN</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>ES</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="cmb_theme">
+         <property name="toolTip">
+          <string>Theme / Tema</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>System</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Light</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Dark</string>
+          </property>
+         </item>
+        </widget>
+       </item>
      </layout>
     </item>
     <item>
-     <spacer name="vSpacer1_4">
+     <spacer name="vSpacer1">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
@@ -97,35 +115,48 @@
      </spacer>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="contentSplitter_4">
+     <layout class="QHBoxLayout" name="contentSplitter">
       <property name="spacing">
        <number>32</number>
       </property>
       <item>
-       <layout class="QVBoxLayout" name="configPanel_5">
-        <property name="spacing">
-         <number>20</number>
+       <widget class="QWidget" name="configContainer">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>400</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="configPanel">
+         <property name="spacing">
+          <number>20</number>
         </property>
         <item>
-         <widget class="QGroupBox" name="grp_files">
+         <widget class="QGroupBox" name="grp_files_2">
           <property name="title">
            <string>Project Scope</string>
           </property>
-          <layout class="QVBoxLayout" name="vLayoutFiles_4">
+          <layout class="QVBoxLayout" name="vLayoutFiles">
            <property name="spacing">
             <number>12</number>
            </property>
            <item>
-            <widget class="QPushButton" name="btn_select_bdn">
+            <widget class="QPushButton" name="btn_select_bdn_2">
              <property name="text">
               <string>📂 Select BDN XML</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="lbl_bdn_file">
-             <property name="styleSheet">
-              <string notr="true">color: #94a3b8; font-size: 11px; margin-left: 4px; font-style: italic;</string>
+<widget class="QLabel" name="lbl_bdn_file_2">
+              <property name="styleSheet">
+               <string notr="true">font-size: 11px; margin-left: 4px; font-style: italic;</string>
              </property>
              <property name="text">
               <string>No file selected</string>
@@ -136,16 +167,16 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btn_set_output">
+            <widget class="QPushButton" name="btn_set_output_2">
              <property name="text">
               <string>💾 Set SUP Output</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="lbl_output_file">
-             <property name="styleSheet">
-              <string notr="true">color: #94a3b8; font-size: 11px; margin-left: 4px; font-style: italic;</string>
+<widget class="QLabel" name="lbl_output_file_2">
+              <property name="styleSheet">
+               <string notr="true">font-size: 11px; margin-left: 4px; font-style: italic;</string>
              </property>
              <property name="text">
               <string>Destination not set</string>
@@ -159,11 +190,11 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="grp_parameters">
+         <widget class="QGroupBox" name="grp_parameters_2">
           <property name="title">
            <string>Parameters</string>
           </property>
-          <layout class="QGridLayout" name="gridParams_4">
+          <layout class="QGridLayout" name="gridParams">
            <property name="horizontalSpacing">
             <number>16</number>
            </property>
@@ -171,59 +202,14 @@
             <number>12</number>
            </property>
            <item row="0" column="0">
-            <widget class="QLabel" name="label_51">
+            <widget class="QLabel" name="label_colorspace">
              <property name="text">
-              <string>Compression</string>
+              <string>Color Space</string>
              </property>
             </widget>
            </item>
            <item row="0" column="1">
-             <widget class="QSpinBox" name="spin_compression">
-              <property name="toolTip">
-                <string>Minimum percentage of time between two events to trigger an acquisition.
-0: update as often as possible, 100: as few times as possible.</string>
-              </property>
-              <property name="suffix">
-               <string>%</string>
-              </property>
-              <property name="value">
-               <number>85</number>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_52">
-              <property name="text">
-               <string>Acq. Rate</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QSpinBox" name="spin_acqrate">
-              <property name="toolTip">
-                <string>Decay ratio that determines the compression factor.
-Lower values: fewer acquisitions. Higher values: more frequent acquisitions.</string>
-              </property>
-              <property name="suffix">
-               <string>%</string>
-              </property>
-              <property name="value">
-               <number>99</number>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_53">
-              <property name="text">
-               <string>Color Space</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QComboBox" name="combo_colorspace">
-              <property name="toolTip">
-               <string>Color matrix to use for YCbCr conversion.</string>
-              </property>
+            <widget class="QComboBox" name="combo_colorspace_2">
              <item>
               <property name="text">
                <string>BT.709</string>
@@ -241,18 +227,15 @@ Lower values: fewer acquisitions. Higher values: more frequent acquisitions.</st
              </item>
             </widget>
            </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_54">
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_quantizer">
              <property name="text">
               <string>Quantizer</string>
              </property>
             </widget>
            </item>
-           <item row="3" column="1">
-             <widget class="QComboBox" name="combo_quantizer">
-              <property name="toolTip">
-               <string>Image quantizer backend (Quality, Speed).</string>
-              </property>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="combo_quantizer_2">
              <item>
               <property name="text">
                <string>libimagequant</string>
@@ -265,156 +248,95 @@ Lower values: fewer acquisitions. Higher values: more frequent acquisitions.</st
              </item>
             </widget>
            </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_55">
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="grp_options_2">
+          <property name="title">
+           <string>Engine Options</string>
+          </property>
+          <layout class="QVBoxLayout" name="vLayoutOptions">
+           <property name="spacing">
+            <number>8</number>
+           </property>
+           <item>
+            <widget class="QCheckBox" name="chk_allow_normal_2">
              <property name="text">
-              <string>Threads</string>
+              <string>Allow Normal Case</string>
              </property>
             </widget>
            </item>
-           <item row="4" column="1">
-             <widget class="QComboBox" name="combo_threads">
-              <property name="toolTip">
-               <string>Number of encoding threads. Auto selects the optimal count.</string>
-              </property>
-             <item>
-              <property name="text">
-               <string>auto</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>1</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>2</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>4</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>8</string>
-              </property>
-             </item>
+           <item>
+            <widget class="QCheckBox" name="chk_prefer_normal_2">
+             <property name="text">
+              <string>Prefer Normal Case</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_full_palette_2">
+             <property name="text">
+              <string>Write Full Palette</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_both_formats_2">
+             <property name="text">
+              <string>Both SUP + PES/MUI</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_overlap_2">
+             <property name="text">
+              <string>Overlap Buffering</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_ignore_res_2">
+             <property name="text">
+              <string>Ignore Resolution Validation</string>
+             </property>
             </widget>
            </item>
           </layout>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="grp_options">
-          <property name="title">
-           <string>Engine Options</string>
-          </property>
-          <layout class="QVBoxLayout" name="vLayoutOptions_4">
-           <property name="spacing">
-            <number>8</number>
-           </property>
-           <item>
-             <widget class="QCheckBox" name="chk_allow_normal">
-              <property name="toolTip">
-                <string>Update only one composition object when timing constraints prevent updating both.
-Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
-              </property>
-              <property name="text">
-               <string>Allow Normal Case</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chk_prefer_normal">
-              <property name="toolTip">
-                <string>Update only one composition object even when sufficient decode time is available.
-Reduces bitrate but palette is not shared across objects.</string>
-              </property>
-              <property name="text">
-               <string>Prefer Normal Case</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chk_full_palette">
-              <property name="toolTip">
-                <string>Write the full palette on every update.
-Ensures palette consistency when authoring suites may alter imported files.</string>
-              </property>
-              <property name="text">
-               <string>Write Full Palette</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chk_both_formats">
-              <property name="toolTip">
-               <string>Generate both .sup and .pes/.mui output formats.</string>
-              </property>
-              <property name="text">
-               <string>Both SUP + PES/MUI</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chk_overlap">
-              <property name="toolTip">
-                <string>Buffer palette updates to reduce the number of dropped events.
-Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
-              </property>
-              <property name="text">
-               <string>Overlap Buffering</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chk_ignore_res">
-              <property name="toolTip">
-                <string>Bypass standard Blu-ray resolution validation
-(1920x1080, 1280x720, 720x576, 720x480).</string>
-              </property>
-              <property name="text">
-               <string>Ignore Resolution Validation</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-         </widget>
-        </item>
-        <item>
-         <spacer name="vSpacerLeft_4">
+         <spacer name="vSpacerLeft">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>0</width>
-            <height>0</height>
+            <width>20</width>
+            <height>40</height>
            </size>
           </property>
          </spacer>
         </item>
        </layout>
-      </item>
-      <item>
-       <layout class="QVBoxLayout" name="monitoringPanel_4">
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="monitoringPanel">
         <property name="spacing">
          <number>20</number>
         </property>
         <item>
-         <layout class="QVBoxLayout" name="logSection_4">
+         <layout class="QVBoxLayout" name="logSection">
           <property name="spacing">
            <number>12</number>
           </property>
           <item>
-           <layout class="QHBoxLayout" name="logHeader_4">
+           <layout class="QHBoxLayout" name="logHeader">
             <item>
-             <widget class="QLabel" name="lbl_log_title">
-              <property name="styleSheet">
-               <string notr="true">font-weight: 700; color: #64748b; font-size: 11px; letter-spacing: 1px;</string>
+<widget class="QLabel" name="lbl_log_title_2">
+               <property name="styleSheet">
+                <string notr="true">font-weight: 700; font-size: 11px; letter-spacing: 1px;</string>
               </property>
               <property name="text">
                <string>ACTIVITY LOG</string>
@@ -422,9 +344,9 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
              </widget>
             </item>
             <item>
-             <widget class="QLabel" name="lbl_log_lines">
-              <property name="styleSheet">
-               <string notr="true">color: #94a3b8; font-size: 11px;</string>
+<widget class="QLabel" name="lbl_log_lines_2">
+               <property name="styleSheet">
+                <string notr="true">font-size: 11px;</string>
               </property>
               <property name="text">
                <string>0 items</string>
@@ -432,20 +354,20 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
              </widget>
             </item>
             <item>
-             <spacer name="hSpacerLog_4">
+             <spacer name="hSpacerLog">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>0</width>
-                <height>0</height>
+                <width>40</width>
+                <height>20</height>
                </size>
               </property>
              </spacer>
             </item>
             <item>
-             <widget class="QPushButton" name="btn_copy_log">
+             <widget class="QPushButton" name="btn_copy_log_2">
               <property name="styleSheet">
                <string notr="true">padding: 4px 12px; font-size: 11px;</string>
               </property>
@@ -455,7 +377,7 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="btn_clear_log">
+             <widget class="QPushButton" name="btn_clear_log_2">
               <property name="styleSheet">
                <string notr="true">padding: 4px 12px; font-size: 11px;</string>
               </property>
@@ -467,9 +389,9 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
            </layout>
           </item>
           <item>
-           <widget class="QTextEdit" name="txt_log">
-            <property name="styleSheet">
-             <string notr="true">background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-family: &quot;JetBrains Mono&quot;, &quot;Consolas&quot;, monospace; font-size: 13px; line-height: 1.6; padding: 16px; color: #334155;</string>
+<widget class="QTextEdit" name="txt_log_2">
+             <property name="styleSheet">
+              <string notr="true">border: 1px solid; border-radius: 8px; font-family: &quot;JetBrains Mono&quot;, &quot;Consolas&quot;, monospace; font-size: 13px; line-height: 1.6; padding: 16px;</string>
             </property>
             <property name="readOnly">
              <bool>true</bool>
@@ -479,18 +401,18 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
          </layout>
         </item>
         <item>
-         <widget class="QGroupBox" name="grp_progress_5">
+         <widget class="QGroupBox" name="grp_progress">
           <property name="title">
            <string>Progress</string>
           </property>
-          <layout class="QVBoxLayout" name="vLayoutProgress_4">
+          <layout class="QVBoxLayout" name="vLayoutProgress">
            <property name="spacing">
             <number>12</number>
            </property>
            <item>
-            <layout class="QHBoxLayout" name="progressLabels_4">
+            <layout class="QHBoxLayout" name="progressLabels">
              <item>
-              <widget class="QLabel" name="lbl_progress_text">
+              <widget class="QLabel" name="lbl_progress_text_2">
                <property name="styleSheet">
                 <string notr="true">font-weight: 500;</string>
                </property>
@@ -500,22 +422,22 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
               </widget>
              </item>
              <item>
-              <spacer name="hSpacerProgress_4">
+              <spacer name="hSpacerProgress">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>0</width>
-                 <height>0</height>
+                 <width>40</width>
+                 <height>20</height>
                 </size>
                </property>
               </spacer>
              </item>
              <item>
-              <widget class="QLabel" name="lbl_eta">
-               <property name="styleSheet">
-                <string notr="true">color: #2563eb; font-weight: 600;</string>
+<widget class="QLabel" name="lbl_eta_2">
+                <property name="styleSheet">
+                 <string notr="true">font-weight: 600;</string>
                </property>
                <property name="text">
                 <string>—</string>
@@ -525,10 +447,7 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
             </layout>
            </item>
            <item>
-            <widget class="QProgressBar" name="progress_bar">
-             <property name="styleSheet">
-              <string notr="true">QProgressBar { background-color: #e2e8f0; border: none; border-radius: 4px; } QProgressBar::chunk { background-color: #3b82f6; border-radius: 4px; }</string>
-             </property>
+<widget class="QProgressBar" name="progress_bar_2">
              <property name="value">
               <number>0</number>
              </property>
@@ -541,12 +460,12 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="actionRow_4">
+         <layout class="QHBoxLayout" name="actionRow">
           <property name="spacing">
            <number>16</number>
           </property>
           <item>
-           <widget class="QPushButton" name="btn_encode">
+           <widget class="QPushButton" name="btn_encode_2">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -556,7 +475,7 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="btn_abort">
+           <widget class="QPushButton" name="btn_abort_2">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -575,5 +494,4 @@ Stream shall NOT be Built or Rebuilt at the authoring stage.</string>
   </widget>
  </widget>
  <resources/>
- <connections/>
 </ui>

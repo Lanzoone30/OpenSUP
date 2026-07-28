@@ -33,7 +33,7 @@ set(LIBIMAGEQUANT_LIBRARIES "" CACHE STRING "libimagequant library path")
 
 if(OPENSUP_USE_EXTERNAL_LIBIMAGEQUANT)
     find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
+    if(PkgConfig_FOUND AND NOT (CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows"))
         pkg_check_modules(LIBIMAGEQUANT QUIET imagequant)
     endif()
     if(NOT LIBIMAGEQUANT_FOUND)

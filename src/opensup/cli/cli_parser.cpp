@@ -21,11 +21,11 @@ parse_args(int argc, char** argv)
         ->required();
 
     app.add_option("-c,--compression", opts.compression,
-                    "Compression rate [0-100] (def: 80)")
+                     "Compression rate [0-100] (def: 80). NOTE: stub, pending future SSIM+palette chain implementation")
         ->check(CLI::Range(0.0, 100.0));
 
     app.add_option("-a,--acqrate", opts.acqrate,
-                    "Acquisition rate [0-100] (def: 100)")
+                     "Acquisition rate [0-100] (def: 100). NOTE: stub, pending future SSIM+palette chain implementation")
         ->check(CLI::Range(0.0, 100.0));
 
     app.add_option("-q,--quantizer", opts.quantizer,
@@ -38,7 +38,7 @@ parse_args(int argc, char** argv)
                   "Overwrite existing output file");
 
     app.add_option("-t,--threads", opts.threads,
-                    "Thread count (0 = auto, def: 0)");
+                     "Thread count (0 = auto, def: 0). NOTE: stub, single-thread only for now");
 
     app.add_option("--ssim-tol", opts.ssim_tol,
                     "SSIM tolerance [0-100] (def: 0)")
@@ -78,10 +78,7 @@ options_to_config(const cli_options_t& opts)
     core::encode_config_t cfg;
     cfg.input_path = opts.input_path;
     cfg.output_path = opts.output_path;
-    cfg.compression = opts.compression / 100.0;
-    cfg.acquisition_rate = opts.acqrate / 100.0;
     cfg.quantizer_id = opts.quantizer;
-    cfg.threads = (opts.threads == 0) ? 4 : opts.threads;
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;

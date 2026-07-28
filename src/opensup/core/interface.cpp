@@ -76,8 +76,8 @@ bdn_render_c::execute()
                                std::to_string(m_config.height) +
                                " @" + std::to_string(m_config.fps) + " fps");
 
-    // Split events into epochs
-    auto event_groups = xml.groups(m_config.compression);
+    // Split events into epochs (group by proximity: 1s gap threshold)
+    auto event_groups = xml.groups(1.0);
     result.events = static_cast<int>(xml.events().size());
     result.epochs = static_cast<int>(event_groups.size());
 
@@ -111,8 +111,7 @@ bdn_render_c::execute()
         epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
                                 m_config.quantizer_id,
                                 m_config.allow_normal_case, m_config.overlap,
-                                m_config.full_palette, m_config.ssim_tol,
-                                m_config.compression, m_config.acquisition_rate);
+                                m_config.full_palette, m_config.ssim_tol);
         auto segs = encoder.encode_epoch(group, no_redraw,
                                           fps_enum, palette_base);
         m_segments.insert(m_segments.end(), segs.begin(), segs.end());

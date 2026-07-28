@@ -31,10 +31,7 @@ struct encode_config_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    double compression = 1.0;
-    double acquisition_rate = 10.0;
     int quantizer_id = 0;  // 0 = libimagequant, 1 = hextree
-    int threads = 4;
     bool overwrite = false;
     bool ignore_resolution = false;
     bool both_formats = false;

@@ -143,12 +143,10 @@ trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height
 // ── Epoch Encoder ──
 epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id,
                                  bool allow_normal_case, bool overlap,
-                                 bool full_palette, double ssim_tol,
-                                 double compression, double acqrate)
+                                 bool full_palette, double ssim_tol)
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
     , m_allow_normal_case(allow_normal_case), m_overlap(overlap)
-    , m_full_palette(full_palette), m_ssim_tol(ssim_tol)
-    , m_compression(compression), m_acqrate(acqrate) {}
+    , m_full_palette(full_palette), m_ssim_tol(ssim_tol) {}
 
 std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
