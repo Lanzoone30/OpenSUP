@@ -1,4 +1,5 @@
 builds/
+PLAN.md
 cmake-build-*/
 out/
 dist/
