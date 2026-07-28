@@ -1,9 +1,8 @@
-build/
-build-linux
-build_mingw
+builds/
 cmake-build-*/
 out/
 dist/
+tools/
 *.exe
 *.dll
 CMakeCache.txt

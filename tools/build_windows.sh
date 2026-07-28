@@ -3,7 +3,8 @@
 # Requires: mingw64-gcc-c++, mingw64-qt6-qtbase, cargo (with x86_64-pc-windows-gnu target)
 set -euo pipefail
 
-BUILD_DIR="${1:-build-mingw}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="${1:-builds/windows}"
 JOBS=$(nproc 2>/dev/null || echo 4)
 
 MINGW_ROOT="/usr/x86_64-w64-mingw32/sys-root/mingw"
@@ -15,7 +16,7 @@ echo ""
 
 # Configure (build both CLI and GUI)
 cmake -B "${BUILD_DIR}" \
-    -DCMAKE_TOOLCHAIN_FILE=mingw-w64-x86_64.cmake \
+    -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/../cmake/mingw-w64-x86_64.cmake" \
     -DBUILD_GUI=ON \
     -DBUILD_TESTS=OFF \
     -DOPENSUP_USE_EXTERNAL_LIBIMAGEQUANT=OFF \
