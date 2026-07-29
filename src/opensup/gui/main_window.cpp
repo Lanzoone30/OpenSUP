@@ -125,9 +125,6 @@ void MainWindow::on_lang_changed(int index)
 
 void MainWindow::retranslateUi()
 {
-    // ---- Header ----
-    ui->lbl_version_2->setText(tr_str("subtitle", m_lang));
-
     // ---- Project Scope ----
     ui->grp_files_2->setTitle(tr_str("projectScope", m_lang));
     ui->btn_select_bdn_2->setText(tr_str("selectBdn", m_lang));

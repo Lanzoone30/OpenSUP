@@ -1,5 +1,6 @@
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
@@ -16,6 +17,7 @@ add_executable(OpenSUP
   theme_manager.cpp
   main.cpp
   main_window.ui
+  resources.qrc
   "${CMAKE_CURRENT_BINARY_DIR}/resources.rc"
 )
 
