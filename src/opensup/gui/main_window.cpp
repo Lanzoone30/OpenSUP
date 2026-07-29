@@ -37,6 +37,12 @@ MainWindow::MainWindow(QWidget* parent)
     ui->cmb_theme->setCurrentIndex(static_cast<int>(m_theme->currentTheme()));
     connect(m_theme, &ThemeManager::themeChanged, this, &MainWindow::onThemeChanged);
 
+    applyComboStyles();
+
+    // Restore saved language preference
+    QSettings lang_s("OpenSUP", "OpenSUP");
+    ui->cmb_language->setCurrentIndex(lang_s.value("language", 0).toInt());
+
     auto* log_handler = new qt_log_handler_c(this);
     connect(log_handler, &qt_log_handler_c::logLine, this, &MainWindow::append_log);
 
@@ -113,6 +119,8 @@ void MainWindow::on_lang_changed(int index)
 {
     m_lang = (index == 0) ? Lang::EN : Lang::ES;
     retranslateUi();
+    QSettings s("OpenSUP", "OpenSUP");
+    s.setValue("language", index);
 }
 
 void MainWindow::retranslateUi()
@@ -213,6 +221,7 @@ void MainWindow::start_encode()
     cfg.output_path = m_output_path.toStdString();
     cfg.quantizer_id = ui->combo_quantizer_2->currentIndex();
     cfg.overwrite = true;
+    cfg.abort_flag = &m_abort_flag;
     cfg.ignore_resolution = ui->chk_ignore_res_2->isChecked();
     cfg.both_formats = ui->chk_both_formats_2->isChecked();
     cfg.allow_normal_case = ui->chk_allow_normal_2->isChecked();
@@ -240,6 +249,7 @@ void MainWindow::start_encode()
 
 void MainWindow::abort_encode()
 {
+    m_abort_flag.store(true);
     if (m_worker_thread && m_worker_thread->isRunning()) {
         m_worker_thread->requestInterruption();
         ui->lbl_eta_2->setText(tr_str("aborted", m_lang));
@@ -315,6 +325,7 @@ void MainWindow::update_eta(const QString& eta)
 
 void MainWindow::encode_done(bool success)
 {
+    m_abort_flag.store(false);
     ui->btn_abort_2->setEnabled(false);
     ui->btn_encode_2->setEnabled(true);
 
@@ -362,4 +373,57 @@ void MainWindow::onThemeChanged()
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
                 "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }")
         .arg(sbBg, sbHandle));
+
+    // Update combo box theme-aware styling
+    applyComboStyles();
+}
+
+void MainWindow::applyComboStyles()
+{
+    bool isDark = m_theme ? m_theme->isDark() : false;
+    QString borderColor = isDark ? "#9CA3AF" : "#374151";
+    QString arrowColor  = isDark ? "#D1D5DB" : "#4B5563";
+    QString hoverBorder = isDark ? "#60A5FA" : "#3B82F6";
+    QString hoverBg     = isDark ? "#374151" : "#F3F4F6";
+    QString dropdownBg  = isDark ? "#1F2937" : "#FFFFFF";
+
+    QString style = QString(
+        "QComboBox {"
+        "  background: transparent;"
+        "  border: 1px solid %1;"
+        "  border-radius: 6px;"
+        "  padding: 6px 12px;"
+        "  font-weight: 500;"
+        "  min-width: 60px;"
+        "}"
+        "QComboBox::drop-down {"
+        "  border: none;"
+        "  width: 20px;"
+        "}"
+        "QComboBox::down-arrow {"
+        "  image: none;"
+        "  border-left: 4px solid transparent;"
+        "  border-right: 4px solid transparent;"
+        "  border-top: 4px solid %2;"
+        "  margin-right: 4px;"
+        "}"
+        "QComboBox:hover {"
+        "  border-color: %3;"
+        "  background: %4;"
+        "}"
+        "QComboBox:on {"
+        "  border-color: %3;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "  border: 1px solid %1;"
+        "  border-radius: 6px;"
+        "  background: %5;"
+        "  padding: 4px;"
+        "  selection-background-color: %3;"
+        "  selection-color: #FFFFFF;"
+        "}"
+    ).arg(borderColor, arrowColor, hoverBorder, hoverBg, dropdownBg);
+
+    ui->cmb_language->setStyleSheet(style);
+    ui->cmb_theme->setStyleSheet(style);
 }

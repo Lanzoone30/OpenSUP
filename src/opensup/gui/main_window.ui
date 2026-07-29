@@ -27,18 +27,18 @@
         </property>
         <item>
          <widget class="QLabel" name="lbl_header_2">
-<property name="styleSheet">
-            <string notr="true">font-size: 32px; font-weight: 800; letter-spacing: -1px;</string>
-           </property>
-           <property name="text">
-            <string>OpenSUP</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="lbl_version_2">
-           <property name="styleSheet">
-            <string notr="true">font-size: 13px;</string>
+          <property name="styleSheet">
+           <string notr="true">font-size: 32px; font-weight: 800; letter-spacing: -1px;</string>
+          </property>
+          <property name="text">
+           <string>OpenSUP</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_version_2">
+          <property name="styleSheet">
+           <string notr="true">font-size: 13px;</string>
           </property>
           <property name="text">
            <string>v1.0.0 • Professional PGS Subtitle Encoder</string>
@@ -65,6 +65,26 @@
          <property name="toolTip">
           <string>Interface Language / Idioma de interfaz</string>
          </property>
+         <property name="styleSheet">
+          <string notr="true">QComboBox {
+   border-radius: 6px;
+   padding: 6px 12px;
+   font-weight: 500;
+   min-width: 60px;
+}
+QComboBox::drop-down {
+   border: none;
+   width: 20px;
+}
+QComboBox::down-arrow {
+   image: none;
+   margin-right: 4px;
+}
+QComboBox QAbstractItemView {
+   border-radius: 6px;
+   padding: 4px;
+}</string>
+         </property>
          <item>
           <property name="text">
            <string>EN</string>
@@ -76,11 +96,31 @@
           </property>
          </item>
         </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="cmb_theme">
+      </item>
+      <item>
+<widget class="QComboBox" name="cmb_theme">
          <property name="toolTip">
           <string>Theme / Tema</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QComboBox {
+   border-radius: 6px;
+   padding: 6px 10px;
+   font-weight: 500;
+   min-width: 50px;
+}
+QComboBox::drop-down {
+   border: none;
+   width: 20px;
+}
+QComboBox::down-arrow {
+   image: none;
+   margin-right: 4px;
+}
+QComboBox QAbstractItemView {
+   border-radius: 6px;
+   padding: 4px;
+}</string>
          </property>
          <item>
           <property name="text">
@@ -98,7 +138,7 @@
           </property>
          </item>
         </widget>
-       </item>
+      </item>
      </layout>
     </item>
     <item>
@@ -136,193 +176,193 @@
         <layout class="QVBoxLayout" name="configPanel">
          <property name="spacing">
           <number>20</number>
-        </property>
-        <item>
-         <widget class="QGroupBox" name="grp_files_2">
-          <property name="title">
-           <string>Project Scope</string>
-          </property>
-          <layout class="QVBoxLayout" name="vLayoutFiles">
-           <property name="spacing">
-            <number>12</number>
+         </property>
+         <item>
+          <widget class="QGroupBox" name="grp_files_2">
+           <property name="title">
+            <string>Project Scope</string>
            </property>
-           <item>
-            <widget class="QPushButton" name="btn_select_bdn_2">
-             <property name="text">
-              <string>📂 Select BDN XML</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-<widget class="QLabel" name="lbl_bdn_file_2">
+           <layout class="QVBoxLayout" name="vLayoutFiles">
+            <property name="spacing">
+             <number>12</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="btn_select_bdn_2">
+              <property name="text">
+               <string>📂 Select BDN XML</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lbl_bdn_file_2">
               <property name="styleSheet">
                <string notr="true">font-size: 11px; margin-left: 4px; font-style: italic;</string>
-             </property>
-             <property name="text">
-              <string>No file selected</string>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="btn_set_output_2">
-             <property name="text">
-              <string>💾 Set SUP Output</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-<widget class="QLabel" name="lbl_output_file_2">
+              </property>
+              <property name="text">
+               <string>No file selected</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_set_output_2">
+              <property name="text">
+               <string>💾 Set SUP Output</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lbl_output_file_2">
               <property name="styleSheet">
                <string notr="true">font-size: 11px; margin-left: 4px; font-style: italic;</string>
-             </property>
-             <property name="text">
-              <string>Destination not set</string>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="grp_parameters_2">
-          <property name="title">
-           <string>Parameters</string>
-          </property>
-          <layout class="QGridLayout" name="gridParams">
-           <property name="horizontalSpacing">
-            <number>16</number>
+              </property>
+              <property name="text">
+               <string>Destination not set</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grp_parameters_2">
+           <property name="title">
+            <string>Parameters</string>
            </property>
-           <property name="verticalSpacing">
-            <number>12</number>
+           <layout class="QGridLayout" name="gridParams">
+            <property name="horizontalSpacing">
+             <number>16</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>12</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_colorspace">
+              <property name="text">
+               <string>Color Space</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="combo_colorspace_2">
+              <item>
+               <property name="text">
+                <string>BT.709</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>BT.601</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>BT.2020</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_quantizer">
+              <property name="text">
+               <string>Quantizer</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QComboBox" name="combo_quantizer_2">
+              <item>
+               <property name="text">
+                <string>libimagequant</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>HexTree</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grp_options_2">
+           <property name="title">
+            <string>Engine Options</string>
            </property>
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_colorspace">
-             <property name="text">
-              <string>Color Space</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QComboBox" name="combo_colorspace_2">
-             <item>
+           <layout class="QVBoxLayout" name="vLayoutOptions">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="chk_allow_normal_2">
               <property name="text">
-               <string>BT.709</string>
+               <string>Allow Normal Case</string>
               </property>
-             </item>
-             <item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chk_prefer_normal_2">
               <property name="text">
-               <string>BT.601</string>
+               <string>Prefer Normal Case</string>
               </property>
-             </item>
-             <item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chk_full_palette_2">
               <property name="text">
-               <string>BT.2020</string>
+               <string>Write Full Palette</string>
               </property>
-             </item>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_quantizer">
-             <property name="text">
-              <string>Quantizer</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QComboBox" name="combo_quantizer_2">
-             <item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chk_both_formats_2">
               <property name="text">
-               <string>libimagequant</string>
+               <string>Both SUP + PES/MUI</string>
               </property>
-             </item>
-             <item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chk_overlap_2">
               <property name="text">
-               <string>HexTree</string>
+               <string>Overlap Buffering</string>
               </property>
-             </item>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="grp_options_2">
-          <property name="title">
-           <string>Engine Options</string>
-          </property>
-          <layout class="QVBoxLayout" name="vLayoutOptions">
-           <property name="spacing">
-            <number>8</number>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chk_ignore_res_2">
+              <property name="text">
+               <string>Ignore Resolution Validation</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <spacer name="vSpacerLeft">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
            </property>
-           <item>
-            <widget class="QCheckBox" name="chk_allow_normal_2">
-             <property name="text">
-              <string>Allow Normal Case</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="chk_prefer_normal_2">
-             <property name="text">
-              <string>Prefer Normal Case</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="chk_full_palette_2">
-             <property name="text">
-              <string>Write Full Palette</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="chk_both_formats_2">
-             <property name="text">
-              <string>Both SUP + PES/MUI</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="chk_overlap_2">
-             <property name="text">
-              <string>Overlap Buffering</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="chk_ignore_res_2">
-             <property name="text">
-              <string>Ignore Resolution Validation</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <spacer name="vSpacerLeft">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <layout class="QVBoxLayout" name="monitoringPanel">
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="monitoringPanel">
         <property name="spacing">
          <number>20</number>
         </property>
@@ -334,9 +374,9 @@
           <item>
            <layout class="QHBoxLayout" name="logHeader">
             <item>
-<widget class="QLabel" name="lbl_log_title_2">
-               <property name="styleSheet">
-                <string notr="true">font-weight: 700; font-size: 11px; letter-spacing: 1px;</string>
+             <widget class="QLabel" name="lbl_log_title_2">
+              <property name="styleSheet">
+               <string notr="true">font-weight: 700; font-size: 11px; letter-spacing: 1px;</string>
               </property>
               <property name="text">
                <string>ACTIVITY LOG</string>
@@ -344,9 +384,9 @@
              </widget>
             </item>
             <item>
-<widget class="QLabel" name="lbl_log_lines_2">
-               <property name="styleSheet">
-                <string notr="true">font-size: 11px;</string>
+             <widget class="QLabel" name="lbl_log_lines_2">
+              <property name="styleSheet">
+               <string notr="true">font-size: 11px;</string>
               </property>
               <property name="text">
                <string>0 items</string>
@@ -389,9 +429,9 @@
            </layout>
           </item>
           <item>
-<widget class="QTextEdit" name="txt_log_2">
-             <property name="styleSheet">
-              <string notr="true">border: 1px solid; border-radius: 8px; font-family: &quot;JetBrains Mono&quot;, &quot;Consolas&quot;, monospace; font-size: 13px; line-height: 1.6; padding: 16px;</string>
+           <widget class="QTextEdit" name="txt_log_2">
+            <property name="styleSheet">
+             <string notr="true">border: 1px solid; border-radius: 8px; font-family: "JetBrains Mono", "Consolas", monospace; font-size: 13px; line-height: 1.6; padding: 16px;</string>
             </property>
             <property name="readOnly">
              <bool>true</bool>
@@ -435,9 +475,9 @@
               </spacer>
              </item>
              <item>
-<widget class="QLabel" name="lbl_eta_2">
-                <property name="styleSheet">
-                 <string notr="true">font-weight: 600;</string>
+              <widget class="QLabel" name="lbl_eta_2">
+               <property name="styleSheet">
+                <string notr="true">font-weight: 600;</string>
                </property>
                <property name="text">
                 <string>—</string>
@@ -447,7 +487,7 @@
             </layout>
            </item>
            <item>
-<widget class="QProgressBar" name="progress_bar_2">
+            <widget class="QProgressBar" name="progress_bar_2">
              <property name="value">
               <number>0</number>
              </property>

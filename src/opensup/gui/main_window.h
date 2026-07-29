@@ -6,6 +6,8 @@
 #include <QThread>
 #include <QTextCharFormat>
 #include <QVector>
+#include <atomic>
+#include <QSettings>
 
 #include "opensup/core/interface.h"
 #include "opensup/gui/translations.h"
@@ -42,6 +44,7 @@ private slots:
     void on_lang_changed(int index);
     void on_theme_changed(int index);
     void onThemeChanged();
+    void applyComboStyles();
 
 private:
     void check_ready();
@@ -56,4 +59,5 @@ private:
     QString m_output_path;
     QThread* m_worker_thread = nullptr;
     QVector<QPair<QString, int>> m_log_entries;
+    std::atomic<bool> m_abort_flag{false};
 };
