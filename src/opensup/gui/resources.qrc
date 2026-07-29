@@ -1,5 +1,5 @@
 <RCC>
     <qresource prefix="/logo">
-        <file>OpenSUP-GUI.png</file>
+        <file alias="OpenSUP-GUI.png">../../../assets/OpenSUP-GUI.png</file>
     </qresource>
 </RCC>
