@@ -41,6 +41,7 @@ struct encode_config_t {
     double ssim_tol = 0.0;
     bool full_palette = false;
     double redraw_period = 0.0;
+    std::atomic<bool>* abort_flag = nullptr; // ponytail: set by caller, checked in execute() loop
 };
 
 class epoch_worker_c {

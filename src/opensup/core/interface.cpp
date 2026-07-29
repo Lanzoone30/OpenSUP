@@ -98,6 +98,13 @@ bdn_render_c::execute()
     auto fps_enum = xml.fps();
 
     for (auto& group : event_groups) {
+        // Allow early exit if user aborted
+        if (m_config.abort_flag && m_config.abort_flag->load()) {
+            result.error = "Aborted by user";
+            logger_c::instance().warn(result.error);
+            return result;
+        }
+
         std::vector<bool> no_redraw;
 
         // Periodic redraw: split events if redraw_period > 0
