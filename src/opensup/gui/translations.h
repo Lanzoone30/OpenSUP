@@ -11,8 +11,8 @@ inline QString tr_str(const QString& key, Lang lang)
 {
     static const QHash<QString, QPair<QString, QString>> s = {
         // -- Header --
-{"subtitle",    {"v1.0.0 \u2022 PGS Subtitle Encoder",
-                          "v1.0.0 \u2022 Codificador de Subt\u00edtulos PGS"}},
+{"subtitle",    {"PGS Subtitle Encoder",
+                          "PGS Subtitle Encoder"}},
         {"windowTitle", {"OpenSUP v1.0.0",
                          "OpenSUP v1.0.0"}},
 
@@ -60,7 +60,8 @@ inline QString tr_str(const QString& key, Lang lang)
         // -- Progress --
         {"progress",    {"Progress", "Progreso"}},
         {"standingBy",  {"Standing by\u2026", "En espera\u2026"}},
-        {"initEncode",  {"INITIALIZE ENCODING", "INICIAR CODIFICACI\u00d3N"}},
+        {"initEncode",  {"ENCODE",
+                          "PROCESAR"}},
         {"abort",       {"ABORT", "ABORTAR"}},
 
         // -- Status messages --
