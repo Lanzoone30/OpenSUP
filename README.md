@@ -1,4 +1,4 @@
-<img src="assets/OpenSUP-GUI.png" alt="OpenSUP" width="180" height="48" align="right" style="margin-top: 30px"/>
+<img src="assets/OpenSUP-GUI.png" alt="OpenSUP" width="180" height="48" align="right" style="margin-top: 60px"/>
 
 ### PGS Subtitle Encoder
 
