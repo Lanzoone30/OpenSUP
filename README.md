@@ -1,6 +1,6 @@
-<img src="assets/OpenSUP-GUI.png" alt="OpenSUP" width="180" height="48"/>
+<img src="assets/OpenSUP-GUI.png" alt="OpenSUP" width="180" height="48" align="right" style="margin-top: 30px"/>
 
-### PGS Subtitle Encoder for Blu-ray
+### PGS Subtitle Encoder
 
 **Turn BDN XML subtitles into Blu-ray compliant .sup / .pes streams**
 
@@ -8,7 +8,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)]()
 [![License](https://img.shields.io/badge/license-GPLv3-green?style=flat-square)]()
-[![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux-666666?style=flat-square)]()
+[![Platform](https://img.shields.io/badge/platform-windows-666666?style=flat-square)]()
 
 <br>
 
@@ -16,9 +16,11 @@
 
 ## Overview
 
-OpenSUP converts **BDN XML** subtitle files — images included — into **PGS** (Presentation Graphic Stream) subtitles for Blu-ray: compliant **.sup** or **.pes/.mui** streams ready for authoring.
+OpenSUP converts **BDN XML** subtitle files — images included — into **PGS** (Presentation Graphic Stream) subtitles for Blu-ray. It produces compliant **.sup** streams, and **.pes/.mui** when needed, ready for the authoring stage.
 
-For Blu-ray authors and subtitle encoders who work with BDN XML workflows and need a reliable, fast encoder. Built on [SUPer](https://github.com/cubicibo/SUPer) by cubicibo, rewritten from Python to C++17 for performance.
+Designed for Blu-ray authors and subtitle encoders who work with BDN XML workflows, OpenSUP combines a simple, bilingual GUI with a full-featured command line interface. The engine handles the whole process in a single run: parsing the XML, loading the embedded images, quantizing colors, and assembling the final stream.
+
+Built on [SUPer](https://github.com/cubicibo/SUPer) by cubicibo, rewritten from Python to C++17 for performance and reliability.
 
 ---
 
@@ -26,16 +28,15 @@ For Blu-ray authors and subtitle encoders who work with BDN XML workflows and ne
 
 - **Blu-ray ready** — converts BDN XML subtitles, images included, into compliant .sup streams
 - **Two output formats** — .sup and .pes/.mui, or both in a single run
+- **Quality or speed** — two quantization engines: maximum quality or faster encoding
+- **Color accuracy** — BT.709 / BT.601 / BT.2020 color space presets
 - **Easy to use** — pick your subtitle file, choose a destination, press ENCODE
 - **Dark / Light / System themes** — match your preference
 - **English and Spanish** — switch languages at any time
 - **Live progress** — progress bar and time remaining, abort whenever you want
 - **Activity log** — see every step with color-coded results; copy or clear it
-- **Two quality modes** — maximum quality or faster encoding
 - **Command line support** — for scripting and batch jobs
-- **Portable ZIP or Windows installer** — no extra dependencies to install
 - **Remembers your settings** — theme and language persist between sessions
-- **Free and open source** — GPLv3
 
 ---
 
@@ -43,7 +44,7 @@ For Blu-ray authors and subtitle encoders who work with BDN XML workflows and ne
 
 <div align="center">
   <img src="assets/images-preview/GUI-Preview.png" alt="OpenSUP GUI" width="900"/>
-  <p><em>OpenSUP GUI — Light theme, ready to encode</em></p>
+  <p><em>OpenSUP GUI — Light theme</em></p>
 </div>
 
 ---
@@ -153,6 +154,3 @@ Copyright (C) 2024-2026 Lanzoone30. Based on [SUPer](https://github.com/cubicibo
 ## Credits
 
 - **[SUPer](https://github.com/cubicibo/SUPer)** — original Python implementation by cubicibo; design adapted into OpenSUP
-- **[libimagequant](https://github.com/imageoptim/libimagequant)** — high-quality color quantization (GPL-3.0-or-later)
-- **[stb_image](https://github.com/nothings/stb)** — public-domain image loading
-- **[pugixml](https://github.com/zeux/pugixml)** — BDN XML parsing (MIT)
