@@ -52,3 +52,4 @@ docs/
 *.rej
 .github/
 extern/
+build/
