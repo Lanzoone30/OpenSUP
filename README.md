@@ -127,19 +127,28 @@ Windows builds are available on the [Releases](https://github.com/Lanzoone30/Ope
 ## Project Structure
 
 ```
-OpenSUP-dev/
-├── assets/              Icons, logos, and preview screenshots
-├── src/opensup/         Source code
-│   ├── common/          Shared utilities
-│   ├── media/           Media layer (palette, PGS graphics, streams, optimizer)
-│   ├── core/            Core engine (BDN parser, renderer, segments, file I/O)
-│   ├── cli/             CLI entry point
-│   └── gui/             Qt6 GUI (main window, worker, theme, translations)
-├── tests/               Google Test suite
-├── tools/               Build scripts
-├── CMakeLists.txt       Root build configuration
-├── LICENSE              GPLv3
-└── README.md
+src/opensup/
+├── common/             Shared utilities
+│   ├── bdvideo         Blu-ray video formats and frame rates
+│   ├── color_matrix    BT.601 / BT.709 / BT.2020 YCbCr conversion
+│   ├── geometry        Box and window helpers
+│   ├── logger          Logging facility
+│   ├── memory          Memory helpers
+│   ├── ssim            SSIM comparison
+│   └── timecode        Timecode / PTS helpers
+├── media/              PGS media layer
+│   ├── palette         Palette and palette-entry handling
+│   ├── pgraphics       PGS graphics (RLE encode/decode, object buffer)
+│   ├── pgstream        PGS stream timing and buffering
+│   └── optimizer       Quantization backends (libimagequant / HexTree)
+├── core/               Core engine
+│   ├── filestreams     BDN XML parser, .sup / .pes writers
+│   ├── renderer        Epoch encoder (diff, crop, quantize, assemble)
+│   ├── segments        PGS segment types (PCS, WDS, PDS, ODS, ENDS)
+│   └── interface       Encode pipeline orchestration (bdn_render_c)
+├── cli/                CLI entry point (CLI11)
+├── gui/                Qt6 GUI (main window, worker, theme, translations)
+└── pch.h               Precompiled header
 ```
 
 ---
