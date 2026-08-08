@@ -106,10 +106,14 @@ bdn_render_c::execute()
     // Encode each epoch
     int palette_base = 0;
     int total_segments = 0;
+    const int total_epochs = static_cast<int>(event_groups.size());
 
     auto fps_enum = xml.fps();
 
+    int epoch_index = 0;
     for (auto& group : event_groups) {
+        ++epoch_index;
+
         // Allow early exit if user aborted
         if (m_config.abort_flag && m_config.abort_flag->load()) {
             result.error = "Aborted by user";
@@ -135,6 +139,10 @@ bdn_render_c::execute()
                                           fps_enum, palette_base);
         m_segments.insert(m_segments.end(), segs.begin(), segs.end());
         total_segments += static_cast<int>(segs.size());
+
+        if (m_config.progress_cb && total_epochs > 0)
+            m_config.progress_cb(epoch_index * 100 / total_epochs,
+                                 epoch_index, total_epochs);
     }
 
     // fix_composition_id: ensure sequential composition numbers across all epochs

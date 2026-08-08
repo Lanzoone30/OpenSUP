@@ -34,6 +34,16 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Fix left panel width so language toggle doesn't reflow layout
     // configContainer max-width = 400 set in .ui
+    // wordWrap labels: fixed height (2 lines) so EN↔ES text length doesn't
+    // change the layout height when retranslateUi() runs.
+    ui->lbl_bdn_file_2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    ui->lbl_bdn_file_2->setMinimumHeight(30);
+    ui->lbl_output_file_2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    ui->lbl_output_file_2->setMinimumHeight(30);
+
+    // Center subtitle under the logo. retranslateUi() replaces the .ui HTML
+    // (which had align=center) with plain text, so set alignment explicitly.
+    ui->lbl_subtitle->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
     connect(ui->cmb_language, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::on_lang_changed);
@@ -71,31 +81,40 @@ MainWindow::MainWindow(QWidget* parent)
     ui->configContainer->setFixedWidth(220);
 }
 
+// Stop the worker thread cleanly. The abort flag makes the worker exit at the
+// next epoch boundary, so an unbounded wait is safe (bounded by one epoch).
+// m_worker_thread is nulled by the finished() connection in start_encode(),
+// so we never touch a freed pointer here.
+static void stop_worker(QThread* thread, std::atomic<bool>& abort_flag)
+{
+    if (!thread) return;
+    if (thread->isRunning()) {
+        abort_flag.store(true);
+        thread->requestInterruption();
+        thread->wait();
+    }
+}
+
 MainWindow::~MainWindow()
 {
-    if (m_worker_thread && m_worker_thread->isRunning()) {
-        m_worker_thread->requestInterruption();
-        m_worker_thread->quit();
-        m_worker_thread->wait(3000);
-    }
+    stop_worker(m_worker_thread, m_abort_flag);
     delete ui;
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    if (m_worker_thread && m_worker_thread->isRunning()) {
-        m_worker_thread->requestInterruption();
-        m_worker_thread->quit();
-        m_worker_thread->wait(3000);
-    }
+    stop_worker(m_worker_thread, m_abort_flag);
     event->accept();
 }
 
 void MainWindow::select_bdn()
 {
-    auto path = QFileDialog::getOpenFileName(this, "Select BDN XML", {},
+    QSettings s("OpenSUP", "OpenSUP");
+    auto path = QFileDialog::getOpenFileName(this, "Select BDN XML",
+        s.value("last_bdn_dir").toString(),
         "BDN XML files (*.xml);;All files (*.*)");
     if (path.isEmpty()) return;
+    s.setValue("last_bdn_dir", QFileInfo(path).absolutePath());
     m_input_path = path;
     ui->lbl_bdn_file_2->setText(QFileInfo(path).fileName());
     ui->lbl_bdn_file_2->setToolTip(path);
@@ -104,11 +123,14 @@ void MainWindow::select_bdn()
 
 void MainWindow::set_output()
 {
-    auto path = QFileDialog::getSaveFileName(this, "Set Output", {},
+    QSettings s("OpenSUP", "OpenSUP");
+    auto path = QFileDialog::getSaveFileName(this, "Set Output",
+        s.value("last_output_dir").toString(),
         "SUP files (*.sup);;All files (*.*)");
     if (path.isEmpty()) return;
     if (!path.endsWith(".sup", Qt::CaseInsensitive))
         path += ".sup";
+    s.setValue("last_output_dir", QFileInfo(path).absolutePath());
     m_output_path = path;
     ui->lbl_output_file_2->setText(QFileInfo(path).fileName());
     ui->lbl_output_file_2->setToolTip(path);
@@ -249,6 +271,11 @@ void MainWindow::start_encode()
     connect(worker, &encode_worker_c::etaUpdated, this, &MainWindow::update_eta);
     connect(worker, &encode_worker_c::finished, m_worker_thread, &QThread::quit);
     connect(worker, &encode_worker_c::finished, worker, &QObject::deleteLater);
+    // Null the member pointer when the thread finishes (it deletes itself via
+    // deleteLater), so closeEvent/destructor never dereference freed memory.
+    connect(m_worker_thread, &QThread::finished, this, [this]() {
+        m_worker_thread = nullptr;
+    });
     connect(m_worker_thread, &QThread::finished, m_worker_thread, &QObject::deleteLater);
 
     m_worker_thread->start();
@@ -380,6 +407,14 @@ void MainWindow::onThemeChanged()
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
                 "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }")
         .arg(sbBg, sbHandle));
+
+    // Progress bar: green chunk (classic Windows look), theme-aware track.
+    // Without this QSS the bar inherits the palette's blue Highlight.
+    QString pbBg = m_theme->isDark() ? "#303544" : "#E5E7EB";
+    ui->progress_bar_2->setStyleSheet(
+        QString("QProgressBar { border: none; border-radius: 4px; background: %1; }"
+                "QProgressBar::chunk { border-radius: 4px; background: #22C55E; }")
+        .arg(pbBg));
 
     // Update combo box theme-aware styling
     applyComboStyles();

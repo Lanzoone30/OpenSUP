@@ -40,7 +40,9 @@ function(set_project_warnings project_name)
 
   if(WARNINGS_AS_ERRORS)
     set(CLANG_WARNINGS ${CLANG_WARNINGS} -Werror)
-    set(GCC_WARNINGS ${GCC_WARNINGS} -Werror)
+    # -Wnull-dereference false-positives on GCC/MinGW when read_u16_be() is
+    # inlined into accessors (callers guarantee non-null buffers).
+    set(GCC_WARNINGS ${GCC_WARNINGS} -Werror -Wno-error=null-dereference)
     set(MSVC_WARNINGS ${MSVC_WARNINGS} /WX)
   endif()
 
