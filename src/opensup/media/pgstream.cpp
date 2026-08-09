@@ -203,13 +203,23 @@ is_compliant(const std::vector<std::shared_ptr<display_set_t>>& epochs,
 {
     bool compliant = true;
     warnings = 0;
+    bool seen_first_composition = false;
 
     for (auto& epoch : epochs) {
         auto& pcs = (*epoch).pcs();
 
-        if (!(static_cast<uint8_t>(pcs.composition_state()) & 0x80)) {
-            logger_c::instance().warn("First DS in epoch is not Epoch Start");
-            compliant = false;
+        // Only the FIRST composition of the stream must be Epoch Start —
+        // the decoder needs a sync point to begin. Later display sets may be
+        // NORMAL (clear/undisplay DS, or reuse of objects already in the
+        // buffer per US7620297B2).
+        if (!pcs.cobjects.empty()) {
+            if (!seen_first_composition) {
+                if (!(static_cast<uint8_t>(pcs.composition_state()) & 0x80)) {
+                    logger_c::instance().warn("First DS in epoch is not Epoch Start");
+                    compliant = false;
+                }
+                seen_first_composition = true;
+            }
         }
 
         auto wds_opt = (*epoch).wds();
@@ -236,6 +246,14 @@ check_pts_dts_sanity(const std::vector<std::shared_ptr<display_set_t>>& epochs,
 
     for (auto& epoch : epochs) {
         auto& pcs = (*epoch).pcs();
+
+        // The full-screen decode margin only applies to Epoch Start display
+        // sets, where the decoder must receive every object before presenting
+        // (US20090185789A1). Normal/acquisition sets (reuse, clear, palette
+        // updates) reference objects already in the buffer — their PTS-DTS
+        // delta is the wipe time, which is much smaller.
+        if (pcs.composition_state() != pcs_c::composition_state_e::epoch_start)
+            continue;
 
         uint32_t wipe_duration = static_cast<uint32_t>(std::ceil(
             static_cast<double>(pcs.video_width()) * pcs.video_height() *
