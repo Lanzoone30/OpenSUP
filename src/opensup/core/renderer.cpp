@@ -180,6 +180,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
     bool have_prev = false;
 
+    // Previous trimmed bitmap (same epoch) and object id of the last ODS —
+    // reused by following events with identical content.
+    std::vector<uint8_t> prev_trimmed;
+    int prev_trim_w = 0, prev_trim_h = 0;
+    uint16_t prev_obj_id = 0;
+
     // Helper to emit a clear display set at a given PTS using previous event's window
     auto emit_clear_ds = [&](double pts) -> void {
         double wipe_dur = std::ceil(static_cast<double>(prev_obj_w) *
@@ -242,6 +248,21 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         int crop_x = (trim_w > 0) ? trim_x : 0;
         int crop_y = (trim_h > 0) ? trim_y : 0;
 
+        // A reusable event (same trimmed bitmap as the previous one) skips
+        // PDS/ODS — its PCS references the previous object id, already in the
+        // decoder buffer, with a new crop.
+        bool reusable = (obj_w == prev_trim_w && obj_h == prev_trim_h &&
+                         trimmed_rgba == prev_trimmed);
+        if (reusable) {
+            m_reuse_candidates++;
+            logger_c::instance().log(common::log_level_e::hdebug,
+                "Reuse candidate event " + std::to_string(k) + " (" +
+                std::to_string(obj_w) + "x" + std::to_string(obj_h) + ")");
+        }
+        prev_trimmed = trimmed_rgba;
+        prev_trim_w = obj_w;
+        prev_trim_h = obj_h;
+
         // Quantize the trimmed RGBA image
         auto opt = optimiser_c::get_available();
 
@@ -296,14 +317,22 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         }
 
         // Full acquisition: emit all segments
-        // Composition state: epoch_start by default, normal if allow_normal_case set
-        auto comp_state = (m_allow_normal_case)
+        // Composition state: epoch_start by default, normal if allow_normal_case set.
+        // A reused event must be NORMAL — it references an object already in
+        // the decoder buffer (not reset between same-epoch events).
+        auto comp_state = (reusable || m_allow_normal_case)
             ? pcs_c::composition_state_e::normal
             : pcs_c::composition_state_e::epoch_start;
 
-        // Object ID double-buffering (SUPer: alternating 0/1 for single window)
-        double_buffer = 1 - double_buffer;
-        uint16_t obj_id = static_cast<uint16_t>(double_buffer);
+        // Object ID double-buffering (SUPer: alternating 0/1 for single window).
+        // Reused events keep the previous object id (already decoded).
+        uint16_t obj_id;
+        if (reusable) {
+            obj_id = prev_obj_id;
+        } else {
+            double_buffer = 1 - double_buffer;
+            obj_id = static_cast<uint16_t>(double_buffer);
+        }
 
         // Build CObject: position = event position + crop offset
         std::vector<c_object_t> cobjects;
@@ -319,9 +348,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         double base_pts = ev.tc_in();
         uint64_t area = static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h);
 
-        // Decode duration: full screen composition rate (SUPer EPOCH_START model)
+        // Decode duration: full screen composition rate (SUPer EPOCH_START model).
+        // +1 tick margin so PTS-DTS delta strictly exceeds wipe_duration
+        // (check_pts_dts_sanity requires delta > wipe_duration, exact tie fails).
         double screen_area = static_cast<double>(m_width) * static_cast<double>(m_height);
-        double decode_duration = std::ceil(screen_area * pg_decoder_t::FREQ / pg_decoder_t::RC) /
+        double decode_duration = (std::ceil(screen_area * pg_decoder_t::FREQ / pg_decoder_t::RC) + 1.0) /
                                  pg_decoder_t::FREQ;
         double base_dts = base_pts - decode_duration;
 
@@ -350,7 +381,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         auto wds = wds_c::from_scratch({wd}, wds_pts, base_dts);
         result.push_back(std::make_shared<wds_c>(std::move(wds)));
 
-        // PDS: PTS = DTS (instant), or earlier in overlap mode
+        // PDS: PTS = DTS (instant), or earlier in overlap mode.
+        // Skipped for reused events — the palette is already in the decoder.
         double pds_pts = base_dts;
         double pds_dts = base_dts;
         if (m_overlap && result.size() >= 3) {
@@ -360,23 +392,31 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 pds_dts = prev_ends->dts();
             }
         }
-        auto p_vn = static_cast<uint8_t>(m_palette_vn++);
-        auto pds = pds_c::from_scratch(palette, p_vn, palette_id, pds_pts, pds_dts);
-        result.push_back(std::make_shared<pds_c>(std::move(pds)));
+        if (!reusable) {
+            auto p_vn = static_cast<uint8_t>(m_palette_vn++);
+            auto pds = pds_c::from_scratch(palette, p_vn, palette_id, pds_pts, pds_dts);
+            result.push_back(std::make_shared<pds_c>(std::move(pds)));
 
-        // ODS: PTS = DTS + obj_decode_time, DTS = base_dts
-        double ods_pts = base_dts + obj_decode_time;
-        auto rle_data = encode_rle(indexed, obj_w, obj_h);
-        auto ods_list = ods_c::from_scratch(obj_id, 0,
-                                              static_cast<uint16_t>(obj_w),
-                                              static_cast<uint16_t>(obj_h),
-                                              rle_data, ods_pts, base_dts);
-        for (auto& ods : ods_list)
-            result.push_back(std::make_shared<ods_c>(std::move(ods)));
+            // ODS: PTS = DTS + obj_decode_time, DTS = base_dts.
+            // Skipped for reused events — the object is already decoded.
+            double ods_pts = base_dts + obj_decode_time;
+            auto rle_data = encode_rle(indexed, obj_w, obj_h);
+            auto ods_list = ods_c::from_scratch(obj_id, 0,
+                                                  static_cast<uint16_t>(obj_w),
+                                                  static_cast<uint16_t>(obj_h),
+                                                  rle_data, ods_pts, base_dts);
+            for (auto& ods : ods_list)
+                result.push_back(std::make_shared<ods_c>(std::move(ods)));
 
-        // ENDS: PTS = DTS = after last ODS
-        auto end = ends_c::from_scratch(ods_pts, ods_pts);
-        result.push_back(std::make_shared<ends_c>(std::move(end)));
+            // ENDS: PTS = DTS = after last ODS
+            auto end = ends_c::from_scratch(ods_pts, ods_pts);
+            result.push_back(std::make_shared<ends_c>(std::move(end)));
+        } else {
+            // ENDS: PTS = DTS = presentation time of the reused composition
+            auto end = ends_c::from_scratch(base_pts, base_pts);
+            result.push_back(std::make_shared<ends_c>(std::move(end)));
+        }
+        prev_obj_id = obj_id;
 
         // Save event data for next iteration's clear DS
         prev_tc_out = ev.tc_out();

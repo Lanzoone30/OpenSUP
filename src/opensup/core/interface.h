@@ -88,9 +88,13 @@ public:
         return m_segments;
     }
 
+    // Total reuse candidates detected across all epochs.
+    [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
+
 private:
     encode_config_t m_config;
     std::vector<std::shared_ptr<pg_segment_c>> m_segments;
+    int m_reuse_candidates = 0;
 };
 
 } // namespace core

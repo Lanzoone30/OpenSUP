@@ -138,6 +138,7 @@ bdn_render_c::execute()
         auto segs = encoder.encode_epoch(group, no_redraw,
                                           fps_enum, palette_base);
         m_segments.insert(m_segments.end(), segs.begin(), segs.end());
+        m_reuse_candidates += encoder.reuse_candidates();
         total_segments += static_cast<int>(segs.size());
 
         if (m_config.progress_cb && total_epochs > 0)

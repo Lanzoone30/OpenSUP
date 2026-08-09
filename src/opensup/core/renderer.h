@@ -85,6 +85,9 @@ public:
                   common::fps_e fps_enum,
                   int& palette_id_counter);
 
+    // Number of events detected as reusable (same bitmap as previous event).
+    [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
+
 private:
     double m_fps;
     int m_width, m_height;
@@ -96,6 +99,7 @@ private:
     double m_drought = 0.0;
     int m_composition_n = 1;
     int m_palette_vn = 0;
+    int m_reuse_candidates = 0;
 };
 
 // ── Epoch Worker ──
