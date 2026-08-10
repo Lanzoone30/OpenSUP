@@ -30,13 +30,21 @@ enum class log_level_e : uint8_t {
     fatal  = 9,
 };
 
+/**
+ * @brief Singleton logger with severity levels, file output and UI callbacks.
+ *
+ * All logging goes through this class; the GUI and CLI consume the same
+ * stream via set_callback() / set_file_output().
+ */
 class logger_c {
 public:
     static logger_c& instance();
 
+    /// Set the minimum severity that gets emitted.
     void set_level(log_level_e level) noexcept;
     [[nodiscard]] log_level_e level() const noexcept { return m_level; }
 
+    /// Log a message at the given severity level.
     void log(log_level_e level, const std::string& msg);
     void info(const std::string& msg)    { log(log_level_e::info, msg); }
     void warn(const std::string& msg)    { log(log_level_e::warn, msg); }
@@ -44,9 +52,12 @@ public:
     void pass(const std::string& msg)    { log(log_level_e::pass, msg); }
     void fail(const std::string& msg)    { log(log_level_e::fail, msg); }
 
+    /// Mirror all log output to a file (appended).
     void set_file_output(const std::string& path);
+    /// Suppress console output; useful for GUI mode.
     void set_quiet(bool quiet) noexcept { m_quiet = quiet; }
 
+    /// Route each log line to an external consumer (e.g. the GUI log view).
     using log_callback_t = std::function<void(const std::string&, int)>;
     void set_callback(log_callback_t cb) { std::lock_guard<std::mutex> lock(m_mutex); m_callback = std::move(cb); }
 

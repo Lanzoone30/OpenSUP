@@ -28,25 +28,30 @@ namespace opensup {
 namespace core {
 
 // ── CTU: recursive tile comparison ──
+/// Result of comparing two frames: identical flag + changed region bounds.
 struct ctu_result_t {
     bool identical;
     common::box_t changed_region;
 };
 
+/// Recursively compare two frames to find the smallest changed region.
 ctu_result_t compare_tiles(const uint8_t* a, const uint8_t* b,
                             int width, int height, int stride);
 
 // ── Window Analyzer ──
+/// Frame-diff analysis: the region that changed and whether it needs redraw.
 struct window_analysis_t {
     common::box_t window;
     bool needs_redraw;
     double ssim_score;
 };
 
+/// Detects the changed region between consecutive frames (redraw window).
 class window_analyzer_c {
 public:
     window_analyzer_c(double ssim_tol = 0.999);
 
+    /// Compare previous/current frames; returns the region to redraw.
     window_analysis_t analyze(const uint8_t* prev, const uint8_t* curr,
                                int width, int height, const common::box_t& window);
 
@@ -54,12 +59,13 @@ private:
     double m_ssim_tol;
 };
 
-// ── Padding Engine ──
+/// Pads an RGBA image to a multiple of 8x8 (Blu-ray object constraint).
 std::vector<uint8_t> pad_image_8x8(const std::vector<uint8_t>& rgba,
                                     int width, int height,
                                     int& out_width, int& out_height);
 
 // ── DS Node: timing model for a display set ──
+/// Display set with its computed PTS/DTS timing and ODS budget.
 class ds_node_t {
 public:
     std::shared_ptr<display_set_t> ds;
@@ -69,23 +75,31 @@ public:
 
     explicit ds_node_t(std::shared_ptr<display_set_t> display_set);
 
+    /// Compute PTS/DTS and the leaky-buffer budget for this display set.
     void compute_timing(double fps, const common::box_t& window);
 };
 
 // ── Epoch Encoder ──
+/**
+ * @brief Renders one epoch (a run of consecutive events) into PGS segments.
+ *
+ * Handles image composition, quantization, palette assignment and the
+ * object-reuse optimization between consecutive identical events.
+ */
 class epoch_encoder_c {
 public:
     epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0,
                      bool allow_normal_case = false, bool overlap = false,
                      bool full_palette = false, double ssim_tol = 0.0);
 
+    /// Render the given events; returns the PGS segments for this epoch.
     std::vector<std::shared_ptr<pg_segment_c>>
     encode_epoch(const std::vector<bdn_xml_event_c>& events,
                   const std::vector<bool>& redraw_flags,
                   common::fps_e fps_enum,
                   int& palette_id_counter);
 
-    // Number of events detected as reusable (same bitmap as previous event).
+    /// Number of events detected as reusable (same bitmap as previous event).
     [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
 
 private:

@@ -78,27 +78,42 @@ struct c_object_t {
 };
 
 // ── Base PGS Segment ──
+/**
+ * @brief A single PGS segment (header + payload) from a subtitle stream.
+ *
+ * Subclasses specialize per segment type; to_bytes() re-serializes with the
+ * current field values.
+ */
 class pg_segment_c {
 public:
     pg_segment_c() = default;
     explicit pg_segment_c(const std::vector<uint8_t>& data);
 
+    /// Presentation timestamp in seconds.
     [[nodiscard]] double pts() const noexcept;
     void set_pts(double pts) noexcept;
+    /// Decode timestamp in seconds.
     [[nodiscard]] double dts() const noexcept;
     void set_dts(double dts) noexcept;
 
+    /// Raw PTS in 90 kHz ticks.
     [[nodiscard]] uint32_t tpts() const noexcept;
     void set_tpts(uint32_t pts) noexcept;
+    /// Raw DTS in 90 kHz ticks.
     [[nodiscard]] uint32_t tdts() const noexcept;
     void set_tdts(uint32_t dts) noexcept;
 
+    /// Segment type (PDS/ODS/PCS/WDS/ENDS).
     [[nodiscard]] segment_type_e type() const noexcept;
+    /// Payload length in bytes.
     [[nodiscard]] uint16_t size() const noexcept;
 
+    /// Copy of the payload (without header).
     [[nodiscard]] std::vector<uint8_t> payload() const;
 
+    /// Full serialized segment: 13-byte header + payload.
     [[nodiscard]] virtual std::vector<uint8_t> to_bytes() const;
+    /// Recompute derived payload fields (calls update_length()).
     virtual void update();
     void update_length();
 
@@ -111,8 +126,17 @@ protected:
 };
 
 // ── PCS: Presentation Composition Segment ──
+/**
+ * @brief PCS segment: the "scene graph" of a display set.
+ *
+ * Declares which composition objects are shown, in which windows, and how
+ * they relate to the previous display set via composition_state (epoch
+ * start/continue or acquisition point). The GUI reuses display sets, so
+ * this state machine is the contract that decides reuse legality.
+ */
 class pcs_c : public pg_segment_c {
 public:
+    /// How this composition relates to the previous display set.
     enum class composition_state_e : uint8_t {
         normal          = 0x00,
         acquisition     = 0x40,
@@ -144,6 +168,7 @@ public:
     void update() override;
     [[nodiscard]] std::vector<uint8_t> to_bytes() const override;
 
+    /// Builds a PCS from field values instead of parsing a raw payload.
     static pcs_c from_scratch(uint16_t width, uint16_t height, uint8_t fps,
                                uint16_t comp_n, composition_state_e state,
                                bool pal_flag, uint8_t pal_id,
@@ -152,6 +177,12 @@ public:
 };
 
 // ── WDS: Window Definition Segment ──
+/**
+ * @brief WDS segment: defines the rectangular windows on the video plane.
+ *
+ * Objects (ODS) are composited inside these windows; a window may be reused
+ * across display sets to avoid re-sending its content.
+ */
 class wds_c : public pg_segment_c {
 public:
     std::vector<window_definition_t> windows;
@@ -163,11 +194,19 @@ public:
     void update() override;
     [[nodiscard]] std::vector<uint8_t> to_bytes() const override;
 
+    /// Builds a WDS from window definitions instead of parsing a raw payload.
     static wds_c from_scratch(const std::vector<window_definition_t>& windows,
                                double pts = 0.0, double dts = 0.0);
 };
 
 // ── PDS: Palette Definition Segment ──
+/**
+ * @brief PDS segment: maps palette indices to YCbCr+alpha colors.
+ *
+ * Palettes are versioned (p_vn); bumping the version marks the palette as
+ * changed for downstream decoders. The GUI reuses palettes across display
+ * sets when content allows it.
+ */
 class pds_c : public pg_segment_c {
 public:
     pds_c() = default;
@@ -178,9 +217,11 @@ public:
     [[nodiscard]] uint8_t p_vn() const noexcept;
     void set_p_vn(uint8_t vn) noexcept;
 
+    /// Interprets the raw palette entries as a media::palette_t.
     [[nodiscard]] media::palette_t to_palette() const;
     void set_palette(const media::palette_t& pal);
 
+    /// Builds a PDS from a palette, optionally shifting entry indices.
     static pds_c from_scratch(const media::palette_t& palette,
                                uint8_t p_vn, uint8_t p_id = 0,
                                double pts = 0.0, double dts = 0.0,
@@ -188,8 +229,16 @@ public:
 };
 
 // ── ODS: Object Definition Segment ──
+/**
+ * @brief ODS segment: carries the run-length encoded bitmap of an object.
+ *
+ * A bitmap larger than the PGS payload limit is split into a sequence of
+ * ODS fragments (first/middle/last); a single-object display set uses the
+ * `single` flag.
+ */
 class ods_c : public pg_segment_c {
 public:
+    /// Position of this fragment within a split bitmap.
     enum class sequence_flags_e : uint8_t {
         first  = 0x80,
         last   = 0x40,
@@ -215,6 +264,7 @@ public:
     [[nodiscard]] std::vector<uint8_t> data() const;
     void set_data(const std::vector<uint8_t>& d);
 
+    /// Splits an RLE bitmap into ODS fragment(s) for the PGS payload limit.
     static std::vector<ods_c> from_scratch(uint16_t o_id, uint8_t o_vn,
                                              uint16_t width, uint16_t height,
                                              const std::vector<uint8_t>& rle_data,
@@ -222,6 +272,12 @@ public:
 };
 
 // ── ENDS: End of Display Set Segment ──
+/**
+ * @brief ENDS segment: marks the end of a display set.
+ *
+ * Every display set must close with ENDS; the decoder flushes its buffers
+ * when it arrives.
+ */
 class ends_c : public pg_segment_c {
 public:
     ends_c() = default;
@@ -230,6 +286,13 @@ public:
 };
 
 // ── Display Set ──
+/**
+ * @brief A display set: all segments shown at one composition time.
+ *
+ * The unit of PGS encoding. The encoder/optimizer work on collections of
+ * display sets (epochs); t_in()/t_out() bound how long this composition is
+ * displayed, which drives reuse decisions.
+ */
 class display_set_t {
 public:
     std::vector<std::shared_ptr<pg_segment_c>> segments;
@@ -237,19 +300,26 @@ public:
     display_set_t() = default;
     explicit display_set_t(std::vector<std::shared_ptr<pg_segment_c>> segs);
 
+    /// Re-serialize all segments (e.g. after editing a field).
     void update();
 
+    /// When this composition becomes visible, in seconds.
     [[nodiscard]] double t_in() const noexcept;
+    /// When this composition stops being visible, in seconds.
     [[nodiscard]] double t_out() const noexcept;
+    /// Presentation timestamp of the PCS segment.
     [[nodiscard]] double pts() const noexcept;
     void set_pts(double new_pts) noexcept;
 
+    /// The mandatory PCS segment (asserted present).
     [[nodiscard]] pcs_c& pcs();
+    /// The optional WDS segment (absent for reuse-only display sets).
     [[nodiscard]] std::optional<std::reference_wrapper<wds_c>> wds();
     [[nodiscard]] std::vector<std::shared_ptr<pds_c>> pds() const;
     [[nodiscard]] std::vector<std::shared_ptr<ods_c>> ods() const;
     [[nodiscard]] ends_c& end();
 
+    /// Parses a raw PGS byte stream into a display set.
     static display_set_t from_bytes(const std::vector<uint8_t>& data);
 };
 

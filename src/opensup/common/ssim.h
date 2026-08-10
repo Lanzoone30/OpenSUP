@@ -17,6 +17,7 @@
 namespace opensup {
 namespace common {
 
+/// Structural similarity between two images in [0..1] (1 = identical).
 class ssim_c {
 public:
     static double compare(const uint8_t* img1, const uint8_t* img2,

@@ -314,7 +314,6 @@ pcs_c pcs_c::from_scratch(uint16_t width, uint16_t height, uint8_t fps,
     seg.set_pts(pts);
     seg.set_dts(dts);
     seg.update_length();
-    // Re-parse cobjects
     seg.cobjects = cobjects_;
     return seg;
 }

@@ -29,6 +29,7 @@
 namespace opensup {
 namespace core {
 
+/// Outcome of a full encode run.
 struct encode_result_t {
     bool success = false;
     std::string error;
@@ -38,6 +39,7 @@ struct encode_result_t {
     int64_t duration_ms = 0;
 };
 
+/// Input parameters for a single encode run.
 struct encode_config_t {
     std::string input_path;
     std::string output_path;
@@ -59,6 +61,7 @@ struct encode_config_t {
     std::function<void(int, int, int)> progress_cb;
 };
 
+/// Worker that pulls epochs from a shared queue (used by bdn_render_c).
 class epoch_worker_c {
 public:
     epoch_worker_c(std::queue<epoch_job_t>& jobs,
@@ -67,6 +70,7 @@ public:
                    std::atomic<bool>& done,
                    double fps, int width, int height);
 
+    /// Consume queued epochs until the done flag is set.
     void operator()();
 
 private:
@@ -78,17 +82,25 @@ private:
     int m_width, m_height;
 };
 
+/**
+ * @brief Orchestrates a full BDN → SUP encode.
+ *
+ * Parses the BDN XML, renders epochs (optionally in parallel), and writes
+ * the resulting PGS segments.
+ */
 class bdn_render_c {
 public:
     explicit bdn_render_c(const encode_config_t& config);
 
+    /// Run the whole encode; result carries success and counters.
     encode_result_t execute();
 
+    /// Produced PGS segments (valid after execute()).
     [[nodiscard]] const std::vector<std::shared_ptr<pg_segment_c>>& segments() const noexcept {
         return m_segments;
     }
 
-    // Total reuse candidates detected across all epochs.
+    /// Total reuse candidates detected across all epochs.
     [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
 
 private:

@@ -19,11 +19,16 @@ class memory_c;
 
 using memory_cptr = std::shared_ptr<memory_c>;
 
+/// Reference-counted byte buffer (shared ownership via shared_ptr).
 class memory_c {
 public:
+    /// Allocate a new buffer of the given size (uninitialized).
     static memory_cptr alloc(size_t size);
+    /// Allocate and copy raw bytes into a new buffer.
     static memory_cptr clone(const uint8_t* data, size_t size);
+    /// Allocate and copy a vector into a new buffer.
     static memory_cptr clone(const std::vector<uint8_t>& data);
+    /// Wrap existing memory without taking ownership.
     static memory_cptr borrow(uint8_t* data, size_t size);
 
     memory_c(const memory_c&) = delete;
@@ -38,6 +43,7 @@ public:
     [[nodiscard]] uint8_t* get_buffer() noexcept { return m_data.get(); }
     [[nodiscard]] size_t get_size() const noexcept { return m_size; }
 
+    /// Copy the buffer contents into a heap vector.
     [[nodiscard]] std::vector<uint8_t> to_vector() const;
 
 private:

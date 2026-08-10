@@ -26,6 +26,7 @@ namespace opensup {
 namespace core {
 
 // ── BDN XML Event ──
+/// One subtitle event from the BDN XML (timing, geometry, image path).
 class bdn_xml_event_c {
 public:
     bdn_xml_event_c() = default;
@@ -60,9 +61,13 @@ private:
 };
 
 // ── BDN XML ──
+/**
+ * @brief Parsed BDN XML: events, fps, canvas size and image folder.
+ */
 class bdn_xml_c {
 public:
     bdn_xml_c() = default;
+    /// Parse a BDN XML file; throws parse_error_x on malformed input.
     bool parse(const std::string& filepath, bool ignore_resolution = false);
 
     [[nodiscard]] const std::vector<bdn_xml_event_c>& events() const noexcept { return m_events; }
@@ -71,6 +76,7 @@ public:
     [[nodiscard]] int height() const noexcept { return m_height; }
     [[nodiscard]] const std::string& folder() const noexcept { return m_folder; }
 
+    /// Group events into epochs; dt_split = max gap between events in one epoch.
     std::vector<std::vector<bdn_xml_event_c>> groups(double dt_split) const;
 
 private:
@@ -82,18 +88,25 @@ private:
 };
 
 // ── SUP File ──
+/// Reader/writer for .sup and .pes subtitle streams.
 class sup_file_c {
 public:
     explicit sup_file_c(const std::string& filepath);
 
+    /// Parse all PGS segments from the stream.
     std::vector<std::shared_ptr<pg_segment_c>> read_segments();
+    /// Parse segments and regroup them into display sets.
     std::vector<display_set_t> read_displaysets();
+    /// Detect frame rate from segment timing metadata.
     common::fps_e get_fps();
+    /// Canvas resolution (width, height) as declared by the stream.
     std::pair<int, int> get_video_format();
 
+    /// Serialize segments to a .sup file.
     static void write_sup(const std::string& path,
                            const std::vector<std::shared_ptr<pg_segment_c>>& segments);
 
+    /// Serialize segments to a .pes container (Blu-ray MUX ready).
     static void write_pes_mui(const std::string& pes_path,
                                const std::string& mui_path,
                                const std::vector<std::shared_ptr<pg_segment_c>>& segments);
