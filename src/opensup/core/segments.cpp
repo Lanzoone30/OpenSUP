@@ -1,14 +1,9 @@
 // Copyright (C) 2024-2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenSUP - PGS Subtitle Encoder for Blu-ray
-// Licensed under the GNU General Public License v3.0.
-// See LICENSE file for details.
+// OpenSUP - PGS Encoder
 //
-// Adapted from the design of SUPer by cubicibo
-// (https://github.com/cubicibo/SUPer), GPL-3.0-or-later.
-// Independently reimplemented in C++17; the original Python
-// implementation is available in Referencias/SUPer-main/.
+// Adapted from SUPer by cubicibo (https://github.com/cubicibo/SUPer), GPL-3.0-or-later.
 
 #include "opensup/pch.h"
 #include "opensup/core/segments.h"
