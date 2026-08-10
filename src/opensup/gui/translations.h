@@ -73,14 +73,10 @@ inline QString tr_str(const QString& key, Lang lang)
         {"abort",       {"ABORT", "ABORTAR"}},
 
         // -- Status messages --
-        {"starting",    {"Starting...", "Comenzando\u2026"}},
-        {"aborted",     {"Encoding aborted by user",
-                          "Codificaci\u00f3n abortada por el usuario"}},
+        {"starting",    {"Encoding.", "Codificando\u2026"}},
         {"done",        {"Done", "Listo"}},
         {"failed",      {"Encoding FAILED \u2013 see log for details",
                           "CODIFICACI\u00d3N FALLIDA \u2013 ver el registro"}},
-        {"failedShort", {"Adjust settings and retry",
-                          "Ajuste e int\u00e9ntelo de nuevo"}},
         {"abortedShort",{"Encoding Aborted", "Codificaci\u00f3n Abortada"}},
 
         // -- Theme --

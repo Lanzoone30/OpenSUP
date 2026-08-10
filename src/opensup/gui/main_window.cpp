@@ -32,17 +32,11 @@ MainWindow::MainWindow(QWidget* parent)
     auto icon_path = QApplication::applicationDirPath() + "/../../assets/OpenSup.ico";
     setWindowIcon(QIcon(icon_path));
 
-    // Fix left panel width so language toggle doesn't reflow layout
-    // configContainer max-width = 400 set in .ui
-    // wordWrap labels: fixed height (2 lines) so EN↔ES text length doesn't
-    // change the layout height when retranslateUi() runs.
     ui->lbl_bdn_file_2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     ui->lbl_bdn_file_2->setMinimumHeight(30);
     ui->lbl_output_file_2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     ui->lbl_output_file_2->setMinimumHeight(30);
 
-    // Center subtitle under the logo. retranslateUi() replaces the .ui HTML
-    // (which had align=center) with plain text, so set alignment explicitly.
     ui->lbl_subtitle->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
     connect(ui->cmb_language, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -56,7 +50,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     applyComboStyles();
 
-    // Restore saved language preference
     QSettings lang_s("OpenSUP", "OpenSUP");
     ui->cmb_language->setCurrentIndex(lang_s.value("language", 0).toInt());
 
@@ -70,14 +63,11 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->btn_copy_log_2, &QPushButton::clicked, this, &MainWindow::copy_log);
     connect(ui->btn_clear_log_2, &QPushButton::clicked, this, &MainWindow::clear_log);
 
-    // GUI interactions: prefer_normal -> allow_normal, both_formats -> full_palette
     connect(ui->chk_prefer_normal_2, &QCheckBox::toggled, this, &MainWindow::on_prefer_normal_changed);
     connect(ui->chk_both_formats_2, &QCheckBox::toggled, this, &MainWindow::on_both_formats_changed);
 
-    // Apply initial language strings
     retranslateUi();
 
-    // Lock left panel width wide enough for both EN and ES text
     ui->configContainer->setFixedWidth(220);
 }
 
@@ -200,6 +190,8 @@ void MainWindow::retranslateUi()
 
     // ---- Progress ----
     ui->grp_progress->setTitle(tr_str("progress", m_lang));
+    // The right side (lbl_eta_2) always shows only the ETA; state messages
+    // go on the left label, just below the "Progress" title.
     switch (m_encode_state) {
         case EncodeState::Idle:
             ui->lbl_progress_text_2->setText(tr_str("standingBy", m_lang));
@@ -209,11 +201,12 @@ void MainWindow::retranslateUi()
             break;
         case EncodeState::Done:
             ui->lbl_progress_text_2->setText(tr_str("done", m_lang));
-            ui->lbl_eta_2->setText(tr_str("done", m_lang));
+            break;
+        case EncodeState::Aborted:
+            ui->lbl_progress_text_2->setText(tr_str("abortedShort", m_lang));
             break;
         case EncodeState::Failed:
-            ui->lbl_progress_text_2->setText(tr_str("failedShort", m_lang));
-            ui->lbl_eta_2->setText(tr_str("failed", m_lang));
+            ui->lbl_progress_text_2->setText(tr_str("failed", m_lang));
             break;
     }
     ui->btn_encode_2->setText(tr_str("initEncode", m_lang));
@@ -242,8 +235,13 @@ void MainWindow::start_encode()
     m_encode_state = EncodeState::Running;
     ui->btn_encode_2->setEnabled(false);
     ui->btn_abort_2->setEnabled(true);
+    // Restore native style in case a previous run ended in the red aborted state.
+    ui->progress_bar_2->setStyleSheet("");
+    ui->progress_bar_2->setPalette(QPalette());
     ui->progress_bar_2->setValue(0);
-    ui->lbl_eta_2->setText(tr_str("starting", m_lang));
+    ui->lbl_progress_text_2->setText(tr_str("starting", m_lang));
+    // Right side shows only the ETA; reset it until the worker emits the first one.
+    ui->lbl_eta_2->setText("\u2014");
 
     auto cfg = opensup::core::encode_config_t{};
     cfg.input_path = m_input_path.toStdString();
@@ -286,9 +284,16 @@ void MainWindow::abort_encode()
     m_abort_flag.store(true);
     if (m_worker_thread && m_worker_thread->isRunning()) {
         m_worker_thread->requestInterruption();
-        ui->lbl_eta_2->setText(tr_str("aborted", m_lang));
         ui->btn_abort_2->setEnabled(false);
         ui->btn_encode_2->setEnabled(true);
+        // Turn the bar red to signal the run was interrupted. We tint the
+        // native Highlight color instead of using QSS, so Qt keeps drawing
+        // its own segments with the exact same width/spacing.
+        m_bar_aborted = true;
+        ui->lbl_progress_text_2->setText(tr_str("abortedShort", m_lang));
+        QPalette pal = ui->progress_bar_2->palette();
+        pal.setColor(QPalette::Highlight, QColor("#E5484D"));
+        ui->progress_bar_2->setPalette(pal);
         append_log("Encoding aborted by user.", 6);
     }
 }
@@ -306,6 +311,15 @@ void MainWindow::clear_log()
 {
     ui->txt_log_2->clear();
     ui->lbl_log_lines_2->setText(tr_str("logLines", m_lang).arg(0));
+    // Reset the progress bar to 0 and restore the native look (undoes the
+    // red aborted state if the last run was interrupted).
+    ui->progress_bar_2->setStyleSheet("");
+    ui->progress_bar_2->setPalette(QPalette());
+    ui->progress_bar_2->setValue(0);
+    m_encode_state = EncodeState::Idle;
+    ui->lbl_progress_text_2->setText(tr_str("standingBy", m_lang));
+    // Clear the ETA too; it will be filled again by the next run.
+    ui->lbl_eta_2->setText("\u2014");
 }
 
 void MainWindow::update_progress(int percent)
@@ -363,15 +377,36 @@ void MainWindow::encode_done(bool success)
     ui->btn_abort_2->setEnabled(false);
     ui->btn_encode_2->setEnabled(true);
 
+    // State messages live on the left label; the right side (lbl_eta_2)
+    // keeps showing only the ETA, so we never write status text into it.
+    const bool aborted = m_bar_aborted;
+    m_bar_aborted = false;
+
     if (success) {
         m_encode_state = EncodeState::Done;
         ui->progress_bar_2->setValue(100);
-        ui->lbl_eta_2->setText(tr_str("done", m_lang));
+        ui->lbl_progress_text_2->setText(tr_str("done", m_lang));
+    } else if (aborted) {
+        // Aborted: keep the bar where it stopped, red. Reset happens on
+        // clear_log() or the next start_encode().
+        m_encode_state = EncodeState::Aborted;
+        ui->lbl_progress_text_2->setText(tr_str("abortedShort", m_lang));
     } else {
         m_encode_state = EncodeState::Failed;
         ui->progress_bar_2->setValue(0);
-        ui->lbl_eta_2->setText(tr_str("failed", m_lang));
+        ui->lbl_progress_text_2->setText(tr_str("failed", m_lang));
     }
+
+    // Revert the status label to "Standing by" after a while, unless the
+    // user already started a new run or cleared the log.
+    QTimer::singleShot(12000, this, [this] {
+        if (m_encode_state == EncodeState::Failed
+            || m_encode_state == EncodeState::Done
+            || m_encode_state == EncodeState::Aborted) {
+            m_encode_state = EncodeState::Idle;
+            ui->lbl_progress_text_2->setText(tr_str("standingBy", m_lang));
+        }
+    });
 }
 
 void MainWindow::on_theme_changed(int index)
@@ -388,7 +423,6 @@ void MainWindow::onThemeChanged()
     for (const auto& entry : entries)
         append_log(entry.first, entry.second);
 
-    // Update log scrollbar colors for the current theme
     QString sbBg, sbHandle;
     if (m_theme->isDark()) {
         sbBg     = "#303544";
@@ -397,7 +431,6 @@ void MainWindow::onThemeChanged()
         sbBg     = "#E5E7EB";
         sbHandle = "#9CA3AF";
     }
-    // Preserve existing font/border styles + add scrollbar QSS
     ui->txt_log_2->setStyleSheet(
         QString("border: 1px solid; border-radius: 8px;"
                 "font-family: \"JetBrains Mono\", \"Consolas\", monospace;"
@@ -408,15 +441,8 @@ void MainWindow::onThemeChanged()
                 "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }")
         .arg(sbBg, sbHandle));
 
-    // Progress bar: green chunk (classic Windows look), theme-aware track.
-    // Without this QSS the bar inherits the palette's blue Highlight.
-    QString pbBg = m_theme->isDark() ? "#303544" : "#E5E7EB";
-    ui->progress_bar_2->setStyleSheet(
-        QString("QProgressBar { border: none; border-radius: 4px; background: %1; }"
-                "QProgressBar::chunk { border-radius: 4px; background: #22C55E; }")
-        .arg(pbBg));
+    // Progress bar: default native rendering (as in the original UI file).
 
-    // Update combo box theme-aware styling
     applyComboStyles();
 }
 

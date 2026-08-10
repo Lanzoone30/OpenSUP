@@ -24,7 +24,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
-enum class EncodeState { Idle, Running, Done, Failed };
+enum class EncodeState { Idle, Running, Done, Aborted, Failed };
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -67,4 +67,5 @@ private:
     QThread* m_worker_thread = nullptr;
     QVector<QPair<QString, int>> m_log_entries;
     std::atomic<bool> m_abort_flag{false};
+    bool m_bar_aborted = false; // true while the bar shows the red aborted state
 };
