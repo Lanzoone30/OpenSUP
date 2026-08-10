@@ -9,6 +9,7 @@
 
 #include <QString>
 #include <QHash>
+#include "opensup/version.h"
 
 enum class Lang { EN, ES };
 
@@ -20,8 +21,8 @@ inline QString tr_str(const QString& key, Lang lang)
         // -- Header --
 {"subtitle",    {"PGS Subtitle Encoder",
                           "PGS Subtitle Encoder"}},
-        {"windowTitle", {"OpenSUP v1.0.0",
-                         "OpenSUP v1.0.0"}},
+        {"windowTitle", {"OpenSUP v" OPENSUP_VERSION_STRING,
+                         "OpenSUP v" OPENSUP_VERSION_STRING}},
 
         // -- Project Scope --
         {"projectScope",{"Project Scope", "Proyecto"}},

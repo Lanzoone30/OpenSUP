@@ -7,6 +7,7 @@
 
 #include "opensup/pch.h"
 #include "opensup/cli/cli_parser.h"
+#include "opensup/version.h"
 
 #include <CLI/CLI.hpp>
 #include <iostream>
@@ -68,7 +69,7 @@ parse_args(int argc, char** argv)
     app.add_option("--redraw-period", opts.redraw_period,
                     "Periodic redraw in seconds (0 = disable)");
 
-    app.set_version_flag("-v,--version", "OpenSUP v1.0.0");
+    app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
 
     try {
         app.parse(argc, argv);

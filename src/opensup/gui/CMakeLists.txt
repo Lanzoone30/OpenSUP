@@ -26,6 +26,7 @@ target_include_directories(OpenSUP
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/OpenSUP_autogen/include
+    ${CMAKE_BINARY_DIR}
 )
 
 if(MINGW)

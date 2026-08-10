@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(OpenSUP
-  VERSION 1.0.0
+  VERSION 1.1.0
   DESCRIPTION "PGS subtitle encoder for Blu-ray"
   LANGUAGES CXX C
 )
+
+# Generate opensup/version.h from the single source of truth above.
+configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/opensup/version.h @ONLY)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

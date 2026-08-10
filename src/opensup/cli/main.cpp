@@ -9,6 +9,7 @@
 #include "opensup/cli/cli_parser.h"
 #include "opensup/core/interface.h"
 #include "opensup/common/logger.h"
+#include "opensup/version.h"
 
 #include <iostream>
 #include <filesystem>
@@ -29,10 +30,9 @@ main(int argc, char** argv)
 
     auto config = cli::options_to_config(opts);
 
-    // Set log level
     common::logger_c::instance().set_level(common::log_level_e::info);
 
-    std::cout << "OpenSUP v1.0.0 - HDMV PGS encoder" << std::endl;
+    std::cout << "OpenSUP v" << OPENSUP_VERSION_STRING << " - HDMV PGS encoder" << std::endl;
     std::cout << "Input:  " << config.input_path << std::endl;
     std::cout << "Output: " << config.output_path << std::endl;
 
