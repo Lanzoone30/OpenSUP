@@ -6,7 +6,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-blue?style=flat-square)]()
 [![License](https://img.shields.io/badge/license-GPLv3-green?style=flat-square)]()
 [![Platform](https://img.shields.io/badge/platform-windows-666666?style=flat-square)]()
 
@@ -16,11 +16,11 @@
 
 ## Overview
 
-OpenSUP converts **BDN XML** subtitle files — images included — into **PGS** (Presentation Graphic Stream) subtitles for Blu-ray. It produces compliant **.sup** streams, and **.pes/.mui** when needed, ready for the authoring stage.
+OpenSUP converts **BDN XML** subtitle files — images included — into **PGS** (Presentation Graphic Stream) subtitles for Blu-ray. It produces compliant **.sup** streams, and **.pes/.mui** when needed.
 
-Designed for Blu-ray authors and subtitle encoders who work with BDN XML workflows, OpenSUP combines a simple, bilingual GUI with a full-featured command line interface. The engine handles the whole process in a single run: parsing the XML, loading the embedded images, quantizing colors, and assembling the final stream.
+The engine handles the whole process in a single run: parsing the XML, loading the embedded images, quantizing colors, and assembling the final stream. A bilingual GUI and a full-featured CLI share the same pipeline.
 
-Built on [SUPer](https://github.com/cubicibo/SUPer) by cubicibo, rewritten from Python to C++17 for performance and reliability.
+Rewritten from [SUPer](https://github.com/cubicibo/SUPer) by cubicibo, Python to C++17.
 
 ---
 
@@ -33,10 +33,8 @@ Built on [SUPer](https://github.com/cubicibo/SUPer) by cubicibo, rewritten from 
 - **Easy to use** — pick your subtitle file, choose a destination, press ENCODE
 - **Dark / Light / System themes** — match your preference
 - **English and Spanish** — switch languages at any time
-- **Live progress** — progress bar and time remaining, abort whenever you want
 - **Activity log** — see every step with color-coded results; copy or clear it
 - **Command line support** — for scripting and batch jobs
-- **Remembers your settings** — theme and language persist between sessions
 
 ---
 
@@ -77,7 +75,7 @@ Windows builds are available on the [Releases](https://github.com/Lanzoone30/Ope
 
 | Checkbox                         | Function                                                                                                                                                                                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Allow Normal Case**            | Updates only one of the two PGS composition objects when there is not enough time to update both. Exploits the PG object buffer as intended by the format designers. Stream shall NOT be Built or Rebuilt at the authoring stage.                                                                      |
+| **Allow Normal Case**            | Updates only one of the two PGS composition objects when there is not enough time to update both. Exploits the PG object buffer. Stream shall NOT be Built or Rebuilt at the authoring stage.                                                                                                          |
 | **Prefer Normal Case**           | Updates only one of the two compositions even when decode time is sufficient to refresh both. Can reduce the bitrate, but the palette is not shared across composition objects when it occurs. Checking it forces **Allow Normal Case** on and locks it.                                               |
 | **Write Full Palette**           | Uses the full 256-entry palette instead of an optimized subset when there are too many colors. May improve quality in rare cases at the cost of a larger output.                                                                                                                                       |
 | **Both SUP + PES/MUI**           | Also exports a .pes/.mui file alongside the .sup file in a single run.                                                                                                                                                                                                                                 |
@@ -131,12 +129,14 @@ src/opensup/
 ├── common/             Shared utilities
 │   ├── bdvideo         Blu-ray video formats and frame rates
 │   ├── color_matrix    BT.601 / BT.709 / BT.2020 YCbCr conversion
+│   ├── error           Exception hierarchy
 │   ├── geometry        Box and window helpers
 │   ├── logger          Logging facility
 │   ├── memory          Memory helpers
 │   ├── ssim            SSIM comparison
 │   └── timecode        Timecode / PTS helpers
 ├── media/              PGS media layer
+│   ├── hextree_impl    HexTree quantizer core (ported from brule, MIT)
 │   ├── palette         Palette and palette-entry handling
 │   ├── pgraphics       PGS graphics (RLE encode/decode, object buffer)
 │   ├── pgstream        PGS stream timing and buffering
@@ -147,7 +147,7 @@ src/opensup/
 │   ├── segments        PGS segment types (PCS, WDS, PDS, ODS, ENDS)
 │   └── interface       Encode pipeline orchestration (bdn_render_c)
 ├── cli/                CLI entry point (CLI11)
-├── gui/                Qt6 GUI (main window, worker, theme, translations)
+├── gui/                Qt6 GUI (main window, worker, log handler, theme, translations)
 └── pch.h               Precompiled header
 ```
 
