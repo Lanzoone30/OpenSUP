@@ -53,3 +53,4 @@ docs/
 .github/
 extern/
 build/
+CHANGELOG.md
