@@ -7,7 +7,7 @@
 
 #pragma once
 
-// ponytail: SSIM wrapper stub — full implementation requires OpenCV/SSIM-PIL dependency.
+// TODO: SSIM wrapper stub — full implementation requires OpenCV/SSIM-PIL dependency.
 // Add when SSIM-based scene detection is needed in the encoder pipeline.
 namespace opensup {
 namespace common {

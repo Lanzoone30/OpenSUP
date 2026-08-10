@@ -360,7 +360,7 @@ palette_manager_t::palette_manager_t() {}
 std::optional<int>
 palette_manager_t::get_palette(double dts)
 {
-    // ponytail: linear scan of 8 entries, trivial
+    // linear scan of 8 entries, trivial
     auto* best = static_cast<decltype(m_palettes.data())>(nullptr);
     int best_v = INT32_MAX;
 

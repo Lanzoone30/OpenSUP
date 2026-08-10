@@ -68,7 +68,7 @@ leaky_buffer_c::step(const core::pg_segment_c& segment)
 void
 leaky_buffer_c::set_bitrate(int size_ds, uint32_t curr_ts, uint32_t /*prev_ts*/)
 {
-    uint32_t dticks = 1; // ponytail: minimal delta
+    uint32_t dticks = 1; // minimal delta
     if (dticks > 0) {
         double rate = static_cast<double>(size_ds) * pg_decoder_t::FREQ / static_cast<double>(dticks);
         if (rate >= m_stats.maxrate) {

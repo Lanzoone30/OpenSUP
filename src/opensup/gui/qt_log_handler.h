@@ -7,7 +7,7 @@
 
 #include <QObject>
 
-// ponytail: simple bridge from logger_c → Qt signals.
+// simple bridge from logger_c → Qt signals.
 // Full-featured handler with level filtering if needed later.
 class qt_log_handler_c : public QObject {
     Q_OBJECT

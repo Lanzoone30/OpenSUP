@@ -61,7 +61,7 @@ palette_entry_t::to_rgba(std::string_view matrix) const
     int a = static_cast<int>(alpha);
 
     return palette_entry_t(clip_rgba(b), clip_rgba(g), clip_rgba(r), clip_rgba(a));
-    // ponytail: BGR order from matrix math matches Python's RGBA namedtuple
+    // BGR order from matrix math matches Python's RGBA namedtuple
 }
 
 palette_entry_t

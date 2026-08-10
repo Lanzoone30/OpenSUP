@@ -23,21 +23,15 @@ namespace opensup {
 namespace media {
 
 // ── RLE Codec ──
-/// Encode an indexed bitmap to PGS run-length format.
 std::vector<uint8_t> encode_rle(const std::vector<uint8_t>& bitmap, int width, int height);
-/// Decode a PGS run-length payload back to an indexed bitmap.
 std::vector<uint8_t> decode_rle(const std::vector<uint8_t>& data, int width, int height);
-/// Expand an indexed bitmap to RGBA using the given palette (for rendering).
 std::vector<uint8_t> bitmap_to_rgba(const std::vector<uint8_t>& indexed,
                                      const palette_t& palette, int width, int height);
 
 // ── PGDecoder Timing Constants ──
 /**
  * @brief Timing constants of a nominal PGS decoder.
- *
- * These model the buffering and rendering delays defined by the Blu-ray
- * spec (receive, decode and composition rates). The optimizer uses them to
- * predict whether a display set can be decoded in time.
+ * Used by the optimizer to predict whether a display set can be decoded in time.
  */
 struct pg_decoder_t {
     static constexpr double RX = 2e6;
@@ -54,10 +48,8 @@ struct pg_decoder_t {
 // ── Prospective Object ──
 /**
  * @brief An object being considered for reuse across frames.
- *
- * Tracks, per frame, whether the object is present and visible, and how far
- * it may extend into the future (ext_range). The optimizer builds these to
- * find objects that can stay in the decoder buffer instead of being resent.
+ * Tracks per frame whether the object is present/visible and how far it may
+ * extend into the future, so the optimizer can keep it in the decoder buffer.
  */
 struct prospective_object_t {
     int first_frame;
@@ -79,9 +71,8 @@ struct prospective_object_t {
 // ── Buffer Slot ──
 /**
  * @brief One decoded-object slot in the PG object buffer.
- *
- * A slot holds a decoded bitmap while it can be referenced by future
- * display sets; lock_until() prevents overwriting it while in use.
+ * lock_until() prevents overwriting the bitmap while referenced by future
+ * display sets.
  */
 struct buffer_slot_t {
     int width  = 0;
@@ -101,10 +92,7 @@ struct buffer_slot_t {
 // ── PG Object Buffer ──
 /**
  * @brief Bounded buffer of decoded objects, mirroring the decoder.
- *
- * The Blu-ray decoder has a fixed decoded-object buffer (DECODED_BUF_SIZE);
- * the optimizer reserves slots here so the stream never asks the decoder
- * for more memory than the spec allows.
+ * Keeps the stream within the decoder's fixed decoded-object buffer size.
  */
 class pg_object_buffer_t {
 public:
@@ -132,10 +120,7 @@ private:
 // ── PG Palette (versioned palette) ──
 /**
  * @brief Palette with decoder-side version and lock timing.
- *
- * Decoders cache palettes by (id, version); bumping the version forces a
- * reload. writable_at() tells whether the palette may be replaced at a
- * given decode time.
+ * Bumping the version forces decoders to reload the palette.
  */
 class pg_palette_c : public palette_t {
 public:
@@ -152,10 +137,7 @@ public:
 // ── Palette Manager ──
 /**
  * @brief Manages the pool of decoder palette slots.
- *
- * Assigns a palette slot per display set, reusing a slot whose previous
- * palette is no longer needed (writable_at) and forcing a version bump
- * when contents change.
+ * Reuses slots whose palette is no longer needed and bumps versions on change.
  */
 class palette_manager_t {
 public:

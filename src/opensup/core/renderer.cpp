@@ -33,7 +33,7 @@ ctu_result_t
 compare_tiles(const uint8_t* a, const uint8_t* b,
                int width, int height, int stride)
 {
-    // ponytail: simple pixel-by-pixel diff, O(n). Upgrade to hierarchical CTU if hot.
+    // simple pixel-by-pixel diff, O(n). Upgrade to hierarchical CTU if hot.
     int min_x = width, min_y = height, max_x = 0, max_y = 0;
     bool identical = true;
 
@@ -64,7 +64,7 @@ window_analysis_t
 window_analyzer_c::analyze(const uint8_t* prev, const uint8_t* curr,
                             int width, int height, const common::box_t& window)
 {
-    // ponytail: pixel-diff based detection, SSIM stub. Replace with real SSIM when OpenCV is available.
+    // pixel-diff based detection, SSIM stub. Replace with real SSIM when OpenCV is available.
     auto stride = static_cast<size_t>(width) * 4;
     auto result = compare_tiles(prev, curr, width, height, static_cast<int>(stride));
     return {window, !result.identical, result.identical ? 1.0 : 0.95};
@@ -210,7 +210,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
 
-    // ponytail: SSIM and drought algorithm disabled — always emit full acquisition.
+    // TODO: SSIM and drought algorithm disabled — always emit full acquisition.
     // The decoder requires ODS for every event to display fresh pixel data.
     // Re-enable when real SSIM (not pixel-diff stub) and palette chain pre-computation
     // are implemented, matching SUPer Optimise.solve_and_remap.

@@ -33,7 +33,7 @@ epoch_worker_c::epoch_worker_c(std::queue<epoch_job_t>& jobs,
 void
 epoch_worker_c::operator()()
 {
-    // ponytail: single-thread encoding per worker, fine for <100 epochs
+    // single-thread encoding per worker, fine for <100 epochs
     epoch_encoder_c encoder(m_fps, m_width, m_height);
 
     while (true) {
@@ -52,7 +52,7 @@ epoch_worker_c::operator()()
         auto segments = encoder.encode_epoch(job.events, job.redraw_flags,
                                                job.fps, job.palette_base);
         // segments are accumulated by the caller
-        // ponytail: direct accumulation, no return queue needed for single-thread debug
+        // direct accumulation, no return queue needed for single-thread debug
     }
 }
 

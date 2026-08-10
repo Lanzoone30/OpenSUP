@@ -31,7 +31,7 @@ int32_t
 fps_e::to_pcsfps() const noexcept
 {
     double rfps = std::round(to_double() * 100.0) / 100.0;
-    // ponytail: linear scan of 7 entries, cache if measured hot
+    // linear scan of 7 entries, cache if measured hot
     for (const auto& [fps, pcs] : s_pcs_lut) {
         if (std::abs(rfps - fps) < 0.01)
             return pcs;
@@ -52,7 +52,7 @@ fps_e::from_pcsfps(int32_t pcsfps)
 fps_e
 fps_e::from_double(double fps)
 {
-    // ponytail: find nearest match within 0.07 tolerance
+    // find nearest match within 0.07 tolerance
     static constexpr std::array<std::pair<double, fps_e>, 7> s_fps_list = {{
         {24000.0/1001.0, fps_e(fps_e::film_ntsc)},
         {24.0,           fps_e(fps_e::film)},

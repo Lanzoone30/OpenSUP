@@ -630,7 +630,7 @@ ends_c& display_set_t::end() {
 }
 
 display_set_t display_set_t::from_bytes(const std::vector<uint8_t>& data) {
-    // ponytail: naive single-pass splitter, works for valid streams
+    // naive single-pass splitter, works for valid streams
     std::vector<uint8_t> remaining = data;
     std::vector<std::shared_ptr<pg_segment_c>> segs;
 

@@ -157,7 +157,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         auto graphic = event_node.child("Graphic");
         if (!graphic) continue;
 
-        // ponytail: use first Graphic's box, multi-Graphic events deferred
+        // use first Graphic's box, multi-Graphic events deferred
         int gx = graphic.attribute("X").as_int(0);
         int gy = graphic.attribute("Y").as_int(0);
         int gw = graphic.attribute("Width").as_int(0);
@@ -168,7 +168,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
         // Parse TC strings → seconds
         auto tc_to_sec = [this](const std::string& tc) -> double {
-            // ponytail: HH:MM:SS:FF format
+            // HH:MM:SS:FF format
             int h = 0, m = 0, s = 0, f = 0;
             std::sscanf(tc.c_str(), "%d:%d:%d:%d", &h, &m, &s, &f);
             return static_cast<double>(h * 3600 + m * 60 + s) +
@@ -288,7 +288,7 @@ sup_file_c::write_sup(const std::string& path,
 }
 
 // ── PES/MUI Writer ──
-// ponytail: PES strips 13-byte PG header, MUI stores timestamps in 54MHz custom format
+// PES strips 13-byte PG header, MUI stores timestamps in 54MHz custom format
 static constexpr uint64_t MUI_TS_OFFSET = 54'000'000;
 
 void
@@ -366,7 +366,7 @@ remove_dupes(std::vector<bdn_xml_event_c>& events)
         bool same_shape = (next.width() == prev.width() && next.height() == prev.height());
 
         if (same_pos && same_shape) {
-            // ponytail: simple dupe check without full pixel comparison
+            // simple dupe check without full pixel comparison
             result.back().set_tc_out(next.tc_out());
         } else {
             result.push_back(next);
