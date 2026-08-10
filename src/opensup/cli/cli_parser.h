@@ -14,6 +14,7 @@
 namespace opensup {
 namespace cli {
 
+/// CLI options parsed from argv; consumed by options_to_config().
 struct cli_options_t {
     std::string input_path;
     std::string output_path;
@@ -32,7 +33,14 @@ struct cli_options_t {
     double redraw_period = 0.0;
 };
 
+/**
+ * @brief Parse command-line arguments into cli_options_t.
+ *
+ * Exits with a usage message on unknown flags or missing input.
+ */
 cli_options_t parse_args(int argc, char** argv);
+
+/// Translate CLI options into the core encoding configuration.
 core::encode_config_t options_to_config(const cli_options_t& opts);
 
 } // namespace cli

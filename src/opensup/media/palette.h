@@ -22,6 +22,12 @@
 namespace opensup {
 namespace media {
 
+/**
+ * @brief One palette entry: a YCbCr color plus alpha channel.
+ *
+ * PGS palettes are stored in YCbCr, so conversions to/from RGBA go through
+ * the selected color matrix (default bt709). Fields are the raw PGS values.
+ */
 struct palette_entry_t {
     uint8_t y     = 16;
     uint8_t cr    = 128;
@@ -32,10 +38,13 @@ struct palette_entry_t {
     palette_entry_t(uint8_t y_, uint8_t cr_, uint8_t cb_, uint8_t alpha_)
         : y(y_), cr(cr_), cb(cb_), alpha(alpha_) {}
 
+    /// Convert to RGBA using the given YCbCr matrix.
     [[nodiscard]] palette_entry_t to_rgba(std::string_view matrix = "bt709") const;
+    /// Convert from RGBA using the given YCbCr matrix.
     static palette_entry_t from_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a,
                                       std::string_view matrix = "bt709");
 
+    /// Serialize as 4 raw PGS bytes (Y, Cr, Cb, alpha).
     [[nodiscard]] std::array<uint8_t, 4> to_bytes() const noexcept;
     static palette_entry_t from_bytes(const uint8_t* data);
 
@@ -43,6 +52,13 @@ struct palette_entry_t {
     bool operator!=(const palette_entry_t& other) const noexcept { return !(*this == other); }
 };
 
+/**
+ * @brief Indexed color palette (PGS palette definition).
+ *
+ * Maps 8-bit indices to palette entries, exactly as a PDS segment stores
+ * them. diff() lets the optimizer decide whether a palette really changed
+ * between display sets before re-sending it.
+ */
 class palette_t {
 public:
     palette_t() = default;
@@ -55,13 +71,16 @@ public:
     void remove(uint8_t index);
     void clear() noexcept { m_entries.clear(); }
 
+    /// Shift all palette indices by delta (used when merging palettes).
     void offset(int delta);
 
     [[nodiscard]] size_t size() const noexcept { return m_entries.size(); }
     [[nodiscard]] bool empty() const noexcept { return m_entries.empty(); }
 
+    /// Palette entries present only in `other` (i.e. actually changed).
     [[nodiscard]] palette_t diff(const palette_t& other) const;
 
+    /// Serialize as PDS palette entries (index + 4 color bytes each).
     [[nodiscard]] std::vector<uint8_t> to_bytes() const;
     static palette_t from_bytes(const uint8_t* data, size_t length);
 
