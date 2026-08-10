@@ -5,12 +5,12 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file for details.
 //
-// Quantization backends: libimagequant (GPL-3.0-or-later) and an
-// independently implemented octree quantizer inspired by the
-// HexTree approach used in SUPer's brule library.
+// Quantization backends: libimagequant (GPL-3.0-or-later) and the
+// HexTree quantizer from cubicibo/brule (MIT, ported in hextree_impl.cpp).
 
 #include "opensup/pch.h"
 #include "opensup/media/optimizer.h"
+#include "opensup/media/hextree_impl.h"
 #include "opensup/common/logger.h"
 
 #include <cmath>
@@ -40,7 +40,9 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
     }
 
     liq_set_max_colors(handle, max_colors);
-    liq_set_quality(handle, 0, 100);
+    // Never degrade below 90% quality (defaults to 0-100 which can wreck
+    // text palettes); keep dithering gentle for subtitles.
+    liq_set_quality(handle, 90, 100);
 
     liq_image* img = liq_image_create_rgba(handle, rgba.data(), width, height, 0);
     if (!img) {
@@ -56,8 +58,8 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
         logger_c::instance().error("libimagequant quantization failed");
         return result;
     }
+    liq_set_dithering_level(quant_result, 0.3f);
 
-    // Get palette
     const liq_palette* pal = liq_get_palette(quant_result);
     for (int i = 0; i < static_cast<int>(pal->count); i++) {
         auto& e = pal->entries[i];
@@ -66,7 +68,6 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
     }
     auto pal_count = pal->count;  // save before destroy (use-after-free on MinGW)
 
-    // Get indexed pixels
     auto w = static_cast<size_t>(width);
     auto h = static_cast<size_t>(height);
     std::vector<uint8_t> indexed(w * h);
@@ -85,122 +86,36 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
                                 std::to_string(pal_count) + " colors");
     return result;
 }
-
-// ── HexTree backend (stdlib-based fallback) ──
-// ponytail: simple octree-based color quantizer, O(n) per pixel.
-// Replace with full brule HexTree port if quality matters.
-
-struct octree_node_t {
-    int r_sum = 0, g_sum = 0, b_sum = 0, a_sum = 0;
-    int pixel_count = 0;
-    int level = 0;
-    octree_node_t* children[8] = {};
-    bool leaf = true;
-
-    ~octree_node_t() {
-        for (auto* c : children) delete c;
-    }
-};
-
-static void
-octree_add(octree_node_t* node, uint8_t r, uint8_t g, uint8_t b, uint8_t a, int level)
-{
-    if (level > 7) {
-        node->r_sum += r;
-        node->g_sum += g;
-        node->b_sum += b;
-        node->a_sum += a;
-        node->pixel_count++;
-        return;
-    }
-    int idx = ((r >> (7 - level)) & 1) << 2 |
-              ((g >> (7 - level)) & 1) << 1 |
-              ((b >> (7 - level)) & 1);
-    if (!node->children[idx]) {
-        node->children[idx] = new octree_node_t();
-        node->children[idx]->level = level + 1;
-        node->leaf = false;
-    }
-    octree_add(node->children[idx], r, g, b, a, level + 1);
-}
-
-static int
-octree_collect_leaves(octree_node_t* node,
-                       std::vector<std::pair<uint8_t, palette_entry_t>>& palette_out)
-{
-    if (node->leaf) {
-        if (node->pixel_count > 0) {
-            auto idx = static_cast<uint8_t>(palette_out.size());
-            palette_out.emplace_back(idx, palette_entry_t::from_rgba(
-                static_cast<uint8_t>(node->r_sum / node->pixel_count),
-                static_cast<uint8_t>(node->g_sum / node->pixel_count),
-                static_cast<uint8_t>(node->b_sum / node->pixel_count),
-                static_cast<uint8_t>(node->a_sum / node->pixel_count)));
-        }
-        return 1;
-    }
-    int count = 0;
-    for (int i = 0; i < 8; i++) {
-        if (node->children[i])
-            count += octree_collect_leaves(node->children[i], palette_out);
-    }
-    return count;
-}
-
-// ponytail: octree pixel mapping done in hextree_t::quantize via nearest-color search
-
+// ── HexTree backend (ported from cubicibo/brule, see hextree_impl.cpp) ──
 
 quantize_result_t
 hextree_t::quantize(const std::vector<uint8_t>& rgba,
-                     int width, int height, int /*max_colors*/)
+                    int width, int /*height*/, int max_colors)
 {
     quantize_result_t result;
-    octree_node_t root;
 
-    auto w = static_cast<size_t>(width);
-    auto h = static_cast<size_t>(height);
-    size_t total = w * h;
-    for (size_t i = 0; i < total; i++) {
-        octree_add(&root, rgba[i * 4], rgba[i * 4 + 1],
-                    rgba[i * 4 + 2], rgba[i * 4 + 3], 0);
+    std::vector<uint8_t> palette_bytes;
+    std::vector<uint8_t> indexed;
+    int pal_count = 0;
+    if (!hextree_quantize_core(rgba.data(), rgba.size() / 4,
+                               static_cast<uint32_t>(width), max_colors,
+                               palette_bytes, indexed, pal_count)) {
+        logger_c::instance().error("HexTree quantization failed");
+        return result;
     }
 
-    std::vector<std::pair<uint8_t, palette_entry_t>> pal_entries;
-    int n_colors = octree_collect_leaves(&root, pal_entries);
-
-    for (auto& [idx, entry] : pal_entries) {
-        result.palette.set(idx, entry);
+    for (int i = 0; i < pal_count; i++) {
+        result.palette.set(static_cast<uint8_t>(i),
+                           palette_entry_t::from_rgba(
+                               palette_bytes[static_cast<size_t>(i) * 4],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 1],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 2],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 3]));
     }
-
-    // Map pixels to nearest palette entry
-    std::vector<uint8_t> indexed(total, 0);
-    auto pal_rgba = result.palette.to_bytes();
-
-    for (size_t i = 0; i < total; i++) {
-        uint8_t r = rgba[i * 4], g = rgba[i * 4 + 1];
-        uint8_t b = rgba[i * 4 + 2], a = rgba[i * 4 + 3];
-        uint8_t best_idx = 0;
-        int best_dist = INT32_MAX;
-
-        for (auto& [idx, entry] : pal_entries) {
-            auto e_rgba = entry.to_rgba();
-            // to_rgba returns {y=B, cr=G, cb=R, alpha=A}
-            int dr = static_cast<int>(r) - static_cast<int>(e_rgba.cb);
-            int dg = static_cast<int>(g) - static_cast<int>(e_rgba.cr);
-            int db = static_cast<int>(b) - static_cast<int>(e_rgba.y);
-            int da = static_cast<int>(a) - static_cast<int>(e_rgba.alpha);
-            int dist = dr * dr + dg * dg + db * db + da * da;
-            if (dist < best_dist) {
-                best_dist = dist;
-                best_idx = idx;
-            }
-        }
-        indexed[i] = best_idx;
-    }
-
     result.indexed = std::move(indexed);
-    logger_c::instance().log(common::log_level_e::hdebug, "HexTree: " +
-                                std::to_string(n_colors) + " colors");
+
+    logger_c::instance().log(common::log_level_e::hdebug,
+                             "HexTree: " + std::to_string(pal_count) + " colors");
     return result;
 }
 
