@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>OpenSUP</title>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header (Qt replica: vLines + brand stack + control combos) ── -->
+  <header class="header">
+    <div class="vline"></div>
+    <div class="brand">
+      <div class="brand-top-line"></div>
+      <img id="logo" alt="OpenSUP" src="./src/assets/images/logo.png" />
+      <span class="subtitle" data-i18n="subtitle">PGS Subtitle Encoder</span>
+    </div>
+    <div class="vline"></div>
+    <div class="header-controls">
+      <div class="seg" data-target="cmb_language" role="group" title="Interface Language / Idioma de interfaz">
+        <button type="button" class="seg-btn active" data-val="0">EN</button>
+        <button type="button" class="seg-btn" data-val="1">ES</button>
+      </div>
+      <select id="cmb_language" class="seg-source" aria-hidden="true" tabindex="-1">
+        <option value="0">EN</option>
+        <option value="1">ES</option>
+      </select>
+
+      <div class="seg" data-target="cmb_theme" role="group" title="Theme / Tema">
+        <button type="button" class="seg-btn active" data-val="0" data-i18n="themeSystem">System</button>
+        <button type="button" class="seg-btn" data-val="1" data-i18n="themeLight">Light</button>
+        <button type="button" class="seg-btn" data-val="2" data-i18n="themeDark">Dark</button>
+      </div>
+      <select id="cmb_theme" class="seg-source" aria-hidden="true" tabindex="-1">
+        <option value="0">System</option>
+        <option value="1">Light</option>
+        <option value="2">Dark</option>
+      </select>
+    </div>
+  </header>
+  <div class="header-separator"></div>
+
+  <!-- ── Content splitter (Qt replica: config left, monitoring right) ── -->
+  <div class="main-grid">
+
+    <!-- ── Left column: config container (~400px) ── -->
+    <section class="controls">
+
+      <!-- Project Scope -->
+      <div class="card">
+        <h2 class="card-title" data-i18n="projectScope">Project Scope</h2>
+        <div class="drop-zone" data-drop="bdn" title="Drag & drop a BDN XML file here">
+          <button id="btn_select_bdn" class="btn btn-secondary" data-i18n="selectBdn">Select BDN XML</button>
+          <span id="lbl_bdn_file" class="file-label" data-i18n="noFile">No file selected</span>
+        </div>
+        <button id="btn_set_output" class="btn btn-secondary" data-i18n="setOutput">Set SUP Output</button>
+        <span id="lbl_output_file" class="file-label" data-i18n="destNotSet">Destination not set</span>
+      </div>
+
+      <!-- Parameters -->
+      <div class="card">
+        <h2 class="card-title" data-i18n="parameters">Parameters</h2>
+        <div class="param-row">
+          <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color Space</label>
+          <select id="combo_colorspace">
+            <option value="bt709">BT.709</option>
+            <option value="bt601">BT.601</option>
+            <option value="bt2020">BT.2020</option>
+          </select>
+        </div>
+        <div class="param-row">
+          <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
+          <select id="combo_quantizer">
+            <option value="0">libimagequant</option>
+            <option value="1">HexTree</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Engine Options -->
+      <div class="card">
+        <h2 class="card-title" data-i18n="engineOpts">Engine Options</h2>
+        <div class="check-list">
+          <label class="check">
+            <input type="checkbox" id="chk_allow_normal"/>
+            <span data-i18n="allowNormal">Allow Normal Case</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_prefer_normal"/>
+            <span data-i18n="preferNormal">Prefer Normal Case</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_full_palette"/>
+            <span data-i18n="fullPalette">Write Full Palette</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_both_formats"/>
+            <span data-i18n="bothFormats">Both SUP + PES/MUI</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_overlap"/>
+            <span data-i18n="overlapBuf">Overlap Buffering</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_ignore_res"/>
+            <span data-i18n="ignoreRes">Ignore Resolution Validation</span>
+          </label>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── Right column: monitoring panel (log + progress + actions) ── -->
+    <section class="log-panel">
+
+      <div class="log-card">
+        <div class="log-header">
+          <span class="log-title" data-i18n="activityLog">ACTIVITY LOG</span>
+          <span id="lbl_log_lines" class="log-count">[0 lines]</span>
+          <div class="log-buttons">
+            <button id="btn_copy_log" class="btn btn-ghost" data-i18n="copy">Copy</button>
+            <button id="btn_clear_log" class="btn btn-ghost" data-i18n="clear">Clear</button>
+          </div>
+        </div>
+        <div id="txt_log" class="log-area" data-empty="No activity yet. Select a file and press ENCODE to begin.">
+        </div>
+      </div>
+
+      <!-- Progress group -->
+      <div class="card card-progress">
+        <h2 class="card-title" data-i18n="progress">Progress</h2>
+        <div class="progress-info">
+          <span id="lbl_progress_text" data-i18n="standingBy">Standing by</span>
+          <span id="lbl_eta" class="eta">—</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress_fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Action row -->
+      <div class="encode-row">
+        <button id="btn_encode" class="btn btn-primary" data-i18n="initEncode" disabled>ENCODE</button>
+        <button id="btn_abort" class="btn btn-danger" data-i18n="abort" disabled>ABORT</button>
+      </div>
+
+    </section>
+  </div>
+</div>
+<script src="./src/app.js" type="module"></script>
+</body>
+</html>
