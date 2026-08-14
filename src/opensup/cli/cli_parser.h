@@ -29,6 +29,7 @@ struct cli_options_t {
     bool allow_normal_case = false;
     bool overlap = false;
     double redraw_period = 0.0;
+    bool json_mode = false;
 };
 
 /**
