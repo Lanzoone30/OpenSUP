@@ -15,6 +15,7 @@
       <div class="brand-top-line"></div>
       <img id="logo" alt="OpenSUP" src="./src/assets/images/logo.png" />
       <span class="subtitle" data-i18n="subtitle">PGS Subtitle Encoder</span>
+      <div class="brand-bottom-line"></div>
     </div>
     <div class="vline"></div>
     <div class="header-controls">
@@ -39,7 +40,6 @@
       </select>
     </div>
   </header>
-  <div class="header-separator"></div>
 
   <!-- ── Content splitter (Qt replica: config left, monitoring right) ── -->
   <div class="main-grid">
@@ -132,9 +132,12 @@
         <h2 class="card-title" data-i18n="progress">Progress</h2>
         <div class="progress-info">
           <span id="lbl_progress_text" data-i18n="standingBy">Standing by</span>
+          <span id="lbl_pct" class="pct">0%</span>
           <span id="lbl_eta" class="eta">—</span>
         </div>
         <div class="progress-track">
+          <div class="progress-border-overlay"></div>
+          <div class="progress-gradient-overlay"></div>
           <div id="progress_fill" class="progress-fill"></div>
         </div>
       </div>
