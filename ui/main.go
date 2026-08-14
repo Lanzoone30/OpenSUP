@@ -16,13 +16,13 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:          "OpenSUP",
-		Width:          871,
-		Height:         602,
+		Width:          1000,
+		Height:         825,
 		DisableResize:  true,
-		MinWidth:       871,
-		MinHeight:      602,
-		MaxWidth:       871,
-		MaxHeight:      602,
+		MinWidth:       1000,
+		MinHeight:      825,
+		MaxWidth:       1130,
+		MaxHeight:      825,
 		DragAndDrop: &options.DragAndDrop{
 			EnableFileDrop: true,
 		},
