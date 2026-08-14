@@ -22,6 +22,10 @@ const $ = (id) => document.getElementById(id);
 // ── i18n: translate all [data-i18n] elements ──
 function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
+    // Keep the selected file names when switching language (Qt pattern:
+    // only translate the placeholder, never overwrite a chosen path).
+    if (el.id === "lbl_bdn_file" && state.inputPath) return;
+    if (el.id === "lbl_output_file" && state.outputPath) return;
     el.textContent = t(el.dataset.i18n);
   });
   // Tooltips for checkboxes
@@ -54,11 +58,13 @@ function applyTheme(theme) {
 }
 
 // ── Log area ──
+const QT_LEVEL_NAMES = { debug: "DEBUG", info: "INFO", warn: "WARN", pass: "PASS", error: "ERROR", fail: "FAIL", fatal: "FATAL" };
+
 function appendLog(level, msg) {
   const area = $("txt_log");
   const entry = document.createElement("span");
   entry.className = "log-entry " + levelNameToCss(level);
-  entry.textContent = msg + "\n";
+  entry.textContent = formatQtLogLine(level, msg) + "\n";
   area.appendChild(entry);
   area.scrollTop = area.scrollHeight;
   state.logEntries++;
@@ -67,6 +73,19 @@ function appendLog(level, msg) {
   if (area.dataset.empty && area.children.length > 0) {
     area.removeAttribute("data-empty");
   }
+}
+
+// Replicates the Qt GUI line format: "HH:mm:ss │ LEVEL │ text".
+// The C++ logger prefixes "HH:MM:SS LEVEL: text", so the prefix is
+// stripped and rebuilt with the same separators and colors the old UI used.
+function formatQtLogLine(level, msg) {
+  const css = levelNameToCss(level);
+  const name = QT_LEVEL_NAMES[css] || "INFO";
+  const text = msg.replace(/^\d{2}:\d{2}:\d{2}\s+[A-Z]+:\s+/, "");
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const ts = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${ts} \u2502 ${name} \u2502 ${text}`;
 }
 
 function levelNameToCss(level) {
@@ -112,10 +131,19 @@ function updateLogPlaceholder() {
 
 function clearLog() {
   const area = $("txt_log");
-  area.innerHTML = "";
+  // replaceChildren is cheaper and does not disturb the WebView2 DOM tree.
+  area.replaceChildren();
   state.logEntries = 0;
   updateLogCount();
   updateLogPlaceholder();
+  // Qt pattern: also reset the progress bar and ETA.
+  // Keep the "failed" class so an aborted (red) bar stays red while it
+  // animates back; a new encode clears it in startEncode().
+  $("progress_fill").style.width = "0%";
+  $("progress_fill").classList.remove("active");
+  $("lbl_progress_text").textContent = t("standingBy");
+  $("lbl_pct").textContent = "0%";
+  $("lbl_eta").textContent = "—";
 }
 
 // ── Progress + ETA ──
@@ -123,6 +151,8 @@ function updateProgress(percent, epoch, total) {
   const fill = $("progress_fill");
   fill.style.width = percent + "%";
   fill.classList.remove("failed");
+  fill.classList.toggle("active", percent > 0 && percent < 100);
+  $("lbl_pct").textContent = percent + "%";
 
   if (total > 0 && epoch > 0) {
     const elapsed = Date.now() - state.encodingStart;
@@ -150,8 +180,16 @@ function setEncodingState(encoding) {
   $("btn_set_output").disabled = encoding;
 }
 
+// True when at least one Engine Options checkbox is marked.
+function hasEngineOption() {
+  return ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
+          "chk_both_formats", "chk_overlap", "chk_ignore_res"]
+    .some((id) => $(id).checked);
+}
+
 function updateReadyState() {
-  $("btn_encode").disabled = state.isEncoding || !state.inputPath || !state.outputPath;
+  $("btn_encode").disabled =
+    state.isEncoding || !state.inputPath || !state.outputPath || !hasEngineOption();
 }
 
 // ── Wails Go bindings (via runtime bridge) ──
@@ -212,19 +250,25 @@ function startEncode() {
 
   setEncodingState(true);
   $("progress_fill").style.width = "0%";
-  $("progress_fill").classList.remove("failed");
+  $("progress_fill").classList.remove("failed", "active");
   $("lbl_progress_text").textContent = t("starting");
+  $("lbl_pct").textContent = "0%";
   $("lbl_eta").textContent = "—";
 
   // Remove log empty-state
   const area = $("txt_log");
   if (area) area.removeAttribute("data-empty");
 
-  app.StartEncode(cfg).catch((err) => {
+  app.StartEncode(cfg).then(() => {
+    // Normal completion: the engine:done event handles the UI state.
+  }).catch((err) => {
     console.error("StartEncode:", err);
-    setEncodingState(false);
     $("lbl_progress_text").textContent = t("failed");
     $("progress_fill").classList.add("failed");
+  }).finally(() => {
+    // Always re-enable buttons, even on abort/cancel where engine:done
+    // may never fire (prevents stuck-disabled Select BDN / Set Output).
+    setEncodingState(false);
     updateReadyState();
   });
 }
@@ -233,6 +277,13 @@ function abortEncode() {
   const app = go();
   if (!app?.AbortEncode) return;
   app.AbortEncode();
+  // Qt pattern: immediate UI feedback (bar turns red + log message).
+  // "error" (not the numeric level) is used so levelNameToCss maps to the
+  // red .log-entry.error style; the log stays English regardless of UI language.
+  appendLog("error", "Encoding aborted by user.");
+  $("progress_fill").classList.add("failed");
+  $("progress_fill").classList.remove("active");
+  $("lbl_progress_text").textContent = t("abortedShort");
 }
 
 // ── Copy log to clipboard ──
@@ -257,14 +308,16 @@ async function loadSettings() {
     try {
       const s = await app.LoadSettings();
       if (s) {
-        setLang(s.Language || 0);
-        $("cmb_language").value = String(s.Language || 0);
+        // Wails serializes with the Go json tags (lowercase), matching
+        // the generated models.ts — NOT the Go field names.
+        setLang(s.language || 0);
+        $("cmb_language").value = String(s.language || 0);
         syncSeg("cmb_language");
-        applyTheme(s.Theme || 0);
-        $("cmb_theme").value = String(s.Theme || 0);
+        applyTheme(s.theme || 0);
+        $("cmb_theme").value = String(s.theme || 0);
         syncSeg("cmb_theme");
-        if (s.LastBDNDir)  state.lastBDNDir = s.LastBDNDir;
-        if (s.LastOutDir)  state.lastOutDir = s.LastOutDir;
+        if (s.last_bdn_dir)  state.lastBDNDir = s.last_bdn_dir;
+        if (s.last_output_dir)  state.lastOutDir = s.last_output_dir;
       }
     } catch (err) {
       console.error("LoadSettings:", err);
@@ -305,10 +358,11 @@ function wireEngineEvents() {
   EventsOn("engine:done", (data) => {
     setEncodingState(false);
     const fill = $("progress_fill");
+    fill.classList.remove("active");
     if (data && data.success) {
       fill.style.width = "100%";
       $("lbl_progress_text").textContent = t("done");
-    } else if (data && data.Cancelled) {
+    } else if (data && data.cancelled) {
       $("lbl_progress_text").textContent = t("abortedShort");
       fill.classList.add("failed");
     } else {
@@ -369,7 +423,22 @@ function wireDomEvents() {
   $("chk_both_formats").addEventListener("change", (e) => {
     $("chk_full_palette").checked = e.target.checked;
     $("chk_full_palette").disabled = e.target.checked;
+    updateReadyState();
   });
+
+  // Prefer normal case forces Allow Normal Case ON and disables it (mirrors Qt)
+  $("chk_prefer_normal").addEventListener("change", (e) => {
+    $("chk_allow_normal").checked = e.target.checked;
+    $("chk_allow_normal").disabled = e.target.checked;
+    updateReadyState();
+  });
+
+  // Every Engine Options checkbox gates the Encode button readiness.
+  ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
+   "chk_both_formats", "chk_overlap", "chk_ignore_res"]
+    .forEach((id) => {
+      $(id).addEventListener("change", updateReadyState);
+    });
 }
 
 // ── Init ──
