@@ -47,6 +47,7 @@ const Table = {
   done:           { en: "Done",                            es: "Listo" },
   failed:         { en: "Encoding FAILED — see log for details", es: "Codificación FALLIDA — ver el registro" },
   abortedShort:   { en: "Encoding Aborted",               es: "Codificación Abortada" },
+  abortLogMsg:    { en: "Encoding aborted by user.",      es: "Codificación abortada por el usuario." },
 
   // -- Theme --
   themeSystem:    { en: "System",                         es: "Sistema" },
