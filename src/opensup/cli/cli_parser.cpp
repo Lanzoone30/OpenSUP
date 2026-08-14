@@ -64,6 +64,9 @@ parse_args(int argc, char** argv)
     app.add_flag("--overlap", opts.overlap,
                   "Buffer palette updates to reduce dropped events");
 
+    app.add_flag("--json", opts.json_mode,
+                  "Emit NDJSON events to stdout (log/progress/done)");
+
     app.add_option("--redraw-period", opts.redraw_period,
                     "Periodic redraw in seconds (0 = disable)");
 
