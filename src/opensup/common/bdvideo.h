@@ -16,6 +16,12 @@
 namespace opensup {
 namespace common {
 
+/**
+ * @brief Blu-ray frame rate stored as an exact rational (numerator/denominator).
+ *
+ * NTSC-style rates are kept as ratios (e.g. 24000/1001) so conversions to
+ * PTS and PCS fps stay exact instead of rounding through doubles.
+ */
 class fps_e {
 public:
     enum value_t : uint8_t {
@@ -46,7 +52,9 @@ public:
     [[nodiscard]] constexpr value_t value() const noexcept { return m_val; }
     [[nodiscard]] constexpr int numerator() const noexcept { return m_numer; }
     [[nodiscard]] constexpr int denominator() const noexcept { return m_denom; }
+    /// Frame rate as a double (for display / legacy code).
     [[nodiscard]] double to_double() const noexcept;
+    /// PCS frame rate code as stored in the PCS segment header.
     [[nodiscard]] int32_t to_pcsfps() const noexcept;
 
     static fps_e from_pcsfps(int32_t pcsfps);
@@ -67,6 +75,7 @@ private:
     int m_denom;
 };
 
+/// Blu-ray video formats supported by the encoder.
 enum class video_format_e : uint8_t {
     hd1080   = 0,  // 1920x1080
     hd720    = 1,  // 1280x720
@@ -74,13 +83,16 @@ enum class video_format_e : uint8_t {
     sd480_43 = 3,  // 720x480
 };
 
+/// Resolution of a Blu-ray video format.
 struct video_format_info_t {
     int32_t width;
     int32_t height;
 };
 
+/// Resolution of the given format.
 [[nodiscard]] video_format_info_t get_format_info(video_format_e fmt) noexcept;
 
+/// PCS frame rate codes as defined by the Blu-ray spec.
 enum class pcsfps_e : uint8_t {
     film_ntsc_p = 0x10,
     film_24p    = 0x20,
@@ -91,14 +103,23 @@ enum class pcsfps_e : uint8_t {
     hfr_60      = 0x80,
 };
 
+/**
+ * @brief Blu-ray video context: frame rate, resolution and format checks.
+ *
+ * Combines a frame rate with the canvas height/width and derives the PCS
+ * frame rate code; validates whether a format/fps pair is spec-compliant.
+ */
 class bdvideo_c {
 public:
+    /// Height drives format detection; width is optional (kept from BDN XML).
     bdvideo_c(fps_e fps, int32_t height, std::optional<int32_t> width = std::nullopt);
 
     [[nodiscard]] fps_e fps() const noexcept { return m_fps; }
     [[nodiscard]] pcsfps_e pcsfps() const noexcept { return m_pcsfps; }
+    /// Detected Blu-ray format (empty if the resolution is not standard).
     [[nodiscard]] std::optional<video_format_e> format() const noexcept { return m_format; }
 
+    /// Returns false + the allowed frame rates when fmt/fps is not spec-compliant.
     static std::pair<bool, std::vector<double>>
     check_format_fps(video_format_e fmt, fps_e fps) noexcept;
 
