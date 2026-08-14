@@ -54,3 +54,11 @@ docs/
 extern/
 build/
 CHANGELOG.md
+/temp
+
+# Wails
+ui/build/
+ui/engine/bin/**/opensup_engine
+ui/engine/bin/**/opensup_engine.exe
+ui/frontend/dist/
+ui/frontend/node_modules/
