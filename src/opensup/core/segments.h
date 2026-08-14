@@ -33,6 +33,7 @@ enum class segment_type_e : uint8_t {
 };
 
 // ── Window Definition ──
+/// A window on the video plane (WDS payload); position + size.
 struct window_definition_t {
     uint8_t window_id = 0;
     uint16_t h_pos = 0;
@@ -40,11 +41,14 @@ struct window_definition_t {
     uint16_t width  = 0;
     uint16_t height = 0;
 
+    /// Serialize to the 10-byte WDS window payload.
     [[nodiscard]] std::vector<uint8_t> to_bytes() const;
+    /// Parse a window payload; @return the window definition.
     static window_definition_t from_bytes(const uint8_t* data);
 };
 
 // ── Composition Object (CObject) ──
+/// A composition object: image reference + placement/cropping on the plane.
 struct c_object_t {
     enum flags_e : uint8_t {
         cropped  = 0x80,
@@ -63,12 +67,16 @@ struct c_object_t {
     uint16_t c_w       = 0;
     uint16_t c_h       = 0;
 
+    /// Whether this object is cropped (cropping fields are valid).
     [[nodiscard]] bool is_cropped() const noexcept { return flags & cropped; }
+    /// Whether this object is flagged as forced (always shown).
     [[nodiscard]] bool is_forced() const noexcept  { return flags & forced; }
 
     void set_forced(bool f) noexcept;
 
+    /// Serialize to the PCS composition object payload (cropped or not).
     [[nodiscard]] std::vector<uint8_t> to_bytes() const;
+    /// Parse a composition object payload; @param cropped selects layout.
     static c_object_t from_bytes(const uint8_t* data, bool cropped);
 };
 
