@@ -61,6 +61,9 @@ type DoneEvent struct {
 	Epochs     int    `json:"epochs,omitempty"`
 	Segments   int    `json:"segments,omitempty"`
 	DurationMs int64  `json:"duration_ms,omitempty"`
+	// Cancelled is set only by the runner (synthetic done events);
+	// the engine itself never emits it.
+	Cancelled bool `json:"cancelled,omitempty"`
 }
 
 // rawEnvelope is the minimal shape we need to dispatch a line to
