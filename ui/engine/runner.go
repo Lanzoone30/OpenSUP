@@ -116,6 +116,7 @@ func (r *Runner) Run(ctx context.Context, cfg EncodeConfig) (Result, error) {
 
 	args := buildArgs(cfg)
 	cmd := exec.CommandContext(runCtx, binPath, args...)
+	hideWindow(cmd)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return Result{}, fmt.Errorf("stdout pipe: %w", err)
@@ -163,6 +164,12 @@ func (r *Runner) Run(ctx context.Context, cfg EncodeConfig) (Result, error) {
 	waitErr := cmd.Wait()
 
 	if errors.Is(runCtx.Err(), context.Canceled) {
+		// Emit a synthetic done event so the frontend always receives a
+		// terminal signal, even when the engine was killed before it could
+		// emit its own. Guards against the UI staying stuck mid-encode.
+		if done == nil {
+			r.emit(EventDone, &DoneEvent{Cancelled: true})
+		}
 		return Result{Cancelled: true, Error: "cancelled by user"}, nil
 	}
 
@@ -192,9 +199,16 @@ func (r *Runner) Run(ctx context.Context, cfg EncodeConfig) (Result, error) {
 func (r *Runner) Abort() {
 	r.mu.Lock()
 	cancel := r.cancel
+	cmd := r.cmd
 	r.mu.Unlock()
 	if cancel != nil {
 		cancel()
+	}
+	// Kill the process directly: exec.CommandContext only kills
+	// asynchronously, so without this the engine keeps emitting
+	// buffered events (and keeps running) for a while after abort.
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
 	}
 }
 
