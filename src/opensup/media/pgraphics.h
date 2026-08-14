@@ -23,8 +23,24 @@ namespace opensup {
 namespace media {
 
 // ── RLE Codec ──
+/// RLE-compress an indexed-color bitmap (PGS ODS payload format).
+/// @param bitmap flat indexed pixels, width*height bytes
+/// @param width  image width in pixels
+/// @param height image height in pixels
+/// @return compressed byte stream ready for the ODS segment
 std::vector<uint8_t> encode_rle(const std::vector<uint8_t>& bitmap, int width, int height);
+/// Decode a PGS RLE stream back into indexed pixels.
+/// @param data   compressed ODS payload
+/// @param width  expected image width in pixels
+/// @param height expected image height in pixels
+/// @return flat indexed pixels, width*height bytes
 std::vector<uint8_t> decode_rle(const std::vector<uint8_t>& data, int width, int height);
+/// Map indexed pixels to RGBA through the palette (for display/preview).
+/// @param indexed flat indexed pixels, width*height bytes
+/// @param palette palette mapping indices to RGBA colors
+/// @param width   image width in pixels
+/// @param height  image height in pixels
+/// @return RGBA byte array, width*height*4 bytes
 std::vector<uint8_t> bitmap_to_rgba(const std::vector<uint8_t>& indexed,
                                      const palette_t& palette, int width, int height);
 
