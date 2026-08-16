@@ -93,16 +93,15 @@ bdvideo_c::bdvideo_c(fps_e fps, int32_t height, std::optional<int32_t> width)
     : m_fps(fps)
     , m_pcsfps(static_cast<pcsfps_e>(fps.to_pcsfps()))
 {
-    if (width.has_value()) {
-        m_format = video_format_e::hd1080; // placeholder
-    } else {
-        m_format = std::nullopt;
-        for (auto f : {video_format_e::hd1080, video_format_e::hd720,
-                        video_format_e::sd576_43, video_format_e::sd480_43}) {
-            if (get_format_info(f).height == height) {
-                m_format = f;
-                break;
-            }
+    m_format = std::nullopt;
+    for (auto f : {video_format_e::hd1080, video_format_e::hd720,
+                    video_format_e::sd576_43, video_format_e::sd480_43}) {
+        auto info = get_format_info(f);
+        bool matches = (info.height == height) &&
+                       (!width.has_value() || info.width == *width);
+        if (matches) {
+            m_format = f;
+            break;
         }
     }
 }
