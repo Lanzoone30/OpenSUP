@@ -125,6 +125,85 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
 }
 
 std::vector<std::shared_ptr<pg_segment_c>>
+epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
+                                     const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far)
+{
+    std::vector<std::shared_ptr<pg_segment_c>> result;
+    auto palette_id = in.palette_id;
+
+    // Build CObject: position = event position + crop offset
+    std::vector<c_object_t> cobjects;
+    c_object_t obj;
+    obj.o_id = in.obj_id;
+    obj.window_id = 0;
+    obj.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
+    obj.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
+    obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
+    cobjects.push_back(obj);
+
+    // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
+    const auto& timings = in.timings;
+
+    // PCS: PTS = presentation, DTS = decode start
+    auto pcs = pcs_c::from_scratch(
+        static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+        static_cast<uint8_t>(in.fps_enum.to_pcsfps()),
+        static_cast<uint16_t>(m_composition_n++), in.comp_state,
+        false, palette_id, cobjects, timings.base_pts, timings.base_dts);
+    result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
+
+    // WDS: PTS = PCS_PTS - wipe_dur
+    double wds_pts = timings.base_pts - timings.wipe_dur;
+    if (wds_pts < timings.base_dts) wds_pts = timings.base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
+    window_definition_t wd;
+    wd.window_id = 0;
+    wd.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
+    wd.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
+    wd.width = static_cast<uint16_t>(in.obj_w);
+    wd.height = static_cast<uint16_t>(in.obj_h);
+    auto wds = wds_c::from_scratch({wd}, wds_pts, timings.base_dts);
+    result.push_back(std::make_shared<wds_c>(std::move(wds)));
+
+    // PDS: PTS = DTS (instant), or earlier in overlap mode (previous ENDS).
+    // Skipped for reused events — the palette is already in the decoder.
+    double pds_pts = timings.base_dts;
+    double pds_dts = timings.base_dts;
+    if (m_overlap && !result_so_far.empty()) {
+        auto prev_seg = result_so_far.back();
+        if (auto prev_ends = std::dynamic_pointer_cast<ends_c>(prev_seg)) {
+            pds_pts = prev_ends->pts();
+            pds_dts = prev_ends->dts();
+        }
+    }
+    if (!in.reusable) {
+        auto p_vn = static_cast<uint8_t>(m_palette_vn++);
+        auto pds = pds_c::from_scratch(in.palette, p_vn, palette_id, pds_pts, pds_dts);
+        result.push_back(std::make_shared<pds_c>(std::move(pds)));
+
+        // ODS: PTS = DTS + obj_decode_time, DTS = timings.base_dts.
+        // Skipped for reused events — the object is already decoded.
+        double ods_pts = timings.base_dts + timings.obj_decode_time;
+        auto rle_data = encode_rle(in.indexed, in.obj_w, in.obj_h);
+        auto ods_list = ods_c::from_scratch(in.obj_id, 0,
+                                              static_cast<uint16_t>(in.obj_w),
+                                              static_cast<uint16_t>(in.obj_h),
+                                              rle_data, ods_pts, timings.base_dts);
+        for (auto& ods : ods_list)
+            result.push_back(std::make_shared<ods_c>(std::move(ods)));
+
+        // ENDS: PTS = DTS = after last ODS
+        auto end = ends_c::from_scratch(ods_pts, ods_pts);
+        result.push_back(std::make_shared<ends_c>(std::move(end)));
+    } else {
+        // ENDS: PTS = DTS = presentation time of the reused composition
+        auto end = ends_c::from_scratch(timings.base_pts, timings.base_pts);
+        result.push_back(std::make_shared<ends_c>(std::move(end)));
+    }
+
+    return result;
+}
+
+std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                const std::vector<bool>& redraw_flags,
                                common::fps_e fps_enum,
@@ -272,75 +351,19 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             obj_id = static_cast<uint16_t>(double_buffer);
         }
 
-        // Build CObject: position = event position + crop offset
-        std::vector<c_object_t> cobjects;
-        c_object_t obj;
-        obj.o_id = obj_id;
-        obj.window_id = 0;
-        obj.h_pos = static_cast<uint16_t>(ev.x() + crop_x);
-        obj.v_pos = static_cast<uint16_t>(ev.y() + crop_y);
-        obj.flags = ev.forced() ? c_object_t::forced : c_object_t::standard;
-        cobjects.push_back(obj);
-
-        // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
+// ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
         epoch_timings_t timings = compute_timings(ev.tc_in(),
             static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
-        // PCS: PTS = presentation, DTS = decode start
-        auto pcs = pcs_c::from_scratch(
-            static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
-            static_cast<uint8_t>(fps_enum.to_pcsfps()),
-            static_cast<uint16_t>(m_composition_n++), comp_state,
-            false, palette_id, cobjects, timings.base_pts, timings.base_dts);
-        result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
+        // Emit the full display set for this event
+        event_emit_input_t in{
+            obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
+            comp_state, obj_id, palette_id, reusable, fps_enum,
+            palette, indexed, timings};
+        auto segs = emit_event_segments(in, result);
+        for (auto& seg : segs)
+            result.push_back(std::move(seg));
 
-        // WDS: PTS = PCS_PTS - wipe_dur
-        double wds_pts = timings.base_pts - timings.wipe_dur;
-        if (wds_pts < timings.base_dts) wds_pts = timings.base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
-        window_definition_t wd;
-        wd.window_id = 0;
-        wd.h_pos = static_cast<uint16_t>(ev.x() + crop_x);
-        wd.v_pos = static_cast<uint16_t>(ev.y() + crop_y);
-        wd.width = static_cast<uint16_t>(obj_w);
-        wd.height = static_cast<uint16_t>(obj_h);
-        auto wds = wds_c::from_scratch({wd}, wds_pts, timings.base_dts);
-        result.push_back(std::make_shared<wds_c>(std::move(wds)));
-
-        // PDS: PTS = DTS (instant), or earlier in overlap mode.
-        // Skipped for reused events — the palette is already in the decoder.
-        double pds_pts = timings.base_dts;
-        double pds_dts = timings.base_dts;
-        if (m_overlap && result.size() >= 3) {
-            auto prev_seg = result[result.size() - 3];
-            if (auto prev_ends = std::dynamic_pointer_cast<ends_c>(prev_seg)) {
-                pds_pts = prev_ends->pts();
-                pds_dts = prev_ends->dts();
-            }
-        }
-        if (!reusable) {
-            auto p_vn = static_cast<uint8_t>(m_palette_vn++);
-            auto pds = pds_c::from_scratch(palette, p_vn, palette_id, pds_pts, pds_dts);
-            result.push_back(std::make_shared<pds_c>(std::move(pds)));
-
-            // ODS: PTS = DTS + obj_decode_time, DTS = timings.base_dts.
-            // Skipped for reused events — the object is already decoded.
-            double ods_pts = timings.base_dts + timings.obj_decode_time;
-            auto rle_data = encode_rle(indexed, obj_w, obj_h);
-            auto ods_list = ods_c::from_scratch(obj_id, 0,
-                                                  static_cast<uint16_t>(obj_w),
-                                                  static_cast<uint16_t>(obj_h),
-                                                  rle_data, ods_pts, timings.base_dts);
-            for (auto& ods : ods_list)
-                result.push_back(std::make_shared<ods_c>(std::move(ods)));
-
-            // ENDS: PTS = DTS = after last ODS
-            auto end = ends_c::from_scratch(ods_pts, ods_pts);
-            result.push_back(std::make_shared<ends_c>(std::move(end)));
-        } else {
-            // ENDS: PTS = DTS = presentation time of the reused composition
-            auto end = ends_c::from_scratch(timings.base_pts, timings.base_pts);
-            result.push_back(std::make_shared<ends_c>(std::move(end)));
-        }
         prev_obj_id = obj_id;
 
         // Save event data for next iteration's clear DS
