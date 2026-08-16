@@ -50,6 +50,21 @@ TEST(BDVideo, ConstructFromHeight) {
     EXPECT_EQ(bd.format().value(), video_format_e::hd1080);
 }
 
+TEST(BDVideo, ConstructFromWidthAndHeight) {
+    bdvideo_c bd(fps_e(fps_e::film), 720, 1280);
+    EXPECT_TRUE(bd.format().has_value());
+    EXPECT_EQ(bd.format().value(), video_format_e::hd720);
+
+    bdvideo_c sd(fps_e(fps_e::pal_p), 576, 720);
+    EXPECT_TRUE(sd.format().has_value());
+    EXPECT_EQ(sd.format().value(), video_format_e::sd576_43);
+}
+
+TEST(BDVideo, ConstructRejectsMismatchedWidth) {
+    bdvideo_c bd(fps_e(fps_e::film), 720, 1920);
+    EXPECT_FALSE(bd.format().has_value());
+}
+
 TEST(BDVideo, CheckFormatFps) {
     auto [valid, expected] = bdvideo_c::check_format_fps(
         video_format_e::sd576_43, fps_e(fps_e::pal_p));
