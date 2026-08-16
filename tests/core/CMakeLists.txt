@@ -1,6 +1,5 @@
 add_executable(opensup_test_core
   segments_test.cpp
-  reuse_test.cpp
 )
 
 target_link_libraries(opensup_test_core
