@@ -41,15 +41,6 @@ memory_c::clone(const std::vector<uint8_t>& data)
     return clone(data.data(), data.size());
 }
 
-memory_cptr
-memory_c::borrow(uint8_t* data, size_t size)
-{
-    memory_cptr mem(new memory_c);
-    mem->m_data.reset(data);
-    mem->m_size = size;
-    return mem;
-}
-
 memory_c::memory_c(memory_c&& other) noexcept
     : m_data(std::move(other.m_data))
     , m_size(other.m_size)
