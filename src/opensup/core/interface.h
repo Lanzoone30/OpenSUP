@@ -11,10 +11,6 @@
 #include <vector>
 #include <memory>
 #include <string>
-#include <thread>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
 #include <atomic>
 #include <functional>
 
@@ -54,27 +50,6 @@ struct encode_config_t {
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop
     // Called after each epoch: (percent 0-100, epoch index 1-based, total epochs).
     std::function<void(int, int, int)> progress_cb;
-};
-
-/// Worker that pulls epochs from a shared queue (used by bdn_render_c).
-class epoch_worker_c {
-public:
-    epoch_worker_c(std::queue<epoch_job_t>& jobs,
-                   std::mutex& mutex,
-                   std::condition_variable& cv,
-                   std::atomic<bool>& done,
-                   double fps, int width, int height);
-
-    /// Consume queued epochs until the done flag is set.
-    void operator()();
-
-private:
-    std::queue<epoch_job_t>& m_jobs;
-    std::mutex& m_mutex;
-    std::condition_variable& m_cv;
-    std::atomic<bool>& m_done;
-    double m_fps;
-    int m_width, m_height;
 };
 
 /**
