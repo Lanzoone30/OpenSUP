@@ -57,12 +57,9 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	cfg := EncodeConfig{
 		InputPath:       "in.xml",
 		OutputPath:      "out.sup",
-		Compression:     75,
-		AcqRate:         90,
 		Quantizer:       1,
 		BTMatrix:        "bt2020",
 		Overwrite:       true,
-		Threads:         4,
 		SSIMTol:         0.5,
 		IgnoreRes:       true,
 		BothFormats:     true,
@@ -74,9 +71,8 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	args := buildArgs(cfg)
 	want := map[string]bool{
 		"--json": true, "-i": true, "in.xml": true, "out.sup": true,
-		"-c": true, "75": true, "-a": true, "90": true,
 		"-q": true, "1": true, "-b": true, "bt2020": true,
-		"-y": true, "-t": true, "4": true,
+		"-y": true,
 		"--ssim-tol": true, "0.5": true,
 		"--ignore-resolution": true, "-w": true, "-p": true,
 		"--allow-normal": true, "--overlap": true,
