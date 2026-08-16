@@ -26,14 +26,6 @@ parse_args(int argc, char** argv)
     app.add_option("output", opts.output_path, "Output .sup file")
         ->required();
 
-    app.add_option("-c,--compression", opts.compression,
-                     "Compression rate [0-100] (def: 80). NOTE: stub, pending future SSIM+palette chain implementation")
-        ->check(CLI::Range(0.0, 100.0));
-
-    app.add_option("-a,--acqrate", opts.acqrate,
-                     "Acquisition rate [0-100] (def: 100). NOTE: stub, pending future SSIM+palette chain implementation")
-        ->check(CLI::Range(0.0, 100.0));
-
     app.add_option("-q,--quantizer", opts.quantizer,
                     "Quantizer [0:libimagequant, 1:HexTree] (def: 0)");
 
@@ -42,9 +34,6 @@ parse_args(int argc, char** argv)
 
     app.add_flag("-y,--yes", opts.overwrite,
                   "Overwrite existing output file");
-
-    app.add_option("-t,--threads", opts.threads,
-                     "Thread count (0 = auto, def: 0). NOTE: stub, single-thread only for now");
 
     app.add_option("--ssim-tol", opts.ssim_tol,
                     "SSIM tolerance [0-100] (def: 0)")
