@@ -97,17 +97,22 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
     auto fps_str = header.attribute("FrameRate").as_string();
     m_dropframe = std::string(header.attribute("DropFrame").as_string()) == "true";
     // Parse FrameRate: may be "24", "24000/1001", "25/1", etc.
+    // Untrusted attribute: reject the file when it does not parse cleanly.
     double fps_val;
     auto fps_s = std::string(fps_str);
     auto slash = fps_s.find('/');
-    if (slash != std::string::npos) {
-        double num = std::stod(fps_s.substr(0, slash));
-        double den = std::stod(fps_s.substr(slash + 1));
-        fps_val = num / den;
-    } else {
-        fps_val = std::stod(fps_s);
+    try {
+        if (slash != std::string::npos) {
+            double num = std::stod(fps_s.substr(0, slash));
+            double den = std::stod(fps_s.substr(slash + 1));
+            fps_val = num / den;
+        } else {
+            fps_val = std::stod(fps_s);
+        }
+        m_fps = common::fps_e::from_double(fps_val);
+    } catch (const std::exception&) {
+        return false;  // malformed FrameRate: cannot encode without a valid rate
     }
-    m_fps = common::fps_e::from_double(fps_val);
 
     // Parse video format (WIDTHxHEIGHT or just HEIGHT)
     auto vf_str = header.attribute("VideoFormat").as_string();
