@@ -16,12 +16,9 @@ namespace cli {
 struct cli_options_t {
     std::string input_path;
     std::string output_path;
-    double compression = 80.0;
-    double acqrate = 100.0;
-    int quantizer = 3;
+    int quantizer = 0;
     std::string bt_matrix = "bt709";
     bool overwrite = false;
-    int threads = 0;
     double ssim_tol = 0.0;
     bool ignore_resolution = false;
     bool both_formats = false;
