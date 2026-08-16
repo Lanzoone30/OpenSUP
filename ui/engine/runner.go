@@ -38,12 +38,9 @@ type Emitter interface {
 type EncodeConfig struct {
 	InputPath       string
 	OutputPath      string
-	Compression     float64
-	AcqRate         float64
 	Quantizer       int
 	BTMatrix        string
 	Overwrite       bool
-	Threads         int
 	SSIMTol         float64
 	IgnoreRes       bool
 	BothFormats     bool
@@ -291,12 +288,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.OutputPath != "" {
 		args = append(args, cfg.OutputPath)
 	}
-	if cfg.Compression != 0 {
-		args = append(args, "-c", floatToStr(cfg.Compression))
-	}
-	if cfg.AcqRate != 0 {
-		args = append(args, "-a", floatToStr(cfg.AcqRate))
-	}
 	if cfg.Quantizer != 0 {
 		args = append(args, "-q", intToStr(cfg.Quantizer))
 	}
@@ -305,9 +296,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.Overwrite {
 		args = append(args, "-y")
-	}
-	if cfg.Threads != 0 {
-		args = append(args, "-t", intToStr(cfg.Threads))
 	}
 	if cfg.SSIMTol != 0 {
 		args = append(args, "--ssim-tol", floatToStr(cfg.SSIMTol))
