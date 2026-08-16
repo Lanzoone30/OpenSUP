@@ -9,7 +9,6 @@
 #include "opensup/core/interface.h"
 #include "opensup/core/renderer.h"
 #include "opensup/core/filestreams.h"
-#include "opensup/media/pgstream.h"
 #include "opensup/common/logger.h"
 
 #include <filesystem>
@@ -20,41 +19,6 @@ namespace opensup {
 namespace core {
 
 using common::logger_c;
-
-// ── Epoch Worker ──
-epoch_worker_c::epoch_worker_c(std::queue<epoch_job_t>& jobs,
-                                 std::mutex& mutex,
-                                 std::condition_variable& cv,
-                                 std::atomic<bool>& done,
-                                 double fps, int width, int height)
-    : m_jobs(jobs), m_mutex(mutex), m_cv(cv), m_done(done)
-    , m_fps(fps), m_width(width), m_height(height) {}
-
-void
-epoch_worker_c::operator()()
-{
-    // single-thread encoding per worker, fine for <100 epochs
-    epoch_encoder_c encoder(m_fps, m_width, m_height);
-
-    while (true) {
-        epoch_job_t job;
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_cv.wait(lock, [this]() {
-                return !m_jobs.empty() || m_done.load();
-            });
-            if (m_jobs.empty() && m_done.load())
-                return;
-            job = std::move(m_jobs.front());
-            m_jobs.pop();
-        }
-
-        auto segments = encoder.encode_epoch(job.events, job.redraw_flags,
-                                               job.fps, job.palette_base);
-        // segments are accumulated by the caller
-        // direct accumulation, no return queue needed for single-thread debug
-    }
-}
 
 // ── BDN Render ──
 bdn_render_c::bdn_render_c(const encode_config_t& config)
