@@ -10,68 +10,23 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
-#include <optional>
 #include <functional>
 
 #include "opensup/core/segments.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/media/optimizer.h"
 #include "opensup/media/palette.h"
-#include "opensup/common/geometry.h"
 
 namespace opensup {
 namespace core {
 
-// ── CTU: recursive tile comparison ──
-/// Result of comparing two frames: identical flag + changed region bounds.
-struct ctu_result_t {
-    bool identical;
-    common::box_t changed_region;
-};
-
-/// Recursively compare two frames to find the smallest changed region.
-ctu_result_t compare_tiles(const uint8_t* a, const uint8_t* b,
-                            int width, int height, int stride);
-
-// ── Window Analyzer ──
-/// Frame-diff analysis: the region that changed and whether it needs redraw.
-struct window_analysis_t {
-    common::box_t window;
-    bool needs_redraw;
-    double ssim_score;
-};
-
-/// Detects the changed region between consecutive frames (redraw window).
-class window_analyzer_c {
-public:
-    window_analyzer_c(double ssim_tol = 0.999);
-
-    /// Compare previous/current frames; returns the region to redraw.
-    window_analysis_t analyze(const uint8_t* prev, const uint8_t* curr,
-                               int width, int height, const common::box_t& window);
-
-private:
-    double m_ssim_tol;
-};
-
-/// Pads an RGBA image to a multiple of 8x8 (Blu-ray object constraint).
-std::vector<uint8_t> pad_image_8x8(const std::vector<uint8_t>& rgba,
-                                    int width, int height,
-                                    int& out_width, int& out_height);
-
-// ── DS Node: timing model for a display set ──
-/// Display set with its computed PTS/DTS timing and ODS budget.
-class ds_node_t {
-public:
-    std::shared_ptr<display_set_t> ds;
-    double pts_origin = 0.0;
-    double dts_origin = 0.0;
-    int cumulated_ods_size = 0;
-
-    explicit ds_node_t(std::shared_ptr<display_set_t> display_set);
-
-    /// Compute PTS/DTS and the leaky-buffer budget for this display set.
-    void compute_timing(double fps, const common::box_t& window);
+/// Per-event PGS timestamps derived from the BD decode-rate model.
+struct epoch_timings_t {
+    double base_pts = 0.0;        ///< Presentation time of the event.
+    double base_dts = 0.0;        ///< Decode time (PTS - screen compose duration).
+    double obj_decode_time = 0.0; ///< Object decode duration (RD rate).
+    double wipe_dur = 0.0;        ///< Object compose/wipe duration (RC rate).
+    double decode_duration = 0.0; ///< Full-screen compose duration (RC rate).
 };
 
 // ── Epoch Encoder ──
@@ -98,6 +53,17 @@ public:
     [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
 
 private:
+    /// Quantize an RGBA bitmap into palette + indexed pixels, preferring
+    /// m_quantizer_id and falling back to another backend when it fails.
+    /// Returns false when no backend produced a usable result.
+    [[nodiscard]] bool quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
+                                      media::palette_t& out_palette,
+                                      std::vector<uint8_t>& out_indexed) const;
+
+    /// Compute PGS timestamps for one event from its presentation time and
+    /// object area using the BD screen/object decode-rate model.
+    [[nodiscard]] epoch_timings_t compute_timings(double base_pts, uint64_t area) const;
+
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
@@ -109,19 +75,6 @@ private:
     int m_composition_n = 1;
     int m_palette_vn = 0;
     int m_reuse_candidates = 0;
-};
-
-// ── Epoch Worker ──
-struct epoch_job_t {
-    std::vector<bdn_xml_event_c> events;
-    std::vector<bool> redraw_flags;
-    common::fps_e fps;
-    int palette_base = 0;
-};
-
-struct epoch_result_t {
-    std::vector<std::shared_ptr<pg_segment_c>> segments;
-    int palette_base = 0;
 };
 
 } // namespace core
