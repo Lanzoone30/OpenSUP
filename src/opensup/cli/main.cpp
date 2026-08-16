@@ -11,7 +11,6 @@
 #include "opensup/version.h"
 
 #include <iostream>
-#include <filesystem>
 #include <chrono>
 
 using namespace opensup;
@@ -45,15 +44,6 @@ main(int argc, char** argv)
         std::cout << "OpenSUP v" << OPENSUP_VERSION_STRING << " - HDMV PGS encoder" << std::endl;
         std::cout << "Input:  " << config.input_path << std::endl;
         std::cout << "Output: " << config.output_path << std::endl;
-    }
-
-    if (!config.overwrite && std::filesystem::exists(config.output_path)) {
-        common::logger_c::instance().error(
-            "Output file exists, use -y to overwrite");
-        if (opts.json_mode) {
-            cli::emit_done_event({false, "Output file exists", 0, 0, 0, 0});
-        }
-        return 1;
     }
 
     core::bdn_render_c renderer(config);
