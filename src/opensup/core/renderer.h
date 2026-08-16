@@ -29,6 +29,22 @@ struct epoch_timings_t {
     double decode_duration = 0.0; ///< Full-screen compose duration (RC rate).
 };
 
+/// Inputs to emit one event's display set (PCS/WDS/PDS/ODS/ENDS).
+struct event_emit_input_t {
+    int obj_w = 0, obj_h = 0;     ///< Trimmed object dimensions.
+    int crop_x = 0, crop_y = 0;   ///< Crop offset applied to the event position.
+    int ev_x = 0, ev_y = 0;       ///< Event position on the tile grid.
+    bool ev_forced = false;       ///< Event forced-subtitle flag.
+    pcs_c::composition_state_e comp_state = pcs_c::composition_state_e::epoch_start;
+    uint16_t obj_id = 0;          ///< Object id (double-buffering/reuse aware).
+    uint8_t palette_id = 0;       ///< Palette/window id for this event.
+    bool reusable = false;        ///< Event reuses the previous event's object.
+    common::fps_e fps_enum;       ///< Source frame rate (for the PCS fps byte).
+    const media::palette_t& palette;     ///< Ready-to-emit palette (transparent offset applied).
+    const std::vector<uint8_t>& indexed; ///< Ready-to-emit indexed pixels.
+    const epoch_timings_t& timings;      ///< Per-segment timestamps.
+};
+
 // ── Epoch Encoder ──
 /**
  * @brief Renders one epoch (a run of consecutive events) into PGS segments.
@@ -63,6 +79,13 @@ private:
     /// Compute PGS timestamps for one event from its presentation time and
     /// object area using the BD screen/object decode-rate model.
     [[nodiscard]] epoch_timings_t compute_timings(double base_pts, uint64_t area) const;
+
+    /// Emit one event's full display set (PCS/WDS/PDS/ODS/ENDS) as segments.
+    /// Mutates m_composition_n and m_palette_vn. reuses the overlap PDS timings
+    /// from result_so_far (previous event's ENDS) when m_overlap is active.
+    std::vector<std::shared_ptr<pg_segment_c>>
+    emit_event_segments(const event_emit_input_t& in,
+                        const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far);
 
     double m_fps;
     int m_width, m_height;
