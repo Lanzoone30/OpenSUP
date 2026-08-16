@@ -23,15 +23,12 @@ export namespace config {
 
 export namespace engine {
 	
-	export class EncodeConfig {
+export class EncodeConfig {
 	    InputPath: string;
 	    OutputPath: string;
-	    Compression: number;
-	    AcqRate: number;
 	    Quantizer: number;
 	    BTMatrix: string;
 	    Overwrite: boolean;
-	    Threads: number;
 	    SSIMTol: number;
 	    IgnoreRes: boolean;
 	    BothFormats: boolean;
@@ -39,21 +36,18 @@ export namespace engine {
 	    AllowNormalCase: boolean;
 	    Overlap: boolean;
 	    RedrawPeriod: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new EncodeConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.InputPath = source["InputPath"];
 	        this.OutputPath = source["OutputPath"];
-	        this.Compression = source["Compression"];
-	        this.AcqRate = source["AcqRate"];
 	        this.Quantizer = source["Quantizer"];
 	        this.BTMatrix = source["BTMatrix"];
 	        this.Overwrite = source["Overwrite"];
-	        this.Threads = source["Threads"];
 	        this.SSIMTol = source["SSIMTol"];
 	        this.IgnoreRes = source["IgnoreRes"];
 	        this.BothFormats = source["BothFormats"];
