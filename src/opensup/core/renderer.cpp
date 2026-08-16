@@ -8,7 +8,6 @@
 #include "opensup/pch.h"
 #include "opensup/core/renderer.h"
 #include "opensup/media/pgraphics.h"
-#include "opensup/media/pgstream.h"
 #include "opensup/common/logger.h"
 
 #include <cmath>
@@ -20,7 +19,6 @@ namespace opensup {
 namespace core {
 
 using common::logger_c;
-using common::box_t;
 using common::fps_e;
 using media::pg_decoder_t;
 using media::encode_rle;
@@ -28,92 +26,15 @@ using media::palette_t;
 using media::palette_entry_t;
 using media::optimiser_c;
 
-// ── CTU: recursive tile comparison ──
-ctu_result_t
-compare_tiles(const uint8_t* a, const uint8_t* b,
-               int width, int height, int stride)
-{
-    // simple pixel-by-pixel diff, O(n). Upgrade to hierarchical CTU if hot.
-    int min_x = width, min_y = height, max_x = 0, max_y = 0;
-    bool identical = true;
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int off = y * stride + x * 4;
-            if (std::memcmp(a + off, b + off, 4) != 0) {
-                identical = false;
-                min_x = std::min(min_x, x);
-                max_x = std::max(max_x, x);
-                min_y = std::min(min_y, y);
-                max_y = std::max(max_y, y);
-            }
-        }
-    }
-
-    if (identical)
-        return {true, {0, 0, 0, 0}};
-
-    return {false, box_t::from_coords(min_x, min_y, max_x + 1, max_y + 1)};
-}
-
-// ── Window Analyzer ──
-window_analyzer_c::window_analyzer_c(double ssim_tol)
-    : m_ssim_tol(ssim_tol) {}
-
-window_analysis_t
-window_analyzer_c::analyze(const uint8_t* prev, const uint8_t* curr,
-                            int width, int height, const common::box_t& window)
-{
-    // pixel-diff based detection, SSIM stub. Replace with real SSIM when OpenCV is available.
-    auto stride = static_cast<size_t>(width) * 4;
-    auto result = compare_tiles(prev, curr, width, height, static_cast<int>(stride));
-    return {window, !result.identical, result.identical ? 1.0 : 0.95};
-}
-
-// ── Padding Engine ──
-std::vector<uint8_t>
-pad_image_8x8(const std::vector<uint8_t>& rgba, int width, int height,
-               int& out_width, int& out_height)
-{
-    out_width = ((width + 7) / 8) * 8;
-    out_height = ((height + 7) / 8) * 8;
-
-    if (out_width == width && out_height == height)
-        return rgba;
-
-    auto ow = static_cast<size_t>(out_width);
-    auto oh = static_cast<size_t>(out_height);
-    auto w_ = static_cast<size_t>(width);
-    auto h_ = static_cast<size_t>(height);
-    std::vector<uint8_t> padded(ow * oh * 4, 0);
-    for (size_t y = 0; y < h_; y++) {
-        std::memcpy(&padded[y * ow * 4], &rgba[y * w_ * 4], w_ * 4);
-    }
-    return padded;
-}
-
-// ── DS Node ──
-ds_node_t::ds_node_t(std::shared_ptr<display_set_t> display_set)
-    : ds(std::move(display_set)) {}
-
-void
-ds_node_t::compute_timing(double /*fps*/, const common::box_t& /*window*/)
-{
-    pts_origin = ds->pts();
-    dts_origin = ds->segments[0]->dts();
-
-    if (cumulated_ods_size > 0) {
-        // Account for decode duration
-        double decode_time = std::ceil(pg_decoder_t::FREQ *
-            static_cast<double>(cumulated_ods_size) / pg_decoder_t::RD) / pg_decoder_t::FREQ;
-        dts_origin = pts_origin - decode_time;
-    }
-}
+/// Trim fully-transparent borders from an RGBA image (defined below).
+void trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
+                              std::vector<uint8_t>& out, int& out_w, int& out_h,
+                              int& offset_x, int& offset_y);
 
 void
 trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
-                          std::vector<uint8_t>& out, int& out_w, int& out_h,
-                          int& offset_x, int& offset_y)
+                         std::vector<uint8_t>& out, int& out_w, int& out_h,
+                         int& offset_x, int& offset_y)
 {
     int min_x = width, min_y = height, max_x = 0, max_y = 0;
     bool found = false;
@@ -154,6 +75,54 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
     , m_allow_normal_case(allow_normal_case), m_overlap(overlap)
     , m_full_palette(full_palette), m_ssim_tol(ssim_tol) {}
+
+bool
+epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
+                                media::palette_t& out_palette,
+                                std::vector<uint8_t>& out_indexed) const
+{
+    auto opt = media::optimiser_c::get_available();
+    if (opt.empty()) return false;
+
+    auto try_quantize = [&](size_t id) -> bool {
+        if (id >= opt.size()) return false;
+        int max_colors = m_full_palette ? 255 : 254;
+        auto result = opt[id]->quantize(rgba, width, height, max_colors);
+        if (result.palette.empty() || result.indexed.empty()) return false;
+        out_palette = std::move(result.palette);
+        out_indexed = std::move(result.indexed);
+        return true;
+    };
+
+    size_t qid = static_cast<size_t>(m_quantizer_id);
+    if (qid >= opt.size()) qid = 0;
+    if (try_quantize(qid)) return true;
+
+    // Fall back to the other backend when the preferred one failed.
+    size_t fallback_id = (m_quantizer_id == 0 && opt.size() > 1) ? 1 : 0;
+    return fallback_id != qid && try_quantize(fallback_id);
+}
+
+epoch_timings_t
+epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
+{
+    // Decode duration: full screen composition rate (SUPer EPOCH_START model).
+    // +1 tick margin so PTS-DTS delta strictly exceeds wipe_duration
+    // (check_pts_dts_sanity requires delta > wipe_duration, exact tie fails).
+    double screen_area = static_cast<double>(m_width) * static_cast<double>(m_height);
+    double decode_duration = (std::ceil(screen_area * pg_decoder_t::FREQ / pg_decoder_t::RC) + 1.0) /
+                             pg_decoder_t::FREQ;
+
+    epoch_timings_t t;
+    t.base_pts = base_pts;
+    t.base_dts = base_pts - decode_duration;
+    t.obj_decode_time = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RD)
+                        / pg_decoder_t::FREQ;
+    t.wipe_dur = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RC)
+                 / pg_decoder_t::FREQ;
+    t.decode_duration = decode_duration;
+    return t;
+}
 
 std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
@@ -259,8 +228,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_trim_h = obj_h;
 
         // Quantize the trimmed RGBA image
-        auto opt = optimiser_c::get_available();
-
         // Phase A: build transparent pixel mask (PGS: palette[0] must be fully transparent)
         size_t np = static_cast<size_t>(obj_w) * static_cast<size_t>(obj_h);
         std::vector<bool> trans_mask(np, false);
@@ -270,31 +237,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         palette_t palette;
         std::vector<uint8_t> indexed;
-
-        bool quant_ok = false;
-        if (!opt.empty()) {
-            auto qid = static_cast<size_t>(m_quantizer_id);
-            if (qid >= opt.size()) qid = 0;
-            int max_colors = m_full_palette ? 255 : 254;
-            auto quant_result = opt[qid]->quantize(trimmed_rgba, obj_w, obj_h, max_colors);
-            if (!quant_result.palette.empty() && !quant_result.indexed.empty()) {
-                palette = std::move(quant_result.palette);
-                indexed = std::move(quant_result.indexed);
-                quant_ok = true;
-            }
-        }
-        if (!quant_ok && opt.size() > 1) {
-            size_t fallback_id = (m_quantizer_id == 0 && opt.size() > 1) ? 1 : 0;
-            if (fallback_id < opt.size()) {
-                int max_colors = m_full_palette ? 255 : 254;
-                auto quant_result = opt[fallback_id]->quantize(trimmed_rgba, obj_w, obj_h, max_colors);
-                if (!quant_result.palette.empty() && !quant_result.indexed.empty()) {
-                    palette = std::move(quant_result.palette);
-                    indexed = std::move(quant_result.indexed);
-                    quant_ok = true;
-                }
-            }
-        }
+        bool quant_ok = quantize_image(trimmed_rgba, obj_w, obj_h, palette, indexed);
 
         if (quant_ok) {
             if (!m_full_palette) {
@@ -340,46 +283,33 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         cobjects.push_back(obj);
 
         // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
-        double base_pts = ev.tc_in();
-        uint64_t area = static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h);
-
-        // Decode duration: full screen composition rate (SUPer EPOCH_START model).
-        // +1 tick margin so PTS-DTS delta strictly exceeds wipe_duration
-        // (check_pts_dts_sanity requires delta > wipe_duration, exact tie fails).
-        double screen_area = static_cast<double>(m_width) * static_cast<double>(m_height);
-        double decode_duration = (std::ceil(screen_area * pg_decoder_t::FREQ / pg_decoder_t::RC) + 1.0) /
-                                 pg_decoder_t::FREQ;
-        double base_dts = base_pts - decode_duration;
-
-        double obj_decode_time = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RD)
-                                 / pg_decoder_t::FREQ;
-        double wipe_dur = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RC)
-                          / pg_decoder_t::FREQ;
+        epoch_timings_t timings = compute_timings(ev.tc_in(),
+            static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
         // PCS: PTS = presentation, DTS = decode start
         auto pcs = pcs_c::from_scratch(
             static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
             static_cast<uint8_t>(fps_enum.to_pcsfps()),
             static_cast<uint16_t>(m_composition_n++), comp_state,
-            false, palette_id, cobjects, base_pts, base_dts);
+            false, palette_id, cobjects, timings.base_pts, timings.base_dts);
         result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
 
         // WDS: PTS = PCS_PTS - wipe_dur
-        double wds_pts = base_pts - wipe_dur;
-        if (wds_pts < base_dts) wds_pts = base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
+        double wds_pts = timings.base_pts - timings.wipe_dur;
+        if (wds_pts < timings.base_dts) wds_pts = timings.base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
         window_definition_t wd;
         wd.window_id = 0;
         wd.h_pos = static_cast<uint16_t>(ev.x() + crop_x);
         wd.v_pos = static_cast<uint16_t>(ev.y() + crop_y);
         wd.width = static_cast<uint16_t>(obj_w);
         wd.height = static_cast<uint16_t>(obj_h);
-        auto wds = wds_c::from_scratch({wd}, wds_pts, base_dts);
+        auto wds = wds_c::from_scratch({wd}, wds_pts, timings.base_dts);
         result.push_back(std::make_shared<wds_c>(std::move(wds)));
 
         // PDS: PTS = DTS (instant), or earlier in overlap mode.
         // Skipped for reused events — the palette is already in the decoder.
-        double pds_pts = base_dts;
-        double pds_dts = base_dts;
+        double pds_pts = timings.base_dts;
+        double pds_dts = timings.base_dts;
         if (m_overlap && result.size() >= 3) {
             auto prev_seg = result[result.size() - 3];
             if (auto prev_ends = std::dynamic_pointer_cast<ends_c>(prev_seg)) {
@@ -392,14 +322,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             auto pds = pds_c::from_scratch(palette, p_vn, palette_id, pds_pts, pds_dts);
             result.push_back(std::make_shared<pds_c>(std::move(pds)));
 
-            // ODS: PTS = DTS + obj_decode_time, DTS = base_dts.
+            // ODS: PTS = DTS + obj_decode_time, DTS = timings.base_dts.
             // Skipped for reused events — the object is already decoded.
-            double ods_pts = base_dts + obj_decode_time;
+            double ods_pts = timings.base_dts + timings.obj_decode_time;
             auto rle_data = encode_rle(indexed, obj_w, obj_h);
             auto ods_list = ods_c::from_scratch(obj_id, 0,
                                                   static_cast<uint16_t>(obj_w),
                                                   static_cast<uint16_t>(obj_h),
-                                                  rle_data, ods_pts, base_dts);
+                                                  rle_data, ods_pts, timings.base_dts);
             for (auto& ods : ods_list)
                 result.push_back(std::make_shared<ods_c>(std::move(ods)));
 
@@ -408,7 +338,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             result.push_back(std::make_shared<ends_c>(std::move(end)));
         } else {
             // ENDS: PTS = DTS = presentation time of the reused composition
-            auto end = ends_c::from_scratch(base_pts, base_pts);
+            auto end = ends_c::from_scratch(timings.base_pts, timings.base_pts);
             result.push_back(std::make_shared<ends_c>(std::move(end)));
         }
         prev_obj_id = obj_id;
