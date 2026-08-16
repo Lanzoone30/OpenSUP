@@ -48,9 +48,8 @@ logger_c::level_name(log_level_e level) noexcept
 void
 logger_c::log(log_level_e level, const std::string& msg)
 {
-    if (level < m_level) return;
-
     std::lock_guard<std::mutex> lock(m_mutex);
+    if (level < m_level) return;
 
     auto now = std::time(nullptr);
     std::tm tm{};
