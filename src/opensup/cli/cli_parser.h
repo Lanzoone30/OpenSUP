@@ -26,6 +26,7 @@ struct cli_options_t {
     bool prefer_normal_case = false;
     bool overlap = false;
     double redraw_period = 0.0;
+    int max_kbps = 0;  // 0 = bitrate validation off
     bool json_mode = false;
     bool debug = false;
 };
