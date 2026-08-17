@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	gruntime "runtime"
 	"sync"
 
 	"github.com/Lanzoone30/OpenSUP-go/ui/config"
@@ -91,6 +94,40 @@ func (a *App) SetOutput() (string, error) {
 	a.lastOutDir = filepath.Dir(path)
 	a.mu.Unlock()
 	return path, nil
+}
+
+// RevealOutput opens the OS file manager (Explorer on Windows) showing the
+// folder of the given output path. No-op when the path is empty.
+func (a *App) RevealOutput(path string) error {
+	if path == "" {
+		return nil
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("reveal output: resolve path: %w", err)
+	}
+	dir := filepath.Dir(abs)
+	// If the arg already points to an existing folder, reveal that folder.
+	if info, err := os.Stat(abs); err == nil && info.IsDir() {
+		dir = abs
+	}
+	fmt.Fprintf(os.Stderr, "[RevealOutput] path=%q dir=%q\n", path, dir)
+
+	var name string
+	var args []string
+	switch gruntime.GOOS {
+	case "windows":
+		name = "explorer"
+		args = []string{dir}
+	case "darwin":
+		name = "open"
+		args = []string{dir}
+	default:
+		name = "xdg-open"
+		args = []string{dir}
+	}
+	// Detach: the opener outlives the app; ignore wait status.
+	return exec.Command(name, args...).Start()
 }
 
 // StartEncode launches the engine subprocess with the given config.
