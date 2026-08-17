@@ -16,7 +16,7 @@ const (
 // Version is injected into the windowTitle key. Set at build time.
 const Version = "1.1.0"
 
-// Table maps each key to a pair (EN, ES). 49 entries matching
+// Table maps each key to a pair (EN, ES). 51 entries matching
 // translations.h exactly. Keys prefixed with an emoji keep it.
 var Table = map[string][2]string{
 	// -- Header --
@@ -39,6 +39,8 @@ var Table = map[string][2]string{
 	"quantizerTip":   {"Image quantizer backend (Quality, Speed).", "Motor de cuantización (Calidad, Velocidad)."},
 	"redrawPeriod":   {"Anchor interval", "Intervalo de anclaje"},
 	"redrawPeriodTip": {"Insert anchors at the specified interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second.", "Inserta anclajes en el intervalo indicado para que los decodificadores puedan alcanzar eventos de larga duración. 0: desactivado. Mínimo: 1 segundo."},
+	"maxKbps":        {"Max bitrate", "Bitrate máximo"},
+	"maxKbpsTip":     {"Validate the output against a max stream bitrate in Kbps. 0: disabled.", "Valida la salida contra un bitrate máximo en Kbps. 0: desactivado."},
 
 	// -- Engine Options --
 	"engineOpts":      {"Engine Options", "Opciones del Motor"},
