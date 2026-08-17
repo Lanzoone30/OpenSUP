@@ -9,6 +9,7 @@
 #include "opensup/core/interface.h"
 #include "opensup/core/renderer.h"
 #include "opensup/core/filestreams.h"
+#include "opensup/core/pgstream.h"
 #include "opensup/common/logger.h"
 
 #include <filesystem>
@@ -113,6 +114,16 @@ bdn_render_c::execute()
             if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg))
                 pcs->set_composition_n(comp_n++);
         }
+    }
+
+    // Optional stream bitrate validation (SUPer test_output max_kbps path).
+    // Warns on decoder-buffer underflow; never fails the encode.
+    if (m_config.max_kbps > 0) {
+        logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +
+                                  std::to_string(m_config.max_kbps) + " Kbps...");
+        // Result intentionally unused: underflow only warns, never fails (SUPer parity).
+        (void)test_rx_bitrate(m_segments,
+                              static_cast<int64_t>(m_config.max_kbps) * 1000 / 8);
     }
 
     // Write output SUP
