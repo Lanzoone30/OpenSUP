@@ -67,6 +67,7 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		PreferNormalCase: true,
 		Overlap:         true,
 		RedrawPeriod:    0.5,
+		MaxKbps:         48000,
 	}
 	args := buildArgs(cfg)
 	want := map[string]bool{
@@ -75,7 +76,7 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		"-y": true,
 		"--ignore-resolution": true, "-w": true, "-p": true,
 		"--allow-normal": true, "--prefer-normal": true, "--overlap": true,
-		"--redraw-period": true,
+		"--redraw-period": true, "-m": true, "48000": true,
 	}
 	for _, a := range args {
 		delete(want, a)
