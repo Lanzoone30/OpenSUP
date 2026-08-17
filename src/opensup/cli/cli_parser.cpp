@@ -60,6 +60,10 @@ parse_args(int argc, char** argv)
     app.add_option("--redraw-period", opts.redraw_period,
                     "Anchor interval in seconds (0 = disable, minimum: 1)");
 
+    app.add_option("-m,--max-kbps", opts.max_kbps,
+                    "Validate output against a max bitrate in Kbps [10-48000, 0 = off] (def: 0)")
+        ->check(CLI::Range(0, 48000));
+
     app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
 
     app.footer("EXAMPLES\n"
@@ -92,6 +96,7 @@ options_to_config(const cli_options_t& opts)
     cfg.bt_matrix = opts.bt_matrix;
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
+    cfg.max_kbps = opts.max_kbps;
     return cfg;
 }
 
