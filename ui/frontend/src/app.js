@@ -394,6 +394,10 @@ function startEncode() {
     RedrawPeriod:    parseFloat($("input_redraw").value) || 0,
     MaxKbps:         parseInt($("input_max_kbps").value) || 0,
     Threads:         Math.max(0, parseInt($("input_threads").value) || 1),
+    Compression:     parseInt($("input_compression").value) || 80,
+    Acqrate:         parseInt($("input_acqrate").value) || 100,
+    SsimTol:         parseInt($("input_ssim_tol").value) || 0,
+    ExtraAcq:        parseInt($("input_extra_acq").value) || 2,
   };
 
   setEncodingState(true);

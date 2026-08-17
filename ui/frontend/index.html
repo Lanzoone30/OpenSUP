@@ -124,6 +124,34 @@
             <span class="help-tip" tabindex="0" data-i18n="threadsTip"></span>
           </span>
         </div>
+        <div class="param-row">
+          <label for="input_compression" class="param-label" data-i18n="compression">Compression</label>
+          <span class="redraw-group">
+            <input id="input_compression" class="input-num" type="number" min="0" max="100" step="1" value="80" title="Quality factor: 0 forces all acquisitions (no compression), 100 = maximum compression."/>
+            <span class="help-tip" tabindex="0" data-i18n="compressionTip"></span>
+          </span>
+        </div>
+        <div class="param-row">
+          <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acq. Rate</label>
+          <span class="redraw-group">
+            <input id="input_acqrate" class="input-num" type="number" min="0" max="100" step="1" value="100" title="Drought scaling factor: controls how fast drought accumulates between acquisitions."/>
+            <span class="help-tip" tabindex="0" data-i18n="acqrateTip"></span>
+          </span>
+        </div>
+        <div class="param-row">
+          <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM Tol.</label>
+          <span class="redraw-group">
+            <input id="input_ssim_tol" class="input-num" type="number" min="-100" max="100" step="1" value="0" title="SSIM tolerance: adjusts similarity threshold per resolution. Negative = stricter, positive = more lenient."/>
+            <span class="help-tip" tabindex="0" data-i18n="ssimTolTip"></span>
+          </span>
+        </div>
+        <div class="param-row">
+          <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra Acq</label>
+          <span class="redraw-group">
+            <input id="input_extra_acq" class="input-num" type="number" min="0" max="100" step="1" value="2" title="Force acquisition after N palette updates without one. 0 = disabled."/>
+            <span class="help-tip" tabindex="0" data-i18n="extraAcqTip"></span>
+          </span>
+        </div>
       </div>
 
       <!-- Engine Options -->
