@@ -1,5 +1,5 @@
 // i18n.js — Bilingual string table (EN/ES), ported from translations.h.
-// 43 keys matching the Go i18n.Table exactly. No emojis.
+// 49 keys matching the Go i18n.Table exactly. No emojis.
 
 const Table = {
   // -- Header --
@@ -11,24 +11,27 @@ const Table = {
   selectBdn:      { en: "Select BDN XML",                 es: "Seleccionar BDN XML" },
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
   setOutput:      { en: "Set SUP Output",                 es: "Establecer destino SUP" },
+  openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
 
   // -- Parameters --
   parameters:     { en: "Parameters",                     es: "Parámetros" },
   colorSpace:     { en: "Color Space",                    es: "Espacio de color" },
   colorSpaceTip:  { en: "Color matrix to use for YCbCr conversion.", es: "Matriz de color para conversión YCbCr." },
-  quantizer:      { en: "Quantizer",                      es: "Cuantizador" },
+  quantizer:      { en: "Quantizer",                      es: "Quantizer" },
   quantizerTip:   { en: "Image quantizer backend (Quality, Speed).", es: "Motor de cuantización (Calidad, Velocidad)." },
+  redrawPeriod:   { en: "Anchor interval",                 es: "Intervalo de anclaje" },
+  redrawPeriodTip:{ en: "Insert anchors at the specified interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second.", es: "Inserta anclajes en el intervalo indicado para que los decodificadores puedan alcanzar eventos de larga duración. 0: desactivado. Mínimo: 1 segundo." },
 
   // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
-  allowNormal:    { en: "Allow Normal Case",               es: "Permitir Normal Case" },
-  preferNormal:   { en: "Prefer Normal Case",              es: "Preferir Normal Case" },
-  fullPalette:    { en: "Write Full Palette",              es: "Paleta Completa" },
+  allowNormal:    { en: "Allow normal case object redefinition.", es: "Permitir redefinición normal case" },
+  preferNormal:   { en: "Prefer normal case object redefinition.", es: "Preferir redefinición normal case" },
+  fullPalette:    { en: "Write full palette.",            es: "Paleta Completa" },
   bothFormatsTip: { en: "Generate both .sup and .pes/.mui output formats.", es: "Generar formatos .sup y .pes/.mui." },
-  bothFormats:    { en: "Both SUP + PES/MUI",              es: "SUP + PES/MUI" },
-  overlapBuf:     { en: "Overlap Buffering",              es: "Buffer de Superposición" },
-  ignoreRes:      { en: "Ignore Resolution Validation",    es: "Ignorar Validación de Resolución" },
+  bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "SUP + PES/MUI" },
+  overlapBuf:     { en: "Allow palette update buffering.", es: "Permitir buffering de paleta" },
+  ignoreRes:      { en: "Ignore Resolution Validation (Experimental)", es: "Ignorar Validación de Resolución (Experimental)" },
 
   // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
@@ -41,12 +44,15 @@ const Table = {
   // -- Encode --
   progress:       { en: "Progress",                      es: "Progreso" },
   standingBy:     { en: "Standing by",                    es: "En espera" },
+  working:        { en: "Working",                        es: "Procesando" },
+  finished:       { en: "Finished",                       es: "Finalizado" },
   initEncode:     { en: "ENCODE",                          es: "PROCESAR" },
   abort:          { en: "ABORT",                           es: "ABORTAR" },
   starting:       { en: "Encoding",                       es: "Codificando" },
   done:           { en: "Done",                            es: "Listo" },
   failed:         { en: "Encoding FAILED — see log for details", es: "Codificación FALLIDA — ver el registro" },
   abortedShort:   { en: "Encoding Aborted",               es: "Codificación Abortada" },
+  aborted:        { en: "Aborted",                        es: "Abortado" },
   abortLogMsg:    { en: "Encoding aborted by user.",      es: "Codificación abortada por el usuario." },
 
   // -- Theme --
