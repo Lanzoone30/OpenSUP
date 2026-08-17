@@ -53,7 +53,6 @@ parse_args(int argc, char** argv)
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
-
     app.add_flag("-d,--debug", opts.debug,
                   "Enable debug logging (LDEBUG level)");
 
@@ -67,6 +66,20 @@ parse_args(int argc, char** argv)
     app.add_option("-j,--threads", opts.threads,
                     "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 1)")
         ->check(CLI::Range(0, 1024));
+
+    // Drought / quality parameters (SUPer parity)
+    app.add_option("-c,--compression", opts.compression,
+                    "Compression/quality factor [0-100, 0 = force all acquisitions] (def: 80)")
+        ->check(CLI::Range(0, 100));
+    app.add_option("-a,--acqrate", opts.acqrate,
+                    "Acquisition rate / drought scaling [0-100] (def: 100)")
+        ->check(CLI::Range(0, 100));
+    app.add_option("-t,--ssim-tol", opts.ssim_tol,
+                    "SSIM tolerance [-100..100, adjusts threshold per resolution] (def: 0)")
+        ->check(CLI::Range(-100, 100));
+    app.add_option("-e,--extra-acq", opts.extra_acq,
+                    "Insert acquisition after N palette updates [0 = off] (def: 2)")
+        ->check(CLI::Range(0, 100));
 
     app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
 
@@ -102,6 +115,10 @@ options_to_config(const cli_options_t& opts)
     cfg.redraw_period = opts.redraw_period;
     cfg.max_kbps = opts.max_kbps;
     cfg.threads = opts.threads;
+    cfg.compression = opts.compression;
+    cfg.acqrate = opts.acqrate;
+    cfg.ssim_tol = opts.ssim_tol;
+    cfg.extra_acq = opts.extra_acq;
     return cfg;
 }
 

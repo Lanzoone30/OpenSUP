@@ -26,8 +26,15 @@ struct cli_options_t {
     bool prefer_normal_case = false;
     bool overlap = false;
     double redraw_period = 0.0;
-    int max_kbps = 0;  // 0 = bitrate validation off
-    int threads = 1;   // 0 = auto (hardware concurrency)
+    int max_kbps = 0;        // 0 = bitrate validation off
+    int threads = 1;         // 0 = auto (hardware concurrency)
+
+    // Drought / quality parameters (SUPer parity)
+    int compression = 80;    // quality_factor: 0-100 (def 80)
+    int acqrate = 100;       // refresh_rate: 0-100 (def 100)
+    int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0)
+    int extra_acq = 2;       // insert_acquisitions: min palette updates (def 2)
+
     bool json_mode = false;
     bool debug = false;
 };
