@@ -8,8 +8,7 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	// Cross-check the key count matches translations.h (43 keys).
-	assert.Len(t, Table, 43)
+	assert.Len(t, Table, 49)
 }
 
 func TestGetUnknownKeyReturnsItself(t *testing.T) {
