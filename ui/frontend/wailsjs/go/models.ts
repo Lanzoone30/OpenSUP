@@ -36,6 +36,7 @@ export namespace engine {
 	    PreferNormalCase: boolean;
 	    Overlap: boolean;
 	    RedrawPeriod: number;
+	    MaxKbps: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new EncodeConfig(source);
@@ -55,6 +56,7 @@ export namespace engine {
 	        this.PreferNormalCase = source["PreferNormalCase"];
 	        this.Overlap = source["Overlap"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
+	        this.MaxKbps = source["MaxKbps"];
 	    }
 	}
 
