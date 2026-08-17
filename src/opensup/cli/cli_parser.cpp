@@ -64,6 +64,10 @@ parse_args(int argc, char** argv)
                     "Validate output against a max bitrate in Kbps [10-48000, 0 = off] (def: 0)")
         ->check(CLI::Range(0, 48000));
 
+    app.add_option("-j,--threads", opts.threads,
+                    "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 1)")
+        ->check(CLI::Range(0, 1024));
+
     app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
 
     app.footer("EXAMPLES\n"
@@ -97,6 +101,7 @@ options_to_config(const cli_options_t& opts)
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
     cfg.max_kbps = opts.max_kbps;
+    cfg.threads = opts.threads;
     return cfg;
 }
 
