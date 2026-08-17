@@ -49,6 +49,7 @@ type EncodeConfig struct {
 	Overlap         bool
 	RedrawPeriod    float64
 	MaxKbps         int
+	Threads         int
 }
 
 // Result is the terminal outcome of a Run call.
@@ -321,6 +322,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.MaxKbps != 0 {
 		args = append(args, "-m", intToStr(cfg.MaxKbps))
+	}
+	if cfg.Threads != 0 {
+		args = append(args, "-j", intToStr(cfg.Threads))
 	}
 	return args
 }
