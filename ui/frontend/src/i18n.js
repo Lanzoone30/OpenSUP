@@ -1,5 +1,5 @@
 // i18n.js — Bilingual string table (EN/ES), ported from translations.h.
-// 49 keys matching the Go i18n.Table exactly. No emojis.
+// 51 keys matching the Go i18n.Table exactly. No emojis.
 
 const Table = {
   // -- Header --
@@ -22,6 +22,8 @@ const Table = {
   quantizerTip:   { en: "Image quantizer backend (Quality, Speed).", es: "Motor de cuantización (Calidad, Velocidad)." },
   redrawPeriod:   { en: "Anchor interval",                 es: "Intervalo de anclaje" },
   redrawPeriodTip:{ en: "Insert anchors at the specified interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second.", es: "Inserta anclajes en el intervalo indicado para que los decodificadores puedan alcanzar eventos de larga duración. 0: desactivado. Mínimo: 1 segundo." },
+  maxKbps:        { en: "Max bitrate",                              es: "Bitrate máximo" },
+  maxKbpsTip:     { en: "Validate the output against a max stream bitrate in Kbps. 0: disabled.", es: "Valida la salida contra un bitrate máximo en Kbps. 0: desactivado." },
 
   // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
