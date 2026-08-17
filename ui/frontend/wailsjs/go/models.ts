@@ -38,6 +38,10 @@ export namespace engine {
 	    RedrawPeriod: number;
 	    MaxKbps: number;
 	    Threads: number;
+	    Compression: number;
+	    Acqrate: number;
+	    SsimTol: number;
+	    ExtraAcq: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new EncodeConfig(source);
@@ -59,6 +63,10 @@ export namespace engine {
 	        this.RedrawPeriod = source["RedrawPeriod"];
 	        this.MaxKbps = source["MaxKbps"];
 	        this.Threads = source["Threads"];
+	        this.Compression = source["Compression"];
+	        this.Acqrate = source["Acqrate"];
+	        this.SsimTol = source["SsimTol"];
+	        this.ExtraAcq = source["ExtraAcq"];
 	    }
 	}
 
