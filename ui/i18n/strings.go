@@ -16,7 +16,7 @@ const (
 // Version is injected into the windowTitle key. Set at build time.
 const Version = "1.1.0"
 
-// Table maps each key to a pair (EN, ES). 43 entries matching
+// Table maps each key to a pair (EN, ES). 49 entries matching
 // translations.h exactly. Keys prefixed with an emoji keep it.
 var Table = map[string][2]string{
 	// -- Header --
@@ -28,24 +28,27 @@ var Table = map[string][2]string{
 	"selectBdn":     {"Select BDN XML", "Seleccionar BDN XML"},
 	"noFile":          {"No file selected", "Ningún archivo seleccionado"},
 	"setOutput":      {"Set SUP Output", "Establecer destino SUP"},
+	"openOutputFolder": {"Open output folder", "Abrir carpeta de salida"},
 	"destNotSet":     {"Destination not set", "Destino no establecido"},
 
 	// -- Parameters --
 	"parameters":      {"Parameters", "Parámetros"},
 	"colorSpace":      {"Color Space", "Espacio de color"},
 	"colorSpaceTip":  {"Color matrix to use for YCbCr conversion.", "Matriz de color para conversión YCbCr."},
-	"quantizer":       {"Quantizer", "Cuantizador"},
+	"quantizer":       {"Quantizer", "Quantizer"},
 	"quantizerTip":   {"Image quantizer backend (Quality, Speed).", "Motor de cuantización (Calidad, Velocidad)."},
+	"redrawPeriod":   {"Anchor interval", "Intervalo de anclaje"},
+	"redrawPeriodTip": {"Insert anchors at the specified interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second.", "Inserta anclajes en el intervalo indicado para que los decodificadores puedan alcanzar eventos de larga duración. 0: desactivado. Mínimo: 1 segundo."},
 
 	// -- Engine Options --
 	"engineOpts":      {"Engine Options", "Opciones del Motor"},
-	"allowNormal":     {"Allow Normal Case", "Permitir Normal Case"},
-	"preferNormal":    {"Prefer Normal Case", "Preferir Normal Case"},
-	"fullPalette":     {"Write Full Palette", "Paleta Completa"},
-	"bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
-	"bothFormats":     {"Both SUP + PES/MUI", "SUP + PES/MUI"},
-	"overlapBuf":      {"Overlap Buffering", "Buffer de Superposición"},
-	"ignoreRes":       {"Ignore Resolution Validation", "Ignorar Validación de Resolución"},
+	"allowNormal":     {"Allow normal case object redefinition.", "Permitir redefinición normal case"},
+	"preferNormal":    {"Prefer normal case object redefinition.", "Preferir redefinición normal case"},
+"fullPalette":     {"Write full palette.", "Paleta Completa"},
+  "bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
+  "bothFormats":     {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
+  "overlapBuf":      {"Allow palette update buffering.", "Permitir buffering de paleta"},
+  "ignoreRes":       {"Ignore Resolution Validation (Experimental)", "Ignorar Validación de Resolución (Experimental)"},
 
 	// -- Activity Log --
 	"activityLog":     {"ACTIVITY LOG", "REGISTRO DE ACTIVIDAD"},
@@ -57,13 +60,16 @@ var Table = map[string][2]string{
 
 	// -- Encode --
 	"progress":        {"Progress", "Progreso"},
-	"standingBy":      {"Standing by…", "En espera…"},
+	"standingBy":      {"Standing by", "En espera"},
+	"working":         {"Working", "Procesando"},
+	"finished":        {"Finished", "Finalizado"},
 	"initEncode":      {"ENCODE", "PROCESAR"},
 	"abort":           {"ABORT", "ABORTAR"},
 	"starting":        {"Encoding…", "Codificando…"},
 	"done":            {"Done", "Listo"},
 	"failed":          {"Encoding FAILED – see log for details", "CODIFICACIÓN FALLIDA – ver el registro"},
 	"abortedShort":   {"Encoding Aborted", "Codificación Abortada"},
+	"aborted":         {"Aborted", "Abortado"},
 
 	// -- Theme --
 	"themeSystem":    {"System", "Sistema"},
