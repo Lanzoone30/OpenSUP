@@ -393,6 +393,7 @@ function startEncode() {
     Overlap:         $("chk_overlap").checked,
     RedrawPeriod:    parseFloat($("input_redraw").value) || 0,
     MaxKbps:         parseInt($("input_max_kbps").value) || 0,
+    Threads:         Math.max(0, parseInt($("input_threads").value) || 1),
   };
 
   setEncodingState(true);
