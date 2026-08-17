@@ -65,7 +65,9 @@ logger_c::log(log_level_e level, const std::string& msg)
 
     auto line = oss.str();
     if (!m_quiet) {
-        std::cout << line << std::endl;
+        // Human-readable logs go to stderr so stdout stays reserved for
+        // actual program output (e.g. --json NDJSON events).
+        std::cerr << line << std::endl;
     }
     if (m_file && m_file->is_open()) {
         (*m_file) << line << std::endl;
