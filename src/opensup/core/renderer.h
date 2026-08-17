@@ -56,7 +56,8 @@ class epoch_encoder_c {
 public:
     epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0,
                      bool allow_normal_case = false, bool overlap = false,
-                     bool full_palette = false, double ssim_tol = 0.0);
+                     bool full_palette = false,
+                     bool prefer_normal_case = false);
 
     /// Render the given events; returns the PGS segments for this epoch.
     std::vector<std::shared_ptr<pg_segment_c>>
@@ -91,9 +92,9 @@ private:
     int m_width, m_height;
     int m_quantizer_id = 0;
     bool m_allow_normal_case = false;
+    bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
-    double m_ssim_tol = 0.0;
     double m_drought = 0.0;
     int m_composition_n = 1;
     int m_palette_vn = 0;

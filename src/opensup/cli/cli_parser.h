@@ -19,14 +19,15 @@ struct cli_options_t {
     int quantizer = 0;
     std::string bt_matrix = "bt709";
     bool overwrite = false;
-    double ssim_tol = 0.0;
     bool ignore_resolution = false;
     bool both_formats = false;
     bool full_palette = false;
     bool allow_normal_case = false;
+    bool prefer_normal_case = false;
     bool overlap = false;
     double redraw_period = 0.0;
     bool json_mode = false;
+    bool debug = false;
 };
 
 /**

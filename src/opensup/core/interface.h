@@ -42,9 +42,9 @@ struct encode_config_t {
     bool ignore_resolution = false;
     bool both_formats = false;
     bool allow_normal_case = false;
+    bool prefer_normal_case = false;
     bool overlap = false;
     std::string bt_matrix = "bt709";
-    double ssim_tol = 0.0;
     bool full_palette = false;
     double redraw_period = 0.0;
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop

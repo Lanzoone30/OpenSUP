@@ -27,39 +27,45 @@ parse_args(int argc, char** argv)
         ->required();
 
     app.add_option("-q,--quantizer", opts.quantizer,
-                    "Quantizer [0:libimagequant, 1:HexTree] (def: 0)");
+                    "Quantizer [0:libimagequant (best, fast), 1:HexTree (good, very fast)] (def: 0)");
 
     app.add_option("-b,--bt", opts.bt_matrix,
-                    "BT matrix [bt601, bt709, bt2020] (def: bt709)");
+                    "Color Space [BT.709, BT.601, BT.2020] (def: BT.709)");
 
     app.add_flag("-y,--yes", opts.overwrite,
                   "Overwrite existing output file");
 
-    app.add_option("--ssim-tol", opts.ssim_tol,
-                    "SSIM tolerance [0-100] (def: 0)")
-        ->check(CLI::Range(0.0, 100.0));
-
     app.add_flag("--ignore-resolution", opts.ignore_resolution,
-                  "Accept non-standard video resolutions");
+                  "Ignore Resolution Validation (Experimental)");
 
     app.add_flag("-w,--withsup", opts.both_formats,
-                  "Output both SUP and PES/MUI formats");
+                  "Generate both SUP and PES+MUI files.");
 
     app.add_flag("-p,--palette", opts.full_palette,
-                  "Use full palette for all epochs");
+                  "Write full palette for all epochs.");
 
     app.add_flag("--allow-normal", opts.allow_normal_case,
-                  "Update only one composition object when decode time is tight");
+                  "Allow normal case object redefinition.");
+    app.add_flag("--prefer-normal", opts.prefer_normal_case,
+                  "Prefer normal case object redefinition.");
     app.add_flag("--overlap", opts.overlap,
-                  "Buffer palette updates to reduce dropped events");
+                  "Allow palette update buffering.");
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
 
+    app.add_flag("-d,--debug", opts.debug,
+                  "Enable debug logging (LDEBUG level)");
+
     app.add_option("--redraw-period", opts.redraw_period,
-                    "Periodic redraw in seconds (0 = disable)");
+                    "Anchor interval in seconds (0 = disable, minimum: 1)");
 
     app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
+
+    app.footer("EXAMPLES\n"
+               "  opensup_cli -i input.xml output.sup\n"
+               "  opensup_cli -i input.xml output.sup -q 1 -y\n\n"
+               "Project: https://github.com/Lanzoone30/OpenSUP");
 
     try {
         app.parse(argc, argv);
@@ -81,9 +87,9 @@ options_to_config(const cli_options_t& opts)
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
     cfg.allow_normal_case = opts.allow_normal_case;
+    cfg.prefer_normal_case = opts.prefer_normal_case;
     cfg.overlap = opts.overlap;
     cfg.bt_matrix = opts.bt_matrix;
-    cfg.ssim_tol = opts.ssim_tol;
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
     return cfg;

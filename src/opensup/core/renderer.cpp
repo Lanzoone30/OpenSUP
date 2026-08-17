@@ -71,10 +71,12 @@ trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height
 // ── Epoch Encoder ──
 epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id,
                                  bool allow_normal_case, bool overlap,
-                                 bool full_palette, double ssim_tol)
+                                 bool full_palette,
+                                 bool prefer_normal_case)
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
-    , m_allow_normal_case(allow_normal_case), m_overlap(overlap)
-    , m_full_palette(full_palette), m_ssim_tol(ssim_tol) {}
+    , m_allow_normal_case(allow_normal_case), m_prefer_normal_case(prefer_normal_case)
+    , m_overlap(overlap)
+    , m_full_palette(full_palette) {}
 
 bool
 epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
@@ -337,7 +339,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         // Composition state: epoch_start by default, normal if allow_normal_case set.
         // A reused event must be NORMAL — it references an object already in
         // the decoder buffer (not reset between same-epoch events).
-        auto comp_state = (reusable || m_allow_normal_case)
+        // prefer_normal_case forces NORMAL the same way allow_normal_case does
+        // (parity with SUPer: both lift the composition to a normal redefinition
+        // instead of a fresh epoch_start).
+        auto comp_state = (reusable || m_allow_normal_case || m_prefer_normal_case)
             ? pcs_c::composition_state_e::normal
             : pcs_c::composition_state_e::epoch_start;
 
