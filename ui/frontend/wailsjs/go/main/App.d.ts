@@ -9,6 +9,8 @@ export function GetTranslations(arg1:number):Promise<Record<string, string>>;
 
 export function LoadSettings():Promise<config.Settings>;
 
+export function RevealOutput(arg1:string):Promise<void>;
+
 export function SaveSettings(arg1:config.Settings):Promise<boolean>;
 
 export function SelectBDN():Promise<string>;
