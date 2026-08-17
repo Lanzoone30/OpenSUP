@@ -41,11 +41,11 @@ type EncodeConfig struct {
 	Quantizer       int
 	BTMatrix        string
 	Overwrite       bool
-	SSIMTol         float64
 	IgnoreRes       bool
 	BothFormats     bool
 	FullPalette     bool
 	AllowNormalCase bool
+	PreferNormalCase bool
 	Overlap         bool
 	RedrawPeriod    float64
 }
@@ -297,9 +297,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.Overwrite {
 		args = append(args, "-y")
 	}
-	if cfg.SSIMTol != 0 {
-		args = append(args, "--ssim-tol", floatToStr(cfg.SSIMTol))
-	}
 	if cfg.IgnoreRes {
 		args = append(args, "--ignore-resolution")
 	}
@@ -311,6 +308,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.AllowNormalCase {
 		args = append(args, "--allow-normal")
+	}
+	if cfg.PreferNormalCase {
+		args = append(args, "--prefer-normal")
 	}
 	if cfg.Overlap {
 		args = append(args, "--overlap")
