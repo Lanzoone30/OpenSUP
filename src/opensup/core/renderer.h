@@ -57,7 +57,11 @@ public:
     epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0,
                      bool allow_normal_case = false, bool overlap = false,
                      bool full_palette = false,
-                     bool prefer_normal_case = false);
+                     bool prefer_normal_case = false,
+                     double quality_factor = 0.8,
+                     double refresh_rate = 1.0,
+                     double ssim_tol = 0.0,
+                     int insert_acquisitions = 2);
 
     /// Render the given events; returns the PGS segments for this epoch.
     std::vector<std::shared_ptr<pg_segment_c>>
@@ -88,6 +92,12 @@ private:
     emit_event_segments(const event_emit_input_t& in,
                         const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far);
 
+    /// SSIM comparison between two indexed bitmaps (grayscale).
+    [[nodiscard]] double ssim_compare(const std::vector<uint8_t>& prev_trimmed,
+                                      int prev_w, int prev_h,
+                                      const std::vector<uint8_t>& curr_trimmed,
+                                      int curr_w, int curr_h) const;
+
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
@@ -95,6 +105,10 @@ private:
     bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
+    double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
+    double m_refresh_rate = 1.0;         // acqrate/100 (scales drought)
+    double m_ssim_tol = 0.0;             // ssim_tol/100 (adjusts threshold per resolution)
+    int m_insert_acquisitions = 2;       // extra_acq (min palette updates to force acq)
     double m_drought = 0.0;
     int m_composition_n = 1;
     int m_palette_vn = 0;
