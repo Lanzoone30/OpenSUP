@@ -255,6 +255,7 @@ body {
   height: 100vh;
   padding: 28px 32px 24px;
   gap: 16px;
+  overflow: hidden;
 }
 
 /* ── Header ── */
@@ -270,8 +271,8 @@ body {
   align-self: stretch;
   min-height: 56px;
   background: linear-gradient(to bottom,
-    transparent 0%, var(--border-strong) 20%,
-    var(--border-strong) 80%, transparent 100%);
+      transparent 0%, var(--border-strong) 20%,
+      var(--border-strong) 80%, transparent 100%);
 }
 
 .brand {
@@ -288,8 +289,8 @@ body {
   width: 180px;
   height: 1px;
   background: linear-gradient(90deg,
-    transparent 0%, var(--border-strong) 30%,
-    var(--border-strong) 70%, transparent 100%);
+      transparent 0%, var(--border-strong) 30%,
+      var(--border-strong) 70%, transparent 100%);
 }
 
 .brand-top-line {
@@ -320,7 +321,8 @@ body {
 /* ── Two-column splitter ── */
 .main-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 290px 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 28px;
   flex: 1;
   min-height: 0;
@@ -330,10 +332,22 @@ body {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
-  overflow-y: auto;
-  padding-right: 6px;
+  min-height: 0;
   padding-top: var(--col-offset);
+}
+
+.controls-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding-right: 6px;
+  /* Soft edge fade: --fade-t/--fade-b are 0 unless content is cut off
+     at that edge (driven from JS so idle lists stay crisp). */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
 }
 
 /* ── Cards ── */
@@ -346,7 +360,16 @@ body {
   flex-direction: column;
   gap: 12px;
   box-shadow: var(--shadow-xs);
-  transition: box-shadow var(--dur) var(--ease);
+  position: relative;
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+/* The help-tip tooltip must paint above the next card: raise the hosting
+   card while its tip is active (transform on hover otherwise creates a
+   stacking context that traps the tooltip behind the following card). */
+.card:has(.help-tip:hover),
+.card:has(.help-tip:focus-visible) {
+  z-index: 60;
 }
 
 .card:hover {
@@ -476,7 +499,322 @@ select option {
   font-size: 12px;
 }
 
-/* ═══ Segmented controls (language / theme) ═══ */
+/* ═══ Custom dropdown (quantizer) ═══ */
+.dropdown {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dd-btn {
+  appearance: none;
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  padding: 6px 30px 6px 11px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  outline: none;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.dd-btn:hover {
+  border-color: var(--accent);
+}
+
+.dd-btn:focus-visible,
+.dd-btn.open {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.dd-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  box-shadow: var(--shadow-sm);
+  display: none;
+}
+
+.dd-list.open {
+  display: block;
+}
+
+.dd-list li {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Long option text scrolls horizontally on hover so it is fully readable
+   without widening the list (marquee, ponytail: 2 options, CSS-only). */
+.dd-list li span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.dd-list li span.overflow:hover,
+.dd-list li span.overflow:focus-within {
+  animation: dd-marquee 4s linear infinite;
+}
+
+@keyframes dd-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  40% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.dd-list li:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.dd-list li.active {
+  background: var(--accent-ring);
+  color: var(--text);
+}
+
+/* ── Help tip (?) tooltip ── */
+.help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+}
+
+/* ── Compact numeric input (Anchor interval) ── */
+.input-num {
+  width: 64px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  outline: none;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.input-num:hover {
+  border-color: var(--accent);
+}
+
+.input-num:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.input-num::-webkit-inner-spin-button {
+  opacity: 0.5;
+}
+
+/* Group: numeric input + help tip side by side */
+.redraw-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.redraw-group .help-tip {
+  margin-left: 0;
+}
+
+.help-tip::before {
+  content: "?";
+}
+
+.help-tip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  transform: none;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  background: #1e1e24;
+  color: #f2f2f2;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease);
+  z-index: 60;
+}
+
+.help-tip::after {
+  visibility: hidden;
+}
+
+.help-tip:hover::after,
+.help-tip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Arrow under the tip */
+.help-tip:hover::before,
+.help-tip:focus-visible::before {
+  color: var(--accent);
+}
+
+/* ═══ Output row (Set SUP Output full width) ═══ */
+.output-row {
+  display: flex;
+}
+
+/* ═══ Output file label + reveal folder icon ═══ */
+.output-file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.output-file-row .file-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.output-file-row .btn-icon {
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: auto;
+}
+
+.btn-icon .seg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ═══ Status LED ═══ */
+.led {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.25);
+}
+
+.led-standing {
+  background: #0193CD;
+  box-shadow: 0 0 8px rgba(1, 147, 205, 0.6);
+}
+
+.led-working {
+  background: #0193CD;
+  box-shadow: 0 0 10px rgba(1, 147, 205, 0.8);
+}
+
+/* Epoch completed: green flash (2-cycle burst, HDD-like) on top of the
+   blue working state; duration set per-event via --beat. Returns to the
+   base class when updateProgress() removes led-done. */
+.led-done {
+  background: #2ECC71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
+  animation: led-blink var(--beat, 0.3s) ease-in-out 2 both;
+}
+
+.led-finished {
+  background: #2ECC71;
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+}
+
+.led-failed {
+  background: #C0392B;
+  box-shadow: 0 0 8px rgba(192, 57, 43, 0.6);
+}
+
+@keyframes led-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ═══ Header dropdowns (language / theme) ═══ */
 .seg-source {
   position: absolute;
   width: 1px;
@@ -489,51 +827,117 @@ select option {
   border: 0;
 }
 
-.seg {
+.seg-icon {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: 99px;
-  padding: 2px;
-  gap: 2px;
-  background: var(--surface);
-  box-shadow: var(--shadow-xs);
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
-.seg-btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  padding: 5px 12px;
-  border-radius: 99px;
-  cursor: pointer;
-  transition:
-    background-color var(--dur) var(--ease),
-    color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+.seg-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
-.seg-btn:hover {
-  color: var(--text);
+.hdr-dd .dd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-width: 0;
+  padding: 7px 32px 7px 12px;
+  position: relative;
+  background-image: none;
 }
 
-.seg-btn.active {
-  background: var(--accent);
-  color: #FFFFFF;
-  box-shadow: var(--shadow-xs);
+/* Language button keeps a stable width: "English (US)" is wider than
+   "Spanish", so without a floor the control resizes on locale switch. */
+#dd_language .dd-btn {
+  min-width: 152px;
 }
 
-.seg-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-ring);
+.hdr-dd .dd-flag {
+  width: 20px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border);
 }
 
-/* ═══ Drop zones ═══ */
+.hdr-dd .dd-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+/* Rotating chevron on open/close */
+.hdr-dd .dd-btn::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.hdr-dd .dd-btn.open::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.hdr-dd .dd-list {
+  left: auto;
+  right: 0;
+  min-width: 140px;
+  border-radius: var(--r-card);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  transform-origin: top right;
+}
+
+.hdr-dd .dd-list.open {
+  display: block;
+  animation: dd-pop var(--dur-slow) var(--ease-out);
+}
+
+.hdr-dd .dd-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hdr-dd .dd-list li.active {
+  background: var(--accent-soft);
+}
+
+.hdr-dd .dd-list li.active::before {
+  content: "✓";
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+@keyframes dd-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Drop zones ── */
 .drop-zone {
   --wails-drop-target: drop;
   display: flex;
@@ -832,7 +1236,7 @@ select option {
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg,
-    #0193CD 30%, #66D4E5 80%, #0193CD 100%);
+      #0193CD 30%, #66D4E5 80%, #0193CD 100%);
   background-size: 50% 100%;
   background-repeat: repeat-x;
   animation: moving-gradient 3s linear infinite;
@@ -840,8 +1244,13 @@ select option {
 }
 
 @keyframes moving-gradient {
-  0%   { background-position: left bottom; }
-  100% { background-position: right bottom; }
+  0% {
+    background-position: left bottom;
+  }
+
+  100% {
+    background-position: right bottom;
+  }
 }
 
 /* Glass reflection overlay: sits above the fill, covers the full track */
@@ -849,10 +1258,10 @@ select option {
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom,
-    rgba(255, 255, 255, 0.8) 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    rgba(255, 255, 255, 0) 50%,
-    rgba(255, 255, 255, 0.2) 100%);
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0.2) 100%);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -868,7 +1277,7 @@ select option {
 
 .progress-fill.failed {
   background: linear-gradient(90deg,
-    #C0392B 30%, #F1948A 80%, #C0392B 100%);
+      #C0392B 30%, #F1948A 80%, #C0392B 100%);
   background-size: 50% 100%;
   background-repeat: repeat-x;
 }
