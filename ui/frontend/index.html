@@ -19,25 +19,36 @@
     </div>
     <div class="vline"></div>
     <div class="header-controls">
-      <div class="seg" data-target="cmb_language" role="group" title="Interface Language / Idioma de interfaz">
-        <button type="button" class="seg-btn active" data-val="0">EN</button>
-        <button type="button" class="seg-btn" data-val="1">ES</button>
+      <div class="dropdown hdr-dd" id="dd_language" title="Interface Language / Idioma de interfaz">
+        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
+          <img class="dd-flag dd-flag-current" alt="" src="./src/assets/flags/us.svg"/>
+          <span class="dd-label">English (US)</span>
+        </button>
+        <ul class="dd-list" role="listbox">
+          <li role="option" data-val="0"><img class="dd-flag" alt="" src="./src/assets/flags/us.svg"/><span>English (US)</span></li>
+          <li role="option" data-val="1"><img class="dd-flag" alt="" src="./src/assets/flags/es.svg"/><span>Spanish</span></li>
+        </ul>
+        <select id="cmb_language" class="seg-source" aria-hidden="true" tabindex="-1">
+          <option value="0">English (US)</option>
+          <option value="1">Spanish</option>
+        </select>
       </div>
-      <select id="cmb_language" class="seg-source" aria-hidden="true" tabindex="-1">
-        <option value="0">EN</option>
-        <option value="1">ES</option>
-      </select>
 
-      <div class="seg" data-target="cmb_theme" role="group" title="Theme / Tema">
-        <button type="button" class="seg-btn active" data-val="0" data-i18n="themeSystem">System</button>
-        <button type="button" class="seg-btn" data-val="1" data-i18n="themeLight">Light</button>
-        <button type="button" class="seg-btn" data-val="2" data-i18n="themeDark">Dark</button>
+      <div class="dropdown hdr-dd" id="dd_theme" title="Theme / Tema">
+        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dd-label">System</span>
+        </button>
+        <ul class="dd-list" role="listbox">
+          <li role="option" data-val="0"><span data-i18n="themeSystem">System</span></li>
+          <li role="option" data-val="1"><span data-i18n="themeLight">Light</span></li>
+          <li role="option" data-val="2"><span data-i18n="themeDark">Dark</span></li>
+        </ul>
+        <select id="cmb_theme" class="seg-source" aria-hidden="true" tabindex="-1">
+          <option value="0">System</option>
+          <option value="1">Light</option>
+          <option value="2">Dark</option>
+        </select>
       </div>
-      <select id="cmb_theme" class="seg-source" aria-hidden="true" tabindex="-1">
-        <option value="0">System</option>
-        <option value="1">Light</option>
-        <option value="2">Dark</option>
-      </select>
     </div>
   </header>
 
@@ -47,6 +58,8 @@
     <!-- ── Left column: config container (~400px) ── -->
     <section class="controls">
 
+      <div class="controls-scroll">
+
       <!-- Project Scope -->
       <div class="card">
         <h2 class="card-title" data-i18n="projectScope">Project Scope</h2>
@@ -54,13 +67,34 @@
           <button id="btn_select_bdn" class="btn btn-secondary" data-i18n="selectBdn">Select BDN XML</button>
           <span id="lbl_bdn_file" class="file-label" data-i18n="noFile">No file selected</span>
         </div>
-        <button id="btn_set_output" class="btn btn-secondary" data-i18n="setOutput">Set SUP Output</button>
-        <span id="lbl_output_file" class="file-label" data-i18n="destNotSet">Destination not set</span>
+        <div class="output-row">
+          <button id="btn_set_output" class="btn btn-secondary" data-i18n="setOutput">Set SUP Output</button>
+        </div>
+        <span class="output-file-row">
+          <span id="lbl_output_file" class="file-label" data-i18n="destNotSet">Destination not set</span>
+          <button id="btn_reveal_output" class="btn btn-icon" disabled title="Open output folder" aria-label="Open output folder">
+            <span class="seg-icon" data-icon="folder" aria-hidden="true"></span>
+          </button>
+        </span>
       </div>
 
       <!-- Parameters -->
       <div class="card">
         <h2 class="card-title" data-i18n="parameters">Parameters</h2>
+        <div class="param-row">
+          <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
+          <div class="dropdown" id="dd_quantizer">
+            <button type="button" class="dd-btn">libimagequant</button>
+            <ul class="dd-list" role="listbox">
+              <li role="option" data-val="0" title="libimagequant (best, fast)"><span>libimagequant (best, fast)</span></li>
+              <li role="option" data-val="1" title="HexTree (good, very fast)"><span>HexTree (good, very fast)</span></li>
+            </ul>
+            <select id="combo_quantizer" class="seg-source">
+              <option value="0">libimagequant</option>
+              <option value="1">HexTree</option>
+            </select>
+          </div>
+        </div>
         <div class="param-row">
           <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color Space</label>
           <select id="combo_colorspace">
@@ -70,11 +104,11 @@
           </select>
         </div>
         <div class="param-row">
-          <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
-          <select id="combo_quantizer">
-            <option value="0">libimagequant</option>
-            <option value="1">HexTree</option>
-          </select>
+          <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Anchor interval</label>
+          <span class="redraw-group">
+            <input id="input_redraw" class="input-num" type="number" min="0" step="0.1" value="0" title="Insert anchors at the given interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second."/>
+            <span class="help-tip" tabindex="0" data-i18n="redrawPeriodTip"></span>
+          </span>
         </div>
       </div>
 
@@ -84,31 +118,32 @@
         <div class="check-list">
           <label class="check">
             <input type="checkbox" id="chk_allow_normal"/>
-            <span data-i18n="allowNormal">Allow Normal Case</span>
+            <span data-i18n="allowNormal">Allow normal case object redefinition.</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_prefer_normal"/>
-            <span data-i18n="preferNormal">Prefer Normal Case</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="chk_full_palette"/>
-            <span data-i18n="fullPalette">Write Full Palette</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="chk_both_formats"/>
-            <span data-i18n="bothFormats">Both SUP + PES/MUI</span>
+            <span data-i18n="preferNormal">Prefer normal case object redefinition.</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_overlap"/>
-            <span data-i18n="overlapBuf">Overlap Buffering</span>
+            <span data-i18n="overlapBuf">Allow palette update buffering.</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_full_palette"/>
+            <span data-i18n="fullPalette">Write full palette.</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="chk_both_formats"/>
+            <span data-i18n="bothFormats">Generate both SUP and PES+MUI files.</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_ignore_res"/>
-            <span data-i18n="ignoreRes">Ignore Resolution Validation</span>
+            <span data-i18n="ignoreRes">Ignore Resolution Validation (Experimental)</span>
           </label>
         </div>
       </div>
 
+      </div><!-- /controls-scroll -->
     </section>
 
     <!-- ── Right column: monitoring panel (log + progress + actions) ── -->
@@ -131,6 +166,7 @@
       <div class="card card-progress">
         <h2 class="card-title" data-i18n="progress">Progress</h2>
         <div class="progress-info">
+          <span id="status_led" class="led led-standing" role="status" aria-live="polite"></span>
           <span id="lbl_progress_text" data-i18n="standingBy">Standing by</span>
           <span id="lbl_pct" class="pct">0%</span>
           <span id="lbl_eta" class="eta">—</span>
