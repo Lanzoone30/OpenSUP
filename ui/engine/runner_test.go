@@ -60,11 +60,11 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		Quantizer:       1,
 		BTMatrix:        "bt2020",
 		Overwrite:       true,
-		SSIMTol:         0.5,
 		IgnoreRes:       true,
 		BothFormats:     true,
 		FullPalette:     true,
 		AllowNormalCase: true,
+		PreferNormalCase: true,
 		Overlap:         true,
 		RedrawPeriod:    0.5,
 	}
@@ -73,9 +73,8 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		"--json": true, "-i": true, "in.xml": true, "out.sup": true,
 		"-q": true, "1": true, "-b": true, "bt2020": true,
 		"-y": true,
-		"--ssim-tol": true, "0.5": true,
 		"--ignore-resolution": true, "-w": true, "-p": true,
-		"--allow-normal": true, "--overlap": true,
+		"--allow-normal": true, "--prefer-normal": true, "--overlap": true,
 		"--redraw-period": true,
 	}
 	for _, a := range args {
