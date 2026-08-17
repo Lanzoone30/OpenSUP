@@ -47,6 +47,7 @@ struct encode_config_t {
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;
+    int max_kbps = 0;  // >0: validate output against a max stream bitrate (no failure, only warn)
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop
     // Called after each epoch: (percent 0-100, epoch index 1-based, total epochs).
     std::function<void(int, int, int)> progress_cb;
