@@ -3,6 +3,7 @@ add_library(opensup_core
   filestreams.cpp
   renderer.cpp
   interface.cpp
+  pgstream.cpp
 )
 
 target_include_directories(opensup_core
