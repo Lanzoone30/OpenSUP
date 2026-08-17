@@ -36,20 +36,24 @@ type Emitter interface {
 // Empty strings are omitted; booleans only emit when true (CLI11
 // semantics for add_flag).
 type EncodeConfig struct {
-	InputPath       string
-	OutputPath      string
-	Quantizer       int
-	BTMatrix        string
-	Overwrite       bool
-	IgnoreRes       bool
-	BothFormats     bool
-	FullPalette     bool
-	AllowNormalCase bool
+	InputPath        string
+	OutputPath       string
+	Quantizer        int
+	BTMatrix         string
+	Overwrite        bool
+	IgnoreRes        bool
+	BothFormats      bool
+	FullPalette      bool
+	AllowNormalCase  bool
 	PreferNormalCase bool
-	Overlap         bool
-	RedrawPeriod    float64
-	MaxKbps         int
-	Threads         int
+	Overlap          bool
+	RedrawPeriod     float64
+	MaxKbps          int
+	Threads          int
+	Compression      int
+	Acqrate          int
+	SsimTol          int
+	ExtraAcq         int
 }
 
 // Result is the terminal outcome of a Run call.
@@ -325,6 +329,18 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.Threads != 0 {
 		args = append(args, "-j", intToStr(cfg.Threads))
+	}
+	if cfg.Compression != 0 {
+		args = append(args, "-c", intToStr(cfg.Compression))
+	}
+	if cfg.Acqrate != 0 {
+		args = append(args, "-a", intToStr(cfg.Acqrate))
+	}
+	if cfg.SsimTol != 0 {
+		args = append(args, "-t", intToStr(cfg.SsimTol))
+	}
+	if cfg.ExtraAcq != 0 {
+		args = append(args, "-e", intToStr(cfg.ExtraAcq))
 	}
 	return args
 }

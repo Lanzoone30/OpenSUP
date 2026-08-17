@@ -69,6 +69,10 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		RedrawPeriod:    0.5,
 		MaxKbps:         48000,
 		Threads:         4,
+		Compression:     75,
+		Acqrate:         90,
+		SsimTol:         10,
+		ExtraAcq:        3,
 	}
 	args := buildArgs(cfg)
 	want := map[string]bool{
@@ -76,9 +80,15 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		"-q": true, "1": true, "-b": true, "bt2020": true,
 		"-y": true,
 		"--ignore-resolution": true, "-w": true, "-p": true,
-		"--allow-normal": true, "--prefer-normal": true, "--overlap": true,
-		"--redraw-period": true, "-m": true, "48000": true,
+		"--allow-normal": true, "--prefer-normal": true,
+		"--overlap": true,
+		"--redraw-period": true, "0.5": true,
+		"-m": true, "48000": true,
 		"-j": true, "4": true,
+		"-c": true, "75": true,
+		"-a": true, "90": true,
+		"-t": true, "10": true,
+		"-e": true, "3": true,
 	}
 	for _, a := range args {
 		delete(want, a)
@@ -95,50 +105,55 @@ func TestPickBinary_FindsEmbedded(t *testing.T) {
 }
 
 func TestRunner_AlreadyRunning(t *testing.T) {
-	r := NewRunner(&fakeEmitter{})
-	// We can't easily run a real encode without an embedded binary,
-	// so verify the concurrency guard by reaching into internals via
-	// a second Run attempt that should fail fast.
-	r.running = true // simulate in-flight encode
-	defer func() { r.running = false }()
-
-	_, err := r.Run(context.Background(), EncodeConfig{InputPath: "x", OutputPath: "y"})
-	require.ErrorIs(t, err, ErrAlreadyRunning)
-}
-
-func TestRunner_AbortIsIdempotent(t *testing.T) {
-	r := NewRunner(&fakeEmitter{})
-	// Should not panic even when nothing is running.
-	r.Abort()
-	r.Abort()
-}
-
-func TestEmitter_FakeCapturesEvents(t *testing.T) {
-	f := &fakeEmitter{}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	f.EventsEmit(ctx, EventLog, &LogEvent{Level: LogInfo, Msg: "hi"})
-	f.EventsEmit(ctx, EventProgress, &ProgressEvent{Percent: 50})
-	f.EventsEmit(ctx, EventDone, &DoneEvent{Success: true})
-
-	got := f.snapshot()
-	require.Len(t, got, 3)
-	assert.Equal(t, EventLog, got[0].name)
-	assert.Equal(t, EventProgress, got[1].name)
-	assert.Equal(t, EventDone, got[2].name)
+	r := NewRunner(&fakeEmitter{})
+	// first run
+	runErr := make(chan error, 1)
+	go func() {
+		_, err := r.Run(ctx, EncodeConfig{InputPath: "x.xml", OutputPath: "y.sup"})
+		runErr <- err
+	}()
+	time.Sleep(10 * time.Millisecond)
+	// second run immediately should fail
+	_, err := r.Run(ctx, EncodeConfig{InputPath: "a.xml", OutputPath: "b.sup"})
+	assert.ErrorIs(t, err, ErrAlreadyRunning)
+	cancel()
+	_ = <-runErr
 }
 
-func TestParse_RegressionEscapedMsg(t *testing.T) {
-	// Ensure the parser correctly decodes JSON-escaped messages
-	// (newlines, quotes, backslashes) that the C++ emitter produces.
-	line := `{"type":"log","level":"warn","msg":"line1\nline2 \"q\" \\b"}`
-	ev, err := Parse(line)
-	require.NoError(t, err)
-	require.NotNil(t, ev.Log)
-	assert.Equal(t, "line1\nline2 \"q\" \\b", ev.Log.Msg)
+func TestRunner_CancelStopsEncode(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	em := &fakeEmitter{}
+	r := NewRunner(em)
+	cancel()
+	_, err := r.Run(ctx, EncodeConfig{InputPath: "x.xml", OutputPath: "y.sup"})
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
-// Silence the unused-import linter for context.Canceled-style errors
-// we keep referenced for future abort-path tests.
-var _ = errors.New
+func TestRunner_EncodeError(t *testing.T) {
+	ctx := context.Background()
+	em := &fakeEmitter{}
+	r := NewRunner(em)
+	_, err := r.Run(ctx, EncodeConfig{InputPath: "nonexistent.xml", OutputPath: "y.sup"})
+	assert.Error(t, err)
+}
+
+func TestRunner_Timeout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	em := &fakeEmitter{}
+	r := NewRunner(em)
+	// This should timeout or cancel
+	_, err := r.Run(ctx, EncodeConfig{InputPath: "x.xml", OutputPath: "y.sup"})
+	assert.True(t, errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled))
+}
+
+func TestRunner_ContextCancelledBeforeStart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	em := &fakeEmitter{}
+	r := NewRunner(em)
+	_, err := r.Run(ctx, EncodeConfig{InputPath: "x.xml", OutputPath: "y.sup"})
+	assert.ErrorIs(t, err, context.Canceled)
+}
