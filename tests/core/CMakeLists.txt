@@ -1,6 +1,7 @@
 add_executable(opensup_test_core
   segments_test.cpp
   pgstream_test.cpp
+  threads_test.cpp
 )
 
 target_link_libraries(opensup_test_core
@@ -12,6 +13,11 @@ target_link_libraries(opensup_test_core
 target_include_directories(opensup_test_core
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src
+)
+
+target_compile_definitions(opensup_test_core
+  PRIVATE
+    OPENDSUP_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../tests/fixtures"
 )
 
 gtest_discover_tests(opensup_test_core)
