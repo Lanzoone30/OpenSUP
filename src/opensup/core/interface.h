@@ -47,8 +47,15 @@ struct encode_config_t {
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;
-    int max_kbps = 0;  // >0: validate output against a max stream bitrate (no failure, only warn)
-    int threads = 1;   // 0: auto (hardware concurrency). Parallelizes epoch encoding.
+    int max_kbps = 0;        // >0: validate output against a max stream bitrate (no failure, only warn)
+    int threads = 1;         // 0: auto (hardware concurrency). Parallelizes epoch encoding.
+
+    // Drought / quality parameters (SUPer parity)
+    int compression = 80;    // quality_factor: 0-100 (def 80). 0 = force all ACQUISITION
+    int acqrate = 100;       // refresh_rate: 0-100 (def 100). Scales drought increment.
+    int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0). Adjusts threshold per resolution.
+    int extra_acq = 2;       // min palette updates to insert acquisition (def 2). 0 = off.
+
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop
     // Called after each epoch: (percent 0-100, epoch index 1-based, total epochs).
     std::function<void(int, int, int)> progress_cb;

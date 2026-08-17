@@ -105,7 +105,11 @@ bdn_render_c::execute()
                                 m_config.quantizer_id,
                                 m_config.allow_normal_case, m_config.overlap,
                                 m_config.full_palette,
-                                m_config.prefer_normal_case);
+                                m_config.prefer_normal_case,
+                                m_config.compression / 100.0,
+                                m_config.acqrate / 100.0,
+                                m_config.ssim_tol / 100.0,
+                                m_config.extra_acq);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base);
         total_segments += static_cast<int>(segs.size());
