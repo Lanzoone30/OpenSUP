@@ -43,6 +43,14 @@ var Table = map[string][2]string{
 	"maxKbpsTip":     {"Validate the output against a max stream bitrate in Kbps. 0: disabled.", "Valida la salida contra un bitrate máximo en Kbps. 0: desactivado."},
 	"threads":        {"Threads", "Hilos"},
 	"threadsTip":     {"Parallel epoch encoding workers. 0: auto, 1: sequential.", "Hilos de codificación paralela de épocas. 0: automático, 1: secuencial."},
+	"compression":    {"Compression", "Compresión"},
+	"compressionTip": {"Quality factor: 0 forces all acquisitions (no compression), 100 = maximum compression.", "Factor de calidad: 0 fuerza todas las adquisiciones (sin compresión), 100 = compresión máxima."},
+	"acqrate":        {"Acq. Rate", "Tasa adq."},
+	"acqrateTip":     {"Drought scaling factor: controls how fast drought accumulates between acquisitions.", "Factor de escalado de sequía: controla qué tan rápido se acumula la sequía entre adquisiciones."},
+	"ssimTol":        {"SSIM Tol.", "Tol. SSIM"},
+	"ssimTolTip":     {"SSIM tolerance: adjusts similarity threshold per resolution. Negative = stricter, positive = more lenient.", "Tolerancia SSIM: ajusta el umbral de similitud por resolución. Negativo = más estricto, positivo = más permisivo."},
+	"extraAcq":       {"Extra Acq", "Adq. extra"},
+	"extraAcqTip":    {"Force acquisition after N palette updates without one. 0 = disabled.", "Forzar adquisición tras N actualizaciones de paleta sin una. 0 = desactivado."},
 
 	// -- Engine Options --
 	"engineOpts":      {"Engine Options", "Opciones del Motor"},

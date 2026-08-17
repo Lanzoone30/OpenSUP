@@ -26,6 +26,14 @@ const Table = {
   maxKbpsTip:     { en: "Validate the output against a max stream bitrate in Kbps. 0: disabled.", es: "Valida la salida contra un bitrate máximo en Kbps. 0: desactivado." },
   threads:        { en: "Threads",                              es: "Hilos" },
   threadsTip:     { en: "Parallel epoch encoding workers. 0: auto, 1: sequential.", es: "Hilos de codificación paralela de épocas. 0: automático, 1: secuencial." },
+  compression:    { en: "Compression",                        es: "Compresión" },
+  compressionTip: { en: "Quality factor: 0 forces all acquisitions (no compression), 100 = maximum compression.", es: "Factor de calidad: 0 fuerza todas las adquisiciones (sin compresión), 100 = compresión máxima." },
+  acqrate:        { en: "Acq. Rate",                          es: "Tasa adq." },
+  acqrateTip:     { en: "Drought scaling factor: controls how fast drought accumulates between acquisitions.", es: "Factor de escalado de sequía: controla qué tan rápido se acumula la sequía entre adquisiciones." },
+  ssimTol:        { en: "SSIM Tol.",                          es: "Tol. SSIM" },
+  ssimTolTip:     { en: "SSIM tolerance: adjusts similarity threshold per resolution. Negative = stricter, positive = more lenient.", es: "Tolerancia SSIM: ajusta el umbral de similitud por resolución. Negativo = más estricto, positivo = más permisivo." },
+  extraAcq:       { en: "Extra Acq",                          es: "Adq. extra" },
+  extraAcqTip:    { en: "Force acquisition after N palette updates without one. 0 = disabled.", es: "Forzar adquisición tras N actualizaciones de paleta sin una. 0 = desactivado." },
 
   // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },

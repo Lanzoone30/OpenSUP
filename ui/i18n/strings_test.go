@@ -8,7 +8,7 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 53)
+	assert.Len(t, Table, 61)
 }
 
 func TestGetUnknownKeyReturnsItself(t *testing.T) {
