@@ -37,6 +37,7 @@ export namespace engine {
 	    Overlap: boolean;
 	    RedrawPeriod: number;
 	    MaxKbps: number;
+	    Threads: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new EncodeConfig(source);
@@ -57,6 +58,7 @@ export namespace engine {
 	        this.Overlap = source["Overlap"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
 	        this.MaxKbps = source["MaxKbps"];
+	        this.Threads = source["Threads"];
 	    }
 	}
 
