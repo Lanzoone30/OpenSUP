@@ -4,6 +4,7 @@
 import './app.css';
 import { t, fmt, setLang, getLang } from './i18n.js';
 import { EventsOn, OnFileDrop } from '../wailsjs/runtime/runtime.js';
+import folderIcon from './assets/icons/folder.svg?raw';
 
 // ── State ──
 const state = {
@@ -14,6 +15,9 @@ const state = {
   encodingStart: 0,
   lastBDNDir: "",
   lastOutDir: "",
+  statusMode: "standing",
+  lastProgressAt: 0,
+  ledBurstTimer: 0,
 };
 
 // ── DOM shortcuts ──
@@ -26,6 +30,14 @@ function applyI18n() {
     // only translate the placeholder, never overwrite a chosen path).
     if (el.id === "lbl_bdn_file" && state.inputPath) return;
     if (el.id === "lbl_output_file" && state.outputPath) return;
+    // The status LED label is dynamic (Working/Finished/etc): keep its
+    // current state, it is re-applied at the end of this function.
+    if (el.id === "lbl_progress_text") return;
+    if (el.classList.contains("help-tip")) {
+      // Help tips keep a "?" glyph; the text goes into the tooltip.
+      el.dataset.tooltip = t(el.dataset.i18n);
+      return;
+    }
     el.textContent = t(el.dataset.i18n);
   });
   // Tooltips for checkboxes
@@ -46,9 +58,16 @@ function applyI18n() {
   if (cs) cs.title = t("colorSpaceTip");
   const qz = $("combo_quantizer");
   if (qz) qz.title = t("quantizerTip");
+  const rd = $("input_redraw");
+  if (rd) rd.title = t("redrawPeriodTip");
+  const rv = $("btn_reveal_output");
+  if (rv) rv.title = t("openOutputFolder");
+  rv?.setAttribute("aria-label", t("openOutputFolder"));
   // Update log count + empty-state text
   updateLogCount();
   updateLogPlaceholder();
+  // Re-translate the status LED label in the new language.
+  if (state.statusMode) setStatus(state.statusMode);
 }
 
 // ── Theme: 0=System, 1=Light, 2=Dark ──
@@ -99,16 +118,78 @@ function levelNameToCss(level) {
   return map[level] || "info";
 }
 
-// Sync a segmented pill group with its hidden <select> source of truth.
-function syncSeg(id) {
-  const sel = $(id);
-  const seg = document.querySelector(`.seg[data-target="${id}"]`);
-  if (!sel || !seg) return;
-  const value = sel.value;
-  seg.querySelectorAll(".seg-btn").forEach((btn) => {
-    const active = btn.dataset.val === value;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-pressed", String(active));
+// Custom dropdown: the <select> stays the source of truth; the dropdown
+// button shows the full option text (quantizer keeps its parenthesized
+// descriptor), and the list shows the same options with hover-marquee.
+function syncDropdown(ddId) {
+  const dd = $(ddId);
+  if (!dd) return;
+  const sel = dd.querySelector("select");
+  const btn = dd.querySelector(".dd-btn");
+  const list = dd.querySelector(".dd-list");
+  if (!sel || !btn || !list) return;
+  list.querySelectorAll("li").forEach((li) => {
+    const active = li.dataset.val === sel.value;
+    li.classList.toggle("active", active);
+    if (active) {
+      // Buttons show the full option text; the quantizer includes the
+      // parenthesized descriptor ("libimagequant (best, fast)") so the
+      // closed control is as informative as the open list.
+      const label = btn.querySelector(".dd-label");
+      const iconOnly = btn.querySelector(".seg-icon");
+      const full = li.textContent.trim();
+      if (label) label.textContent = full;
+      else if (!iconOnly) btn.textContent = full;
+      // Language button shows the flag of the active locale.
+      const flag = btn.querySelector(".dd-flag-current");
+      if (flag) {
+        const host = li.querySelector("img.dd-flag");
+        if (host) flag.src = host.src;
+      }
+    }
+    // Mark options whose text overflows the list width; they scroll on hover.
+    const span = li.querySelector("span");
+    if (span) {
+      span.classList.toggle("overflow", span.scrollWidth > li.clientWidth);
+    }
+  });
+  list.classList.remove("open");
+  btn.classList.remove("open");
+}
+
+function closeDropdowns() {
+  document.querySelectorAll(".dropdown").forEach((dd) => {
+    dd.querySelector(".dd-list")?.classList.remove("open");
+    dd.querySelector(".dd-btn")?.classList.remove("open");
+  });
+}
+
+// Wire a custom dropdown; the hidden select drives the value.
+function wireDropdown(ddId) {
+  const dd = $(ddId);
+  if (!dd) return;
+  const sel = dd.querySelector("select");
+  const btn = dd.querySelector(".dd-btn");
+  const list = dd.querySelector(".dd-list");
+  if (!sel || !btn || !list) return;
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !list.classList.contains("open");
+    // Only one dropdown open at a time (theme vs language, sidebar too).
+    closeDropdowns();
+    if (willOpen) {
+      list.classList.add("open");
+      btn.classList.add("open");
+    }
+  });
+
+  list.addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-val]");
+    if (!li) return;
+    sel.value = li.dataset.val;
+    sel.dispatchEvent(new Event("change"));
+    syncDropdown(ddId);
   });
 }
 
@@ -129,6 +210,29 @@ function updateLogPlaceholder() {
   }
 }
 
+// ── Status LED + label (standing / working / finished / failed / aborted) ──
+function setStatus(mode) {
+  const led = $("status_led");
+  const label = $("lbl_progress_text");
+  const map = {
+    standing: { cls: "led-standing", key: "standingBy" },
+    working:  { cls: "led-working",  key: "working" },
+    finished: { cls: "led-finished", key: "finished" },
+    failed:   { cls: "led-failed",   key: "failed" },
+    aborted:  { cls: "led-failed",   key: "aborted" },
+  };
+  const s = map[mode] || map.standing;
+  state.statusMode = mode;
+  if (led) {
+    led.className = "led " + s.cls;
+    // led-done is only driven by progress events; clear it on any status
+    // change so a finished/failed/standing LED is static.
+    led.classList.remove("led-done");
+    clearTimeout(state.ledBurstTimer);
+  }
+  if (label) label.textContent = t(s.key);
+}
+
 function clearLog() {
   const area = $("txt_log");
   // replaceChildren is cheaper and does not disturb the WebView2 DOM tree.
@@ -141,7 +245,7 @@ function clearLog() {
   // animates back; a new encode clears it in startEncode().
   $("progress_fill").style.width = "0%";
   $("progress_fill").classList.remove("active");
-  $("lbl_progress_text").textContent = t("standingBy");
+  setStatus("standing");
   $("lbl_pct").textContent = "0%";
   $("lbl_eta").textContent = "—";
 }
@@ -154,6 +258,27 @@ function updateProgress(percent, epoch, total) {
   fill.classList.toggle("active", percent > 0 && percent < 100);
   $("lbl_pct").textContent = percent + "%";
 
+  // Epoch completed: green HDD-like burst on the blue working LED.
+  // duration = clamp(dt*0.6, 0.12s, 0.8s) where dt is the gap to the
+  // previous progress event; the burst restarts per event and the LED
+  // returns to the blue base once it ends.
+  const led = $("status_led");
+  if (led && state.isEncoding) {
+    const now = Date.now();
+    const dt = state.lastProgressAt ? now - state.lastProgressAt : 0;
+    state.lastProgressAt = now;
+    const dur = dt > 0 ? Math.max(0.12, Math.min(0.8, dt * 0.6)) : 0.3;
+    led.style.setProperty("--beat", dur + "s");
+    led.classList.remove("led-done");
+    void led.offsetWidth;
+    led.classList.add("led-done");
+    // Burst runs twice (led-blink x2); drop back to blue when it finishes.
+    clearTimeout(state.ledBurstTimer);
+    state.ledBurstTimer = setTimeout(() => {
+      led.classList.remove("led-done");
+    }, dur * 1000 + 50);
+  }
+
   if (total > 0 && epoch > 0) {
     const elapsed = Date.now() - state.encodingStart;
     if (epoch < total) {
@@ -162,11 +287,10 @@ function updateProgress(percent, epoch, total) {
       const eta = remainingS >= 60
         ? `${Math.floor(remainingS / 60)}m ${remainingS % 60}s`
         : `${remainingS}s`;
-      const prefix = getLang() === 1 ? "Época " : "Epoch ";
-      $("lbl_eta").textContent = prefix + epoch + "/" + total + " · ETA " + eta;
+      // "Epoch" stays in English in both UI languages (SUPer parity).
+      $("lbl_eta").textContent = "Epoch " + epoch + "/" + total + " · ETA " + eta;
     } else {
-      const prefix = getLang() === 1 ? "Época " : "Epoch ";
-      $("lbl_eta").textContent = prefix + epoch + "/" + total;
+      $("lbl_eta").textContent = "Epoch " + epoch + "/" + total;
     }
   }
 }
@@ -178,18 +302,13 @@ function setEncodingState(encoding) {
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;
+  updateOutputActions();
 }
 
-// True when at least one Engine Options checkbox is marked.
-function hasEngineOption() {
-  return ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
-          "chk_both_formats", "chk_overlap", "chk_ignore_res"]
-    .some((id) => $(id).checked);
-}
-
+// Attribute `state.isEncoding || !state.inputPath || !state.outputPath` gates the encode button.
 function updateReadyState() {
   $("btn_encode").disabled =
-    state.isEncoding || !state.inputPath || !state.outputPath || !hasEngineOption();
+    state.isEncoding || !state.inputPath || !state.outputPath;
 }
 
 // ── Wails Go bindings (via runtime bridge) ──
@@ -223,11 +342,36 @@ async function setOutput() {
       state.outputPath = path;
       state.lastOutDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
       $("lbl_output_file").textContent = path.split(/[\\/]/).pop();
+      // .pes destinations require full palette (SUPer set_outputsup parity).
+      if (path.toLowerCase().endsWith(".pes")) {
+        $("chk_full_palette").checked = true;
+        $("chk_full_palette").disabled = true;
+      } else if (!$("chk_both_formats").checked) {
+        $("chk_full_palette").disabled = false;
+      }
       updateReadyState();
+      updateOutputActions();
     }
   } catch (err) {
     console.error("SetOutput:", err);
   }
+}
+
+// Reveal the output file in the OS file manager (Explorer on Windows).
+async function revealOutputFolder() {
+  const app = go();
+  if (!app?.RevealOutput || !state.outputPath) return;
+  try {
+    await app.RevealOutput(state.outputPath);
+  } catch (err) {
+    console.error("RevealOutput:", err);
+  }
+}
+
+// Enable/disable the reveal-folder icon based on whether an output exists.
+function updateOutputActions() {
+  const btn = $("btn_reveal_output");
+  if (btn) btn.disabled = !state.outputPath || state.isEncoding;
 }
 
 function startEncode() {
@@ -244,14 +388,16 @@ function startEncode() {
     IgnoreRes:       $("chk_ignore_res").checked,
     BothFormats:     $("chk_both_formats").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
+    PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
+    RedrawPeriod:    parseFloat($("input_redraw").value) || 0,
   };
 
   setEncodingState(true);
   $("progress_fill").style.width = "0%";
   $("progress_fill").classList.remove("failed", "active");
-  $("lbl_progress_text").textContent = t("starting");
+  setStatus("working");
   $("lbl_pct").textContent = "0%";
   $("lbl_eta").textContent = "—";
 
@@ -263,7 +409,7 @@ function startEncode() {
     // Normal completion: the engine:done event handles the UI state.
   }).catch((err) => {
     console.error("StartEncode:", err);
-    $("lbl_progress_text").textContent = t("failed");
+    setStatus("failed");
     $("progress_fill").classList.add("failed");
   }).finally(() => {
     // Always re-enable buttons, even on abort/cancel where engine:done
@@ -283,7 +429,7 @@ function abortEncode() {
   appendLog("error", "Encoding aborted by user.");
   $("progress_fill").classList.add("failed");
   $("progress_fill").classList.remove("active");
-  $("lbl_progress_text").textContent = t("abortedShort");
+  setStatus("aborted");
 }
 
 // ── Copy log to clipboard ──
@@ -312,10 +458,10 @@ async function loadSettings() {
         // the generated models.ts — NOT the Go field names.
         setLang(s.language || 0);
         $("cmb_language").value = String(s.language || 0);
-        syncSeg("cmb_language");
+        syncDropdown("dd_language");
         applyTheme(s.theme || 0);
         $("cmb_theme").value = String(s.theme || 0);
-        syncSeg("cmb_theme");
+        syncDropdown("dd_theme");
         if (s.last_bdn_dir)  state.lastBDNDir = s.last_bdn_dir;
         if (s.last_output_dir)  state.lastOutDir = s.last_output_dir;
       }
@@ -361,12 +507,12 @@ function wireEngineEvents() {
     fill.classList.remove("active");
     if (data && data.success) {
       fill.style.width = "100%";
-      $("lbl_progress_text").textContent = t("done");
+      setStatus("finished");
     } else if (data && data.cancelled) {
-      $("lbl_progress_text").textContent = t("abortedShort");
+      setStatus("aborted");
       fill.classList.add("failed");
     } else {
-      $("lbl_progress_text").textContent = t("failed");
+      setStatus("failed");
       fill.classList.add("failed");
     }
     updateReadyState();
@@ -392,6 +538,8 @@ function wireDomEvents() {
   $("cmb_language").addEventListener("change", () => {
     setLang(parseInt($("cmb_language").value));
     applyI18n();
+    syncDropdown("dd_language");
+    syncDropdown("dd_theme"); // theme li labels are translated on switch
     saveSettings();
   });
 
@@ -400,40 +548,50 @@ function wireDomEvents() {
     saveSettings();
   });
 
-  // Segmented controls drive the hidden selects so the rest of the app stays unchanged.
-  document.querySelectorAll(".seg .seg-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const seg = btn.closest(".seg");
-      const sel = $(seg.dataset.target);
-      if (!sel) return;
-      sel.value = btn.dataset.val;
-      sel.dispatchEvent(new Event("change"));
-      syncSeg(seg.dataset.target);
-    });
+  // Custom dropdown: open/close and pick on click; Esc/outer click close.
+  wireDropdown("dd_quantizer");
+  wireDropdown("dd_language");
+  wireDropdown("dd_theme");
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".dropdown")) closeDropdowns();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDropdowns();
   });
 
   $("btn_select_bdn").addEventListener("click", selectBDN);
   $("btn_set_output").addEventListener("click", setOutput);
+  $("btn_reveal_output").addEventListener("click", revealOutputFolder);
   $("btn_encode").addEventListener("click", startEncode);
   $("btn_abort").addEventListener("click", abortEncode);
   $("btn_copy_log").addEventListener("click", copyLog);
   $("btn_clear_log").addEventListener("click", clearLog);
 
-  // PES output requires full palette (mirrors Qt logic)
+  // Both-formats output requires full palette; unchecking only re-enables
+// Full Palette without touching its own value (SUPer hide_chkbox parity).
   $("chk_both_formats").addEventListener("change", (e) => {
-    $("chk_full_palette").checked = e.target.checked;
-    $("chk_full_palette").disabled = e.target.checked;
+    if (e.target.checked) {
+      $("chk_full_palette").checked = true;
+      $("chk_full_palette").disabled = true;
+    } else if (!state.outputPath.toLowerCase().endsWith(".pes")) {
+      $("chk_full_palette").disabled = false;
+    }
     updateReadyState();
   });
 
-  // Prefer normal case forces Allow Normal Case ON and disables it (mirrors Qt)
+  // Prefer normal case forces Allow Normal Case ON and disables it; unchecking
+  // only re-enables Allow preserving its own value (SUPer hide_chkbox parity).
   $("chk_prefer_normal").addEventListener("change", (e) => {
-    $("chk_allow_normal").checked = e.target.checked;
-    $("chk_allow_normal").disabled = e.target.checked;
+    if (e.target.checked) {
+      $("chk_allow_normal").checked = true;
+      $("chk_allow_normal").disabled = true;
+    } else {
+      $("chk_allow_normal").disabled = false;
+    }
     updateReadyState();
   });
 
-  // Every Engine Options checkbox gates the Encode button readiness.
+  // Re-evaluate encode readiness if options change (button gate: paths only).
   ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
    "chk_both_formats", "chk_overlap", "chk_ignore_res"]
     .forEach((id) => {
@@ -441,14 +599,45 @@ function wireDomEvents() {
     });
 }
 
+// Sidebar edge fade: mask the scroll ends only while content is cut off
+// there (idle lists stay crisp; scrolling looks soft instead of abrupt).
+function updateControlsFade() {
+  const sc = document.querySelector(".controls-scroll");
+  if (!sc) return;
+  const maxSc = sc.scrollHeight - sc.clientHeight;
+  sc.style.setProperty("--fade-t", sc.scrollTop > 0 ? "14px" : "0px");
+  sc.style.setProperty("--fade-b", sc.scrollTop < maxSc ? "14px" : "0px");
+}
+
 // ── Init ──
+
+// Inyect SVG icons (loaded ?raw from src/assets/icons/) into their hosts.
+function injectIcons() {
+  const icons = { folder: folderIcon };
+  document.querySelectorAll("[data-icon]").forEach((el) => {
+    const svg = icons[el.dataset.icon];
+    if (svg) el.innerHTML = svg;
+  });
+}
+
 async function init() {
+  injectIcons();
   wireDomEvents();
   wireEngineEvents();
   wireDragAndDrop();
   await loadSettings();
   updateReadyState();
+  updateOutputActions();
+  syncDropdown("dd_quantizer");
+  syncDropdown("dd_language");
+  syncDropdown("dd_theme");
   document.title = t("windowTitle");
+  const sc = document.querySelector(".controls-scroll");
+  if (sc) {
+    sc.addEventListener("scroll", updateControlsFade, { passive: true });
+    window.addEventListener("resize", updateControlsFade);
+    updateControlsFade();
+  }
 }
 
 init();
