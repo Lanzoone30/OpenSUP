@@ -117,6 +117,13 @@
             <span class="help-tip" tabindex="0" data-i18n="maxKbpsTip"></span>
           </span>
         </div>
+        <div class="param-row">
+          <label for="input_threads" class="param-label" data-i18n="threads">Threads</label>
+          <span class="redraw-group">
+            <input id="input_threads" class="input-num" type="number" min="0" max="1024" step="1" value="1" title="Parallel epoch encoding workers. 0: auto (hardware), 1: sequential."/>
+            <span class="help-tip" tabindex="0" data-i18n="threadsTip"></span>
+          </span>
+        </div>
       </div>
 
       <!-- Engine Options -->
