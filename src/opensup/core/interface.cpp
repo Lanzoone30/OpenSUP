@@ -15,6 +15,9 @@
 #include <filesystem>
 #include <fstream>
 #include <chrono>
+#include <future>
+#include <mutex>
+#include <thread>
 
 namespace opensup {
 namespace core {
@@ -63,24 +66,31 @@ bdn_render_c::execute()
         return result;
     }
 
-    // Encode each epoch
-    int palette_base = 0;
-    int total_segments = 0;
+    // Encode epochs in parallel. Each epoch is independent (SUPer parity:
+    // palette ids restart at 0 per epoch) so results are deterministically
+    // assembled by epoch index after all workers finish.
     const int total_epochs = static_cast<int>(event_groups.size());
-
     auto fps_enum = xml.fps();
 
-    int epoch_index = 0;
-    for (auto& group : event_groups) {
-        ++epoch_index;
+    int n_threads = m_config.threads <= 0
+                        ? static_cast<int>(std::thread::hardware_concurrency())
+                        : m_config.threads;
+    if (n_threads < 1)
+        n_threads = 1;
+    if (n_threads > total_epochs)
+        n_threads = total_epochs;
 
-        // Allow early exit if user aborted
-        if (m_config.abort_flag && m_config.abort_flag->load()) {
-            result.error = "Aborted by user";
-            logger_c::instance().warn(result.error);
-            return result;
-        }
+    std::vector<std::vector<std::shared_ptr<pg_segment_c>>> epoch_results(
+        static_cast<size_t>(total_epochs));
+    std::atomic<int> next_epoch{0};
+    std::atomic<int> completed{0};
+    std::atomic<int> total_segments{0};
+    std::atomic<int> reuse_candidates{0};
+    std::atomic<bool> aborted{false};
+    std::mutex progress_mtx;  // progress_cb is not thread-safe
 
+    auto encode_one = [&](int epoch_index) {
+        auto& group = event_groups[static_cast<size_t>(epoch_index)];
         std::vector<bool> no_redraw;
 
         // Periodic redraw: split events if redraw_period > 0
@@ -90,22 +100,58 @@ bdn_render_c::execute()
             no_redraw = std::move(flags);
         }
 
-        // Encode
+        // Encode (palette ids restart at 0 per epoch, SUPer threaded parity)
         epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
                                 m_config.quantizer_id,
                                 m_config.allow_normal_case, m_config.overlap,
                                 m_config.full_palette,
                                 m_config.prefer_normal_case);
-        auto segs = encoder.encode_epoch(group, no_redraw,
-                                          fps_enum, palette_base);
-        m_segments.insert(m_segments.end(), segs.begin(), segs.end());
-        m_reuse_candidates += encoder.reuse_candidates();
+        int palette_base = 0;
+        auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base);
         total_segments += static_cast<int>(segs.size());
+        epoch_results[static_cast<size_t>(epoch_index)] = std::move(segs);
 
-        if (m_config.progress_cb && total_epochs > 0)
-            m_config.progress_cb(epoch_index * 100 / total_epochs,
-                                 epoch_index, total_epochs);
+        int done = completed.fetch_add(1) + 1;
+        reuse_candidates += encoder.reuse_candidates();
+
+        if (m_config.progress_cb) {
+            std::lock_guard<std::mutex> lock(progress_mtx);
+            m_config.progress_cb(done * 100 / total_epochs, done, total_epochs);
+        }
+    };
+
+    std::vector<std::future<void>> workers;
+    workers.reserve(static_cast<size_t>(n_threads));
+    for (int w = 0; w < n_threads; ++w) {
+        workers.emplace_back(std::async(std::launch::async, [&]() {
+            while (true) {
+                const int i = next_epoch.fetch_add(1);
+                if (i >= total_epochs)
+                    break;
+                // Allow early exit if user aborted
+                if (aborted.load() ||
+                    (m_config.abort_flag && m_config.abort_flag->load())) {
+                    aborted.store(true);
+                    break;
+                }
+                encode_one(i);
+            }
+        }));
     }
+    for (auto& w : workers)
+        w.get();
+
+    if (aborted.load()) {
+        result.error = "Aborted by user";
+        logger_c::instance().warn(result.error);
+        return result;
+    }
+
+    // Assemble in epoch order (deterministic regardless of completion order).
+    for (auto& segs : epoch_results)
+        m_segments.insert(m_segments.end(), segs.begin(), segs.end());
+    result.segments = total_segments.load();
+    m_reuse_candidates = reuse_candidates.load();
 
     // fix_composition_id: ensure sequential composition numbers across all epochs
     {
