@@ -392,6 +392,7 @@ function startEncode() {
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
     RedrawPeriod:    parseFloat($("input_redraw").value) || 0,
+    MaxKbps:         parseInt($("input_max_kbps").value) || 0,
   };
 
   setEncodingState(true);
