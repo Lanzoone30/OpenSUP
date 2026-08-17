@@ -48,6 +48,7 @@ type EncodeConfig struct {
 	PreferNormalCase bool
 	Overlap         bool
 	RedrawPeriod    float64
+	MaxKbps         int
 }
 
 // Result is the terminal outcome of a Run call.
@@ -317,6 +318,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))
+	}
+	if cfg.MaxKbps != 0 {
+		args = append(args, "-m", intToStr(cfg.MaxKbps))
 	}
 	return args
 }
