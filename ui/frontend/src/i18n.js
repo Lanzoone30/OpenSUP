@@ -1,5 +1,5 @@
 // i18n.js — Bilingual string table (EN/ES), ported from translations.h.
-// 53 keys matching the Go i18n.Table exactly. No emojis.
+// 63 keys (UI-side subset; the Go table also holds engine-side keys). No emojis.
 
 const Table = {
   // -- Header --
@@ -12,28 +12,30 @@ const Table = {
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
   setOutput:      { en: "Set SUP Output",                 es: "Establecer destino SUP" },
   openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
+  jumpToLive:     { en: "Jump to latest log entry",        es: "Ir al final del registro" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
 
   // -- Parameters --
   parameters:     { en: "Parameters",                     es: "Parámetros" },
+  advancedOptions:{ en: "Advanced Options",              es: "Opciones avanzadas" },
   colorSpace:     { en: "Color Space",                    es: "Espacio de color" },
-  colorSpaceTip:  { en: "Color matrix to use for YCbCr conversion.", es: "Matriz de color para conversión YCbCr." },
+  colorSpaceTip:  { en: "Color matrix for YCbCr conversion. Recommended: BT.709 (HD/SDR).", es: "Matriz de color para conversión YCbCr. Recomendado: BT.709 (HD/SDR)." },
   quantizer:      { en: "Quantizer",                      es: "Quantizer" },
-  quantizerTip:   { en: "Image quantizer backend (Quality, Speed).", es: "Motor de cuantización (Calidad, Velocidad)." },
+  quantizerTip:   { en: "Image quantizer backend. Recommended: libimagequant for final output; HexTree for fast tests.", es: "Motor de cuantización. Recomendado: libimagequant para la salida final; HexTree para pruebas rápidas." },
   redrawPeriod:   { en: "Anchor interval",                 es: "Intervalo de anclaje" },
-  redrawPeriodTip:{ en: "Insert anchors at the specified interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second.", es: "Inserta anclajes en el intervalo indicado para que los decodificadores puedan alcanzar eventos de larga duración. 0: desactivado. Mínimo: 1 segundo." },
+  redrawPeriodTip:{ en: "Insert anchors so decoders can catch up on long events. 0: disabled (recommended). For events over ~5 s try 1 s.", es: "Inserta anclajes para que los decodificadores alcancen eventos largos. 0: desactivado (recomendado). Para eventos de más de ~5 s prueba 1 s." },
   maxKbps:        { en: "Max bitrate",                              es: "Bitrate máximo" },
-  maxKbpsTip:     { en: "Validate the output against a max stream bitrate in Kbps. 0: disabled.", es: "Valida la salida contra un bitrate máximo en Kbps. 0: desactivado." },
+  maxKbpsTip:     { en: "Validate output against a max bitrate (Kbps). 0: disabled (recommended). To cap it: 10000-30000.", es: "Valida la salida contra un bitrate máximo (Kbps). 0: desactivado (recomendado). Para limitarlo: 10000-30000." },
   threads:        { en: "Threads",                              es: "Hilos" },
-  threadsTip:     { en: "Parallel epoch encoding workers. 0: auto, 1: sequential.", es: "Hilos de codificación paralela de épocas. 0: automático, 1: secuencial." },
+  threadsTip:     { en: "Parallel epoch workers. 0: Auto (recommended, uses all cores). 1: sequential.", es: "Hilos de épocas en paralelo. 0: Automático (recomendado, usa todos los núcleos). 1: secuencial." },
   compression:    { en: "Compression",                        es: "Compresión" },
-  compressionTip: { en: "Quality factor: 0 forces all acquisitions (no compression), 100 = maximum compression.", es: "Factor de calidad: 0 fuerza todas las adquisiciones (sin compresión), 100 = compresión máxima." },
+  compressionTip: { en: "Quality factor. 80 recommended (default). 0 = no compression (max quality, larger file); 100 = max compression.", es: "Factor de calidad. Recomendado 80 (por defecto). 0 = sin compresión (máx. calidad, archivo mayor); 100 = compresión máxima." },
   acqrate:        { en: "Acq. Rate",                          es: "Tasa adq." },
-  acqrateTip:     { en: "Drought scaling factor: controls how fast drought accumulates between acquisitions.", es: "Factor de escalado de sequía: controla qué tan rápido se acumula la sequía entre adquisiciones." },
+  acqrateTip:     { en: "Drought scaling (0-100). 100 recommended (default behavior).", es: "Escalado de sequía (0-100). Recomendado 100 (comportamiento por defecto)." },
   ssimTol:        { en: "SSIM Tol.",                          es: "Tol. SSIM" },
-  ssimTolTip:     { en: "SSIM tolerance: adjusts similarity threshold per resolution. Negative = stricter, positive = more lenient.", es: "Tolerancia SSIM: ajusta el umbral de similitud por resolución. Negativo = más estricto, positivo = más permisivo." },
+  ssimTolTip:     { en: "SSIM tolerance. 0 recommended. Negative = stricter, positive = more lenient.", es: "Tolerancia SSIM. Recomendado 0. Negativo = más estricto, positivo = más permisivo." },
   extraAcq:       { en: "Extra Acq",                          es: "Adq. extra" },
-  extraAcqTip:    { en: "Force acquisition after N palette updates without one. 0 = disabled.", es: "Forzar adquisición tras N actualizaciones de paleta sin una. 0 = desactivado." },
+  extraAcqTip:    { en: "Force acquisition after N palette updates. 2 recommended (default). 0 = disabled.", es: "Forzar adquisición tras N actualizaciones de paleta. Recomendado 2 (por defecto). 0 = desactivado." },
 
   // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
