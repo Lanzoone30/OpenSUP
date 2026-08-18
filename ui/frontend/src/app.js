@@ -23,6 +23,14 @@ const state = {
 // ── DOM shortcuts ──
 const $ = (id) => document.getElementById(id);
 
+// Read a numeric input value; fall back to `def` only when empty/NaN,
+// so legitimate zero values (e.g. Threads=0 auto) reach the engine.
+function numOr(el, def) {
+  if (!el) return def;
+  const v = parseFloat(el.value);
+  return Number.isFinite(v) ? v : def;
+}
+
 // ── i18n: translate all [data-i18n] elements ──
 function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -58,11 +66,14 @@ function applyI18n() {
   if (cs) cs.title = t("colorSpaceTip");
   const qz = $("combo_quantizer");
   if (qz) qz.title = t("quantizerTip");
-  const rd = $("input_redraw");
-  if (rd) rd.title = t("redrawPeriodTip");
   const rv = $("btn_reveal_output");
   if (rv) rv.title = t("openOutputFolder");
   rv?.setAttribute("aria-label", t("openOutputFolder"));
+  const fl = $("btn_log_follow");
+  if (fl) {
+    fl.title = t("jumpToLive");
+    fl.setAttribute("aria-label", t("jumpToLive"));
+  }
   // Update log count + empty-state text
   updateLogCount();
   updateLogPlaceholder();
@@ -85,7 +96,7 @@ function appendLog(level, msg) {
   entry.className = "log-entry " + levelNameToCss(level);
   entry.textContent = formatQtLogLine(level, msg) + "\n";
   area.appendChild(entry);
-  area.scrollTop = area.scrollHeight;
+  if (followLog) area.scrollTop = area.scrollHeight;
   state.logEntries++;
   updateLogCount();
   // Remove empty-state once we have content
@@ -210,6 +221,41 @@ function updateLogPlaceholder() {
   }
 }
 
+// ── Log follow (auto-scroll) ──
+// The log auto-follows the newest lines while the user stays at the bottom;
+// scrolling up pauses the follow and reveals a floating "jump to latest"
+// button (Qt: reading older epochs must not be yanked back down).
+const LOG_FOLLOW_THRESHOLD = 40;
+let followLog = true;
+
+function isLogNearBottom() {
+  const area = $("txt_log");
+  if (!area) return true;
+  return area.scrollHeight - area.scrollTop - area.clientHeight < LOG_FOLLOW_THRESHOLD;
+}
+
+function updateLogFollowBtn() {
+  const btn = $("btn_log_follow");
+  if (!btn) return;
+  followLog = isLogNearBottom();
+  btn.hidden = followLog;
+}
+
+function wireLogFollow() {
+  const area = $("txt_log");
+  const btn = $("btn_log_follow");
+  if (!area || !btn) return;
+  area.addEventListener("scroll", () => {
+    followLog = isLogNearBottom();
+    updateLogFollowBtn();
+  });
+  btn.addEventListener("click", () => {
+    area.scrollTop = area.scrollHeight;
+    followLog = true;
+    updateLogFollowBtn();
+  });
+}
+
 // ── Status LED + label (standing / working / finished / failed / aborted) ──
 function setStatus(mode) {
   const led = $("status_led");
@@ -238,6 +284,9 @@ function clearLog() {
   // replaceChildren is cheaper and does not disturb the WebView2 DOM tree.
   area.replaceChildren();
   state.logEntries = 0;
+  followLog = true;
+  const fb = $("btn_log_follow");
+  if (fb) fb.hidden = true;
   updateLogCount();
   updateLogPlaceholder();
   // Qt pattern: also reset the progress bar and ETA.
@@ -391,13 +440,13 @@ function startEncode() {
     PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
-    RedrawPeriod:    parseFloat($("input_redraw").value) || 0,
-    MaxKbps:         parseInt($("input_max_kbps").value) || 0,
-    Threads:         Math.max(0, parseInt($("input_threads").value) || 1),
-    Compression:     parseInt($("input_compression").value) || 80,
-    Acqrate:         parseInt($("input_acqrate").value) || 100,
-    SsimTol:         parseInt($("input_ssim_tol").value) || 0,
-    ExtraAcq:        parseInt($("input_extra_acq").value) || 2,
+    RedrawPeriod:    numOr($("input_redraw"), 0),
+    MaxKbps:         numOr($("input_max_kbps"), 0),
+    Threads:         numOr($("combo_threads"), 0),
+    Compression:     numOr($("input_compression"), 80),
+    Acqrate:         numOr($("input_acqrate"), 100),
+    SsimTol:         numOr($("input_ssim_tol"), 0),
+    ExtraAcq:        numOr($("input_extra_acq"), 2),
   };
 
   setEncodingState(true);
@@ -470,12 +519,23 @@ async function loadSettings() {
         syncDropdown("dd_theme");
         if (s.last_bdn_dir)  state.lastBDNDir = s.last_bdn_dir;
         if (s.last_output_dir)  state.lastOutDir = s.last_output_dir;
+        // Restore collapsible card state (default: collapsed).
+        setAccordionOpen("dd_params", s.params_open);
+        setAccordionOpen("dd_engine", s.engine_open);
+        setAccordionOpen("dd_advanced", s.advanced_open);
       }
     } catch (err) {
       console.error("LoadSettings:", err);
     }
   }
   applyI18n();
+  updateControlsFade();
+}
+
+// Open/close a collapsible card (details element) from persisted settings.
+function setAccordionOpen(id, open) {
+  const el = $(id);
+  if (el) el.open = !!open;
 }
 
 async function saveSettings() {
@@ -487,6 +547,9 @@ async function saveSettings() {
       Theme:      parseInt($("cmb_theme").value),
       LastBDNDir: state.lastBDNDir || "",
       LastOutDir: state.lastOutDir || "",
+      ParamsOpen:   !!$("dd_params")?.open,
+      EngineOpen:   !!$("dd_engine")?.open,
+      AdvancedOpen: !!$("dd_advanced")?.open,
     });
   } catch (err) {
     console.error("SaveSettings:", err);
@@ -572,6 +635,17 @@ function wireDomEvents() {
   $("btn_abort").addEventListener("click", abortEncode);
   $("btn_copy_log").addEventListener("click", copyLog);
   $("btn_clear_log").addEventListener("click", clearLog);
+
+  wireLogFollow();
+
+  // Persist collapsible card state and keep the sidebar edge fade in sync
+  // with the new scroll height (native <details> needs no JS to toggle).
+  ["dd_params", "dd_engine", "dd_advanced"].forEach((id) => {
+    $(id)?.addEventListener("toggle", () => {
+      saveSettings();
+      updateControlsFade();
+    });
+  });
 
   // Both-formats output requires full palette; unchecking only re-enables
 // Full Palette without touching its own value (SUPer hide_chkbox parity).
