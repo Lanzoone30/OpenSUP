@@ -62,14 +62,15 @@ def main():
 
 
 def generate_similar_series():
-    """Different-width events in a row (same background frame).
+    """Same-size events, subtle text-color fade (SSIM NORMAL chain).
 
-    Different trimmed sizes make each event non-reusable while the SSIM/drought
-    keeps them NORMAL (never ACQUISITION), so the extra_acq counter builds up and
-    the mid-event acquisition insert fires.
+    Background box keeps the trimmed bbox identical; the text color shifts a
+    few gray levels per event (like a fade), so each event fuses against the
+    accumulated composite (no drift) and stays NORMAL. With extra_acq=1, the
+    counter builds up and a mid-event acquisition is inserted.
     """
-    texts = ["Short", "A much longer line", "An even longer subtitle line"]
-    for i, text in enumerate(texts, start=1):
+    colors = [(20, 20, 20), (32, 32, 32), (44, 44, 44)]
+    for i, rgb in enumerate(colors, start=1):
         fname = f"sim{i:05d}.png"
         img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
@@ -77,11 +78,11 @@ def generate_similar_series():
             font = ImageFont.truetype("DejaVuSans-Bold.ttf", 44)
         except OSError:
             font = ImageFont.load_default()
-        # No background box: the trimmed bbox = the text itself, so each event
-        # gets a different object size (non-reusable) while staying NORMAL.
-        d.text((30, 32), text, fill=(20, 20, 20, 255), font=font)
+        # Draw background box so trimmed bbox is the box (same for all events)
+        d.rounded_rectangle([8, 8, W - 8, H - 8], radius=16, fill=(240, 200, 255, 230))
+        d.text((30, 32), "Subtitle", fill=rgb + (255,), font=font)
         img.save(os.path.join(HERE, fname))
-        print(f"wrote {fname} ({text!r})")
+        print(f"wrote {fname} (text color {rgb})")
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
