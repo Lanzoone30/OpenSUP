@@ -34,8 +34,10 @@ struct quantize_result_t {
 class quantizer_base_c {
 public:
     virtual ~quantizer_base_c() = default;
+    /// @param dither Apply error diffusion (off for sequence co-quantization).
     virtual quantize_result_t quantize(const std::vector<uint8_t>& rgba,
-                                       int width, int height, int max_colors) = 0;
+                                       int width, int height, int max_colors,
+                                       bool dither = true) = 0;
     virtual std::string name() const = 0;
 };
 
@@ -43,7 +45,8 @@ public:
 class libimagequant_t : public quantizer_base_c {
 public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
-                               int width, int height, int max_colors) override;
+                               int width, int height, int max_colors,
+                               bool dither = true) override;
     std::string name() const override { return "libimagequant"; }
 };
 
@@ -51,9 +54,39 @@ public:
 class hextree_t : public quantizer_base_c {
 public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
-                               int width, int height, int max_colors) override;
+                               int width, int height, int max_colors,
+                               bool dither = true) override;
     std::string name() const override { return "HexTree"; }
 };
+
+/// One frame of a subtitle animation group (raw trimmed RGBA).
+struct group_frame_t {
+    std::vector<uint8_t> rgba;  ///< width*height*4, straight alpha.
+    int width = 0;
+    int height = 0;
+};
+
+/// Co-quantization result: one union bitmap + per-frame palette updates.
+struct group_solution_t {
+    std::vector<uint8_t> bitmap;            ///< width*height; 0xFF = transparent.
+    std::vector<media::palette_t> palettes; ///< Per frame: frame 0 full, rest diffs.
+};
+
+/**
+ * @brief Co-quantize a group of frames into one union bitmap plus a chain of
+ *        palette updates (SUPer Optimise.solve_and_remap).
+ *
+ * Each pixel is assigned a single bitmap index for its whole color sequence;
+ * per-frame palettes map that index to the frame's color. Frames must share
+ * dimensions. Runs deterministically (ties broken by byte order).
+ *
+ * @param frames     Frames of the group, in display order.
+ * @param max_colors Maximum number of non-transparent sequences (<=255).
+ * @param out        Bitmap + per-frame palette diffs (frame 0 carries all).
+ * @return true on success.
+ */
+[[nodiscard]] bool solve_group(const std::vector<group_frame_t>& frames,
+                               int max_colors, group_solution_t& out);
 
 /**
  * @brief Factory of quantizers available in this build.
