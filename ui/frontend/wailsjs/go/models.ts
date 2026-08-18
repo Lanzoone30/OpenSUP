@@ -5,6 +5,9 @@ export namespace config {
 	    theme: number;
 	    last_bdn_dir: string;
 	    last_output_dir: string;
+	    params_open: boolean;
+	    engine_open: boolean;
+	    advanced_open: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -16,6 +19,9 @@ export namespace config {
 	        this.theme = source["theme"];
 	        this.last_bdn_dir = source["last_bdn_dir"];
 	        this.last_output_dir = source["last_output_dir"];
+	        this.params_open = source["params_open"];
+	        this.engine_open = source["engine_open"];
+	        this.advanced_open = source["advanced_open"];
 	    }
 	}
 
