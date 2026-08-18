@@ -79,8 +79,8 @@
       </div>
 
       <!-- Parameters -->
-      <div class="card">
-        <h2 class="card-title" data-i18n="parameters">Parameters</h2>
+      <details class="card" id="dd_params" open>
+        <summary class="card-title" data-i18n="parameters">Parameters</summary>
         <div class="param-row">
           <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
           <div class="dropdown" id="dd_quantizer">
@@ -103,60 +103,69 @@
             <option value="bt2020">BT.2020</option>
           </select>
         </div>
+        <details class="adv" id="dd_advanced">
+        <summary class="adv-title" data-i18n="advancedOptions">Advanced Options</summary>
+        <div class="param-row">
+          <label for="combo_threads" class="param-label" data-i18n="threads">Threads</label>
+          <span class="redraw-group">
+            <select id="combo_threads">
+              <option value="0">Auto (0)</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="8">8</option>
+            </select>
+            <span class="help-tip" tabindex="0" data-i18n="threadsTip"></span>
+          </span>
+        </div>
         <div class="param-row">
           <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Anchor interval</label>
           <span class="redraw-group">
-            <input id="input_redraw" class="input-num" type="number" min="0" step="0.1" value="0" title="Insert anchors at the given interval to let decoders catch-up on long-lasting events. 0: disabled. Minimum: 1 second."/>
+            <input id="input_redraw" class="input-num" type="number" min="0" step="0.1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="redrawPeriodTip"></span>
           </span>
         </div>
         <div class="param-row">
           <label for="input_max_kbps" class="param-label" data-i18n="maxKbps">Max bitrate</label>
           <span class="redraw-group">
-            <input id="input_max_kbps" class="input-num" type="number" min="0" max="48000" step="100" value="0" title="Validate the output against a max stream bitrate in Kbps. 0: disabled."/>
+            <input id="input_max_kbps" class="input-num" type="number" min="0" max="48000" step="100" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="maxKbpsTip"></span>
-          </span>
-        </div>
-        <div class="param-row">
-          <label for="input_threads" class="param-label" data-i18n="threads">Threads</label>
-          <span class="redraw-group">
-            <input id="input_threads" class="input-num" type="number" min="0" max="1024" step="1" value="1" title="Parallel epoch encoding workers. 0: auto (hardware), 1: sequential."/>
-            <span class="help-tip" tabindex="0" data-i18n="threadsTip"></span>
           </span>
         </div>
         <div class="param-row">
           <label for="input_compression" class="param-label" data-i18n="compression">Compression</label>
           <span class="redraw-group">
-            <input id="input_compression" class="input-num" type="number" min="0" max="100" step="1" value="80" title="Quality factor: 0 forces all acquisitions (no compression), 100 = maximum compression."/>
+            <input id="input_compression" class="input-num" type="number" min="0" max="100" step="1" value="80"/>
             <span class="help-tip" tabindex="0" data-i18n="compressionTip"></span>
           </span>
         </div>
         <div class="param-row">
           <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acq. Rate</label>
           <span class="redraw-group">
-            <input id="input_acqrate" class="input-num" type="number" min="0" max="100" step="1" value="100" title="Drought scaling factor: controls how fast drought accumulates between acquisitions."/>
+            <input id="input_acqrate" class="input-num" type="number" min="0" max="100" step="1" value="100"/>
             <span class="help-tip" tabindex="0" data-i18n="acqrateTip"></span>
           </span>
         </div>
         <div class="param-row">
           <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM Tol.</label>
           <span class="redraw-group">
-            <input id="input_ssim_tol" class="input-num" type="number" min="-100" max="100" step="1" value="0" title="SSIM tolerance: adjusts similarity threshold per resolution. Negative = stricter, positive = more lenient."/>
+            <input id="input_ssim_tol" class="input-num" type="number" min="-100" max="100" step="1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="ssimTolTip"></span>
           </span>
         </div>
         <div class="param-row">
           <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra Acq</label>
           <span class="redraw-group">
-            <input id="input_extra_acq" class="input-num" type="number" min="0" max="100" step="1" value="2" title="Force acquisition after N palette updates without one. 0 = disabled."/>
+            <input id="input_extra_acq" class="input-num" type="number" min="0" max="100" step="1" value="2"/>
             <span class="help-tip" tabindex="0" data-i18n="extraAcqTip"></span>
           </span>
         </div>
-      </div>
+        </details>
+      </details>
 
       <!-- Engine Options -->
-      <div class="card">
-        <h2 class="card-title" data-i18n="engineOpts">Engine Options</h2>
+      <details class="card" id="dd_engine" open>
+        <summary class="card-title" data-i18n="engineOpts">Engine Options</summary>
         <div class="check-list">
           <label class="check">
             <input type="checkbox" id="chk_allow_normal"/>
@@ -183,7 +192,7 @@
             <span data-i18n="ignoreRes">Ignore Resolution Validation (Experimental)</span>
           </label>
         </div>
-      </div>
+      </details>
 
       </div><!-- /controls-scroll -->
     </section>
@@ -202,6 +211,10 @@
         </div>
         <div id="txt_log" class="log-area" data-empty="No activity yet. Select a file and press ENCODE to begin.">
         </div>
+        <button id="btn_log_follow" class="log-follow-btn" type="button" hidden
+          title="Jump to latest log entry" aria-label="Jump to latest log entry">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>
+        </button>
       </div>
 
       <!-- Progress group -->
