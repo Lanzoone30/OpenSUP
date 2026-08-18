@@ -202,7 +202,7 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
     cross_percentage = static_cast<double>(overlap_count) / static_cast<double>(np);
 
     if (overlap_count == 0) {
-        return 1.0;
+        return 0.0;  // SUPer: alpha intersection empty → score 0 (no similarity)
     }
 
     // Apply Gaussian blur to the mask and binarize, as SUPer does.
