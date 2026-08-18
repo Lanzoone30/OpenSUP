@@ -9,6 +9,7 @@
 #include "opensup/core/renderer.h"
 #include "opensup/media/pgraphics.h"
 #include "opensup/common/logger.h"
+#include "opensup/common/ssim.h"
 
 #include <cmath>
 #include <algorithm>
@@ -235,6 +236,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
     bool have_prev = false;
 
+    // Previous event timing (SUPer find_acqs: dts/dts_end/margin for the
+    // decode-margin acquisition decision). pts_gap and dtl are computed per event.
+    double prev_base_pts = 0.0;   // previous event's PTS (tc_in)
+    double prev_tc_in = 0.0;      // previous event's tc_in (display start)
+    double prev_wipe_dur = 0.0;   // previous event's object wipe duration
+    double epoch_write_dur = 0.0; // first event's full-screen decode duration (write_duration)
+
     // Previous trimmed bitmap (same epoch) and object id of the last ODS —
     // reused by following events with identical content.
     std::vector<uint8_t> prev_trimmed;
@@ -272,6 +280,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
     // ── Drought / quality parameters (from SUPer render2.py) ──
     // m_quality_factor = compression/100 (0 = force all ACQUISITION)
+    // m_dquality_factor = 0.035 (drought decay factor)
     // m_refresh_rate = acqrate/100 (scales drought increment)
     // m_ssim_tol = ssim_tol/100 (adjusts threshold per resolution)
     // m_insert_acquisitions = extra_acq (min palette updates to force acq)
@@ -279,7 +288,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     const double refresh_rate = m_refresh_rate;          // acqrate/100
     const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);  // ssim_tol adjustment
     const int insert_acqs = m_insert_acquisitions;       // extra_acq
-    (void)refresh_rate;  // used in drought logic below
 
     // Resolution-dependent base SSIM threshold (SUPer formula)
     const double base_ssim_threshold = std::min(0.9999, 0.9608 +
@@ -291,10 +299,15 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     int palette_updates_since_acq = 0;
 
     for (size_t k = 0; k < events.size(); k++) {
+        // Fixed SSIM bar: similarity decides reusable vs force_acquisition only.
+        // The drought effect belongs to the decode-margin check (SUPer render2:258).
+        const double effective_ssim_threshold = std::min(1.0, base_ssim_threshold +
+            ssim_offset);
+
         auto& ev = events[k];
         bool forced = (k < forced_acq.size() && forced_acq[k]);
 
-        // Full acquisition: clear DS before every non-first event
+        // Full acquisition: clear DS before every non-first ever event
         if (have_prev) {
             logger_c::instance().log(common::log_level_e::hdebug,
                 "Clear DS at " + std::to_string(prev_tc_out) +
@@ -322,38 +335,26 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         bool reusable = (obj_w == prev_trim_w && obj_h == prev_trim_h &&
                          trimmed_rgba == prev_trimmed);
 
-        // ── SSIM comparison (simplified: pixel-exact on trimmed RGBA) ──
+        // ── SSIM comparison (SUPer WindowAnalyzer/CTU.evaluate) ──
         double ssim_score = 1.0;
         double cross_percentage = 1.0;
         bool force_acquisition = false;
 
-        if (have_prev && !reusable) {
-            // Compare previous trimmed RGBA vs current trimmed RGBA
-            if (trimmed_rgba != prev_trimmed) {
-                // Simple difference metric as proxy for SSIM
-                int diff_count = 0;
-                size_t np = std::min(trimmed_rgba.size(), prev_trimmed.size()) / 4;
-                for (size_t i = 0; i < np; ++i) {
-                    if (trimmed_rgba[i*4] != prev_trimmed[i*4] ||
-                        trimmed_rgba[i*4+1] != prev_trimmed[i*4+1] ||
-                        trimmed_rgba[i*4+2] != prev_trimmed[i*4+2] ||
-                        trimmed_rgba[i*4+3] != prev_trimmed[i*4+3]) {
-                        diff_count++;
-                    }
-                }
-                ssim_score = 1.0 - static_cast<double>(diff_count) / static_cast<double>(np);
-                cross_percentage = 1.0;  // full overlap for same-position events
+        if (have_prev && !reusable &&
+            obj_w == prev_trim_w && obj_h == prev_trim_h) {
+            ssim_score = common::ssim_c::compare_with_alpha(
+                prev_trimmed.data(), trimmed_rgba.data(),
+                obj_w, obj_h, cross_percentage);
 
-                // SUPer threshold logic
-                double thr_score = std::min(1.0, base_ssim_threshold +
-                    (1.0 - base_ssim_threshold) * (1.0 - cross_percentage) - 0.008333 * (1.0 - ssim_offset));
+            // SUPer threshold logic (WindowAnalyzer line 1366)
+            double thr_score = std::min(1.0, effective_ssim_threshold +
+                (1.0 - effective_ssim_threshold) * (1.0 - cross_percentage) - 0.008333 * (1.0 - ssim_offset));
 
-                if (ssim_score >= thr_score) {
-                    // Images similar enough — can be NORMAL (redefine object)
-                    reusable = true;
-                } else {
-                    force_acquisition = true;
-                }
+            if (ssim_score >= thr_score) {
+                // Images similar enough — can be NORMAL (redefine object)
+                reusable = true;
+            } else {
+                force_acquisition = true;
             }
         }
 
@@ -367,6 +368,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_trimmed = trimmed_rgba;
         prev_trim_w = obj_w;
         prev_trim_h = obj_h;
+
+        // Per-segment timestamps (SUPer set_pts_dts_sc model). Computed here so
+        // the drought decision below can use the decode-margin (acq/dtl) signals.
+        epoch_timings_t timings = compute_timings(ev.tc_in(),
+            static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
         // Quantize the trimmed RGBA image
         // Phase A: build transparent pixel mask (PGS: palette[0] must be fully transparent)
@@ -393,48 +399,71 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             continue;
         }
 
-        // ── Drought decision (SUPer shape_stream logic) ──
-        pcs_c::composition_state_e comp_state;
+    // ── Drought decision (SUPer shape_stream logic) ──
+    pcs_c::composition_state_e comp_state;
+    bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
 
-        if (reusable || m_allow_normal_case || m_prefer_normal_case) {
-            // Candidate for NORMAL state
-            comp_state = pcs_c::composition_state_e::normal;
-        } else {
-            comp_state = pcs_c::composition_state_e::epoch_start;
-        }
+    if (reusable || m_allow_normal_case || m_prefer_normal_case) {
+        // Candidate for NORMAL state
+        comp_state = pcs_c::composition_state_e::normal;
+    } else {
+        comp_state = pcs_c::composition_state_e::epoch_start;
+    }
 
-        // SUPer drought logic:
-        // if (forced or (acq and margin > max(thresh - dthresh*drought, 0))) -> ACQUISITION
-        // else -> drought += refresh_rate
-        if (thresh == 0.0 && !reusable) {
-            // compression=0 -> force all ACQUISITION
+    // Decode-margin signals (SUPer find_acqs): acq = valid timing, dtl = slack
+    // ratio between this event's decode start and the previous decode end.
+    // Object-specific decode time (RD read + RC write) as in SUPer's
+    // get_decode_duration; the emitted base_dts keeps the conservative
+    // full-screen model.
+    bool acq_valid = false;
+    double dtl = 0.0;
+    if (have_prev) {
+        const double obj_decode_dur = timings.obj_decode_time + timings.wipe_dur;
+        const double dts_eff = timings.base_pts - obj_decode_dur;
+        const double prev_dts_end = prev_base_pts - prev_wipe_dur;
+        const double pts_gap = timings.base_pts - prev_base_pts;
+        const double prev_display_dur = prev_tc_out - prev_tc_in;
+        acq_valid = (dts_eff > prev_dts_end) && (pts_gap > epoch_write_dur);
+        dtl = (prev_display_dur > 0.0) ? (dts_eff - prev_dts_end) / prev_display_dur : 0.0;
+    }
+
+    // SUPer drought logic:
+    // if (forced or (acq and margin > max(thresh - dthresh*drought, 0))) -> ACQUISITION
+    // else -> drought += refresh_rate
+    if (thresh == 0.0 && !reusable) {
+        // compression=0 -> force all ACQUISITION
+        comp_state = pcs_c::composition_state_e::acquisition;
+        m_drought = 0.0;
+    } else if (comp_state != pcs_c::composition_state_e::acquisition) {
+        if (forced || force_acquisition) {
             comp_state = pcs_c::composition_state_e::acquisition;
             m_drought = 0.0;
-        } else if (comp_state != pcs_c::composition_state_e::acquisition) {
-            if (forced || force_acquisition) {
-                comp_state = pcs_c::composition_state_e::acquisition;
-                m_drought = 0.0;
-            } else {
-                // Prevent excessive acquisitions, as we want to compress the stream
-                m_drought += 1.0 * refresh_rate;
-                if (comp_state == pcs_c::composition_state_e::normal) {
-                    // Mark as NC refresh candidate (SUPer: node.nc_refresh = True)
-                    // For now, just log
-                }
+        } else if (reusable && acq_valid &&
+                   dtl > std::max(thresh - m_dquality_factor * m_drought, 0.0)) {
+            // Refresh acquisition (SUPer render2:258): same object but enough
+            // decode margin — re-send the ODS so long palette-update chains
+            // keep the decoder's buffer fresh.
+            comp_state = pcs_c::composition_state_e::acquisition;
+            emit_reusable = false;
+            m_drought = 0.0;
+        } else {
+            // Prevent excessive acquisitions, as we want to compress the stream
+            m_drought += 1.0 * refresh_rate;
+            if (comp_state == pcs_c::composition_state_e::normal) {
+                // Mark as NC refresh candidate (SUPer: node.nc_refresh = True)
+                // For now, just log
             }
         }
+    }
 
-        // Extra acquisition insert logic (SUPer: insert_acquisitions)
-        if (comp_state == pcs_c::composition_state_e::acquisition) {
-            palette_updates_since_acq = 0;
-        } else if (!reusable && insert_acqs > 0) {
-            palette_updates_since_acq++;
-            if (palette_updates_since_acq >= insert_acqs) {
-                comp_state = pcs_c::composition_state_e::acquisition;
-                palette_updates_since_acq = 0;
-                m_drought = 0.0;
-            }
-        }
+    // Extra acquisition counter (SUPer: len(pals[0]) per window).
+    // Counts palette updates (non-reusable events); resets on any acquisition.
+    // The mid-event acquisition itself is inserted after the display set below.
+    if (comp_state == pcs_c::composition_state_e::acquisition) {
+        palette_updates_since_acq = 0;
+    } else if (!reusable && insert_acqs > 0) {
+        palette_updates_since_acq++;
+    }
 
         // Object ID double-buffering (SUPer: alternating 0/1 for single window).
         // Reused events keep the previous object id (already decoded).
@@ -446,27 +475,80 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             obj_id = static_cast<uint16_t>(double_buffer);
         }
 
-    // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
-        epoch_timings_t timings = compute_timings(ev.tc_in(),
-            static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
-
-        // Emit the full display set for this event
+    // Emit the full display set for this event
         event_emit_input_t in{
             obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-            comp_state, obj_id, palette_id, reusable, fps_enum,
+            comp_state, obj_id, palette_id, emit_reusable, fps_enum,
             palette, indexed, timings};
         auto segs = emit_event_segments(in, result);
         for (auto& seg : segs)
             result.push_back(std::move(seg));
 
+        // ── Mid-event acquisition insert (SUPer render2.py:1003-1036) ──
+        // After enough palette updates on a long-enough event, re-send the
+        // current object as an ACQUISITION at a pushed PTS so decoders that
+        // fell behind can re-acquire it mid-event.
+        if (insert_acqs > 0 && palette_updates_since_acq > insert_acqs && !forced) {
+            const double t_diff = ev.tc_out() - ev.tc_in();
+            // Temporal margin: the event must be long enough to fit the
+            // acquisition with decode room (SUPer: t_diff > 4.5*write_dur/FREQ).
+            if (t_diff > 4.5 * timings.wipe_dur) {
+                // Push PTS forward frame-by-frame to create decode margin
+                // (SUPer: while dts < dts_end or pts < npts + wd/FREQ: tc_pts += 1).
+                const double dts_end = timings.base_dts + timings.wipe_dur;
+                const double target_dts_end = dts_end + 2.0 / pg_decoder_t::FREQ;
+                const double target_pts = timings.base_pts + 2.0 / pg_decoder_t::FREQ;
+
+                double pushed_pts = timings.base_pts;
+                double pushed_dts = timings.base_dts;
+                const double frame_dur = 1.0 / m_fps;
+                int frame_added = 0;
+
+                while (pushed_dts < target_dts_end ||
+                       pushed_pts < target_pts + timings.wipe_dur) {
+                    pushed_pts += frame_dur;
+                    pushed_dts = pushed_pts - timings.decode_duration;
+                    frame_added++;
+                    if (pushed_pts >= ev.tc_out()) break;  // never exceed the event
+                }
+
+                // Guard: tight margin only, and don't eat more than half the event
+                // (SUPer: dts - dts_end < 0.25 and frame_added <= (durs-1)>>1).
+                const double dts_margin = pushed_dts - target_dts_end;
+                const int max_frames = static_cast<int>((t_diff * m_fps - 1.0) / 2.0);
+
+                if (dts_margin < 0.25 && frame_added <= max_frames) {
+                    epoch_timings_t acq_timings = compute_timings(pushed_pts,
+                        static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
+
+                    // Same object, same obj_id (re-acquire the current buffer).
+                    event_emit_input_t acq_in{
+                        obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
+                        pcs_c::composition_state_e::acquisition, obj_id, palette_id,
+                        false /* emit ODS: fresh acquisition */, fps_enum,
+                        palette, indexed, acq_timings};
+                    auto acq_segs = emit_event_segments(acq_in, result);
+                    for (auto& seg : acq_segs)
+                        result.push_back(std::move(seg));
+
+                    palette_updates_since_acq = 0;
+                    m_drought = 0.0;
+                }
+            }
+        }
+
         prev_obj_id = obj_id;
 
-        // Save event data for next iteration's clear DS
+        // Save event data for next iteration's clear DS and decode-margin check
         prev_tc_out = ev.tc_out();
         prev_pos_x = ev.x() + crop_x;
         prev_pos_y = ev.y() + crop_y;
         prev_obj_w = obj_w;
         prev_obj_h = obj_h;
+        prev_base_pts = timings.base_pts;
+        prev_tc_in = ev.tc_in();
+        prev_wipe_dur = timings.wipe_dur;
+        if (k == 0) epoch_write_dur = timings.decode_duration; // SUPer: write_duration of first node
         have_prev = true;
     }
 
