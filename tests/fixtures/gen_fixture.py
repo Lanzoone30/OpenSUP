@@ -61,5 +61,58 @@ def main():
     print(f"wrote {out}")
 
 
+def generate_similar_series():
+    """Different-width events in a row (same background frame).
+
+    Different trimmed sizes make each event non-reusable while the SSIM/drought
+    keeps them NORMAL (never ACQUISITION), so the extra_acq counter builds up and
+    the mid-event acquisition insert fires.
+    """
+    texts = ["Short", "A much longer line", "An even longer subtitle line"]
+    for i, text in enumerate(texts, start=1):
+        fname = f"sim{i:05d}.png"
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 44)
+        except OSError:
+            font = ImageFont.load_default()
+        # No background box: the trimmed bbox = the text itself, so each event
+        # gets a different object size (non-reusable) while staying NORMAL.
+        d.text((30, 32), text, fill=(20, 20, 20, 255), font=font)
+        img.save(os.path.join(HERE, fname))
+        print(f"wrote {fname} ({text!r})")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<BDN Version="0.9"\n'
+        '     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">\n'
+        '  <Description>\n'
+        '    <Name Title="opensup-synth-similar"/>\n'
+        '    <Language Code="eng"/>\n'
+        '    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>\n'
+        '    <Events Count="3"/>\n'
+        '  </Description>\n'
+        '  <Events>\n'
+        '    <Event InTC="00:00:01:00" OutTC="00:00:05:00" Forced="False">\n'
+        '      <Graphic Width="600" Height="120" X="660" Y="480">sim00001.png</Graphic>\n'
+        '    </Event>\n'
+        '    <Event InTC="00:00:05:00" OutTC="00:00:09:00" Forced="False">\n'
+        '      <Graphic Width="600" Height="120" X="660" Y="480">sim00002.png</Graphic>\n'
+        '    </Event>\n'
+        '    <Event InTC="00:00:09:00" OutTC="00:00:13:00" Forced="False">\n'
+        '      <Graphic Width="600" Height="120" X="660" Y="480">sim00003.png</Graphic>\n'
+        '    </Event>\n'
+        '  </Events>\n'
+        "</BDN>\n"
+    )
+    out = os.path.join(HERE, "synth_similar.xml")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     main()
+    generate_similar_series()
