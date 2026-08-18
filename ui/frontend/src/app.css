@@ -343,7 +343,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--gap);
-  padding-right: 6px;
+  padding-right: 12px;
   /* Soft edge fade: --fade-t/--fade-b are 0 unless content is cut off
      at that edge (driven from JS so idle lists stay crisp). */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
@@ -395,6 +395,72 @@ body {
   height: 1px;
   background: var(--border);
   min-width: 16px;
+}
+
+/* ── Collapsible cards (details/summary accordions) ── */
+summary {
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::marker {
+  content: "";
+  display: none;
+}
+
+/* Chevron on collapsible card titles; rotates when the card is open. */
+summary.card-title::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid var(--text-muted);
+  border-bottom: 1.6px solid var(--text-muted);
+  transform: rotate(-45deg) translateY(-1px);
+  transition: transform 0.18s var(--ease);
+  flex-shrink: 0;
+}
+details[open] > summary.card-title::before {
+  transform: rotate(45deg);
+}
+
+/* Sub-accordion: "Advanced Options" group inside the Parameters card. */
+.adv {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adv-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+  line-height: 1.4;
+}
+.adv-title::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid var(--text-muted);
+  border-bottom: 1.6px solid var(--text-muted);
+  transform: rotate(-45deg) translateY(-1px);
+  transition: transform 0.18s var(--ease);
+  flex-shrink: 0;
+}
+details[open] > summary.adv-title::before {
+  transform: rotate(45deg);
 }
 
 /* ── File label ── */
@@ -758,6 +824,10 @@ select option {
   border-color: var(--accent);
 }
 
+.btn-icon:hover:not(:disabled) .seg-icon {
+  color: var(--accent);
+}
+
 .btn-icon:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -1096,6 +1166,7 @@ select option {
 
 /* Log card */
 .log-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1163,6 +1234,41 @@ select option {
   justify-content: center;
   height: 100%;
   text-align: center;
+}
+
+/* Floating "jump to latest" button over the log (shown when scrolled up). */
+.log-follow-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.log-follow-btn[hidden] {
+  display: none;
+}
+
+.log-follow-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.log-follow-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ── Log entries ── */
