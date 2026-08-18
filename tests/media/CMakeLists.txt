@@ -1,5 +1,6 @@
 add_executable(opensup_test_media
   palette_test.cpp
+  optimizer_test.cpp
 )
 
 target_link_libraries(opensup_test_media
