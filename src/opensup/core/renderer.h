@@ -92,12 +92,6 @@ private:
     emit_event_segments(const event_emit_input_t& in,
                         const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far);
 
-    /// SSIM comparison between two indexed bitmaps (grayscale).
-    [[nodiscard]] double ssim_compare(const std::vector<uint8_t>& prev_trimmed,
-                                      int prev_w, int prev_h,
-                                      const std::vector<uint8_t>& curr_trimmed,
-                                      int curr_w, int curr_h) const;
-
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
@@ -106,6 +100,7 @@ private:
     bool m_overlap = false;
     bool m_full_palette = false;
     double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
+    double m_dquality_factor = 0.035;    // drought decay factor (SUPer default)
     double m_refresh_rate = 1.0;         // acqrate/100 (scales drought)
     double m_ssim_tol = 0.0;             // ssim_tol/100 (adjusts threshold per resolution)
     int m_insert_acquisitions = 2;       // extra_acq (min palette updates to force acq)
