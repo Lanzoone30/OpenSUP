@@ -5,6 +5,8 @@ add_executable(opensup_test_core
   ssim_test.cpp
   extra_acq_test.cpp
   refresh_acq_test.cpp
+  group_chain_test.cpp
+  redraw_test.cpp
 )
 
 target_link_libraries(opensup_test_core
