@@ -15,6 +15,9 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, ThemeSystem, d.Theme)
 	assert.Empty(t, d.LastBDNDir)
 	assert.Empty(t, d.LastOutDir)
+	assert.True(t, d.ParamsOpen)
+	assert.True(t, d.EngineOpen)
+	assert.False(t, d.AdvancedOpen)
 }
 
 func TestRoundTrip(t *testing.T) {
