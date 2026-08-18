@@ -38,14 +38,23 @@ type Settings struct {
 	Theme       Theme    `json:"theme"`
 	LastBDNDir  string   `json:"last_bdn_dir"`
 	LastOutDir  string   `json:"last_output_dir"`
+	// Collapsible card state (default: collapsed). Kept per-section so a
+	// future migration can restore each accordion independently.
+	ParamsOpen   bool `json:"params_open"`
+	EngineOpen   bool `json:"engine_open"`
+	AdvancedOpen bool `json:"advanced_open"`
 }
 
 func defaults() Settings {
 	return Settings{
-		Language:   English,
-		Theme:      ThemeSystem,
-		LastBDNDir: "",
-		LastOutDir: "",
+		Language:     English,
+		Theme:        ThemeSystem,
+		LastBDNDir:   "",
+		LastOutDir:   "",
+		// Cards start expanded (except the Advanced sub-accordion).
+		ParamsOpen:   true,
+		EngineOpen:   true,
+		AdvancedOpen: false,
 	}
 }
 
