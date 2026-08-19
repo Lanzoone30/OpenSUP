@@ -1,4 +1,5 @@
 builds/
+.opencode/
 PLAN.md
 cmake-build-*/
 out/
