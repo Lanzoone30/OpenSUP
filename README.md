@@ -106,7 +106,7 @@ Windows builds are available on the [Releases](https://github.com/Lanzoone30/Ope
 | `-q, --quantizer`     | Quantizer: 0 = libimagequant, 1 = HexTree (default 0) |
 | `-b, --bt`            | Color matrix: bt601, bt709, bt2020 (default bt709)    |
 | `-y, --yes`           | Overwrite existing output                             |
-| `-t, --threads`       | Thread count (0 = auto)                               |
+| `-j, --threads`       | Parallel epoch workers (0 = auto, 1 = sequential)     |
 | `--ssim-tol`          | SSIM tolerance [0-100] (default 0)                    |
 | `--ignore-resolution` | Accept non-standard video resolutions                 |
 | `-w, --withsup`       | Generate both .sup and .pes/.mui                      |
@@ -116,7 +116,7 @@ Windows builds are available on the [Releases](https://github.com/Lanzoone30/Ope
 | `--redraw-period`     | Redraw period in seconds                              |
 | `-v, --version`       | Print version and exit                                |
 
-> **Note:** `-c`, `-a` and `-t` are parsed but not yet wired to the encode pipeline (stubs).
+> **Note:** `-c`/`-a` drive the compression/drought pipeline (only affect reusable content, parity with SUPer); `-j` parallelizes epoch encoding with deterministic output.
 
 **Exit codes:** `0` on success, `1` on failure (parse error, output exists without `-y`, encode failure).
 
@@ -147,8 +147,11 @@ src/opensup/
 │   ├── segments        PGS segment types (PCS, WDS, PDS, ODS, ENDS)
 │   └── interface       Encode pipeline orchestration (bdn_render_c)
 ├── cli/                CLI entry point (CLI11)
-├── gui/                Qt6 GUI (main window, worker, log handler, theme, translations)
 └── pch.h               Precompiled header
+```
+
+```
+ui/ (repo root)         Wails v2 desktop GUI (Go backend, HTML/CSS/JS frontend)
 ```
 
 ---
