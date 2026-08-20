@@ -130,6 +130,10 @@ FetchContent_Declare(
 )
 FetchContent_GetProperties(pugixml)
 if(NOT pugixml_POPULATED)
+    # ponytail: FetchContent_Populate legacy — MakeAvailable no soporta EXCLUDE_FROM_ALL
+    if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+    endif()
     FetchContent_Populate(pugixml)
     # ponytail: EXCLUDE_FROM_ALL evita que pugixml instale sus .hpp/.a/cmake en el package
     add_subdirectory(${pugixml_SOURCE_DIR} ${pugixml_BINARY_DIR} EXCLUDE_FROM_ALL)
