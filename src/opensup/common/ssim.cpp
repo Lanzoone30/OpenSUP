@@ -37,107 +37,123 @@ inline double covariance(const uint8_t* a, const uint8_t* b, int count, double m
     return sum / count;
 }
 
-// Convert RGBA to L (luminance) using the same weights PIL uses for 'L' mode.
-// https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.convert
+// Convert RGBA to L (luminance) with PIL's exact fixed-point formula for 'L'
+// mode (libImaging L24: (R*19595 + G*38470 + B*7471 + 0x8000) >> 16, with
+// rounding). Verified bit-exact against PIL convert('L').
 std::vector<uint8_t> rgba_to_luminance(const uint8_t* rgba, int width, int height) {
     const size_t np = static_cast<size_t>(width) * static_cast<size_t>(height);
     std::vector<uint8_t> luminance;
     luminance.reserve(np);
     for (size_t i = 0; i < np; ++i) {
         const size_t idx = i * 4;
-        const double r = static_cast<double>(rgba[idx + 0]);
-        const double g = static_cast<double>(rgba[idx + 1]);
-        const double b = static_cast<double>(rgba[idx + 2]);
-        const double y = 0.299 * r + 0.587 * g + 0.114 * b;
-        luminance.push_back(static_cast<uint8_t>(std::clamp(y, 0.0, 255.0)));
+        const uint32_t y = static_cast<uint32_t>(rgba[idx + 0]) * 19595u +
+                           static_cast<uint32_t>(rgba[idx + 1]) * 38470u +
+                           static_cast<uint32_t>(rgba[idx + 2]) * 7471u + 32768u;
+        luminance.push_back(static_cast<uint8_t>(y >> 16));
     }
     return luminance;
 }
 
-// Approximate 5x5 Gaussian blur (separable, sigma ~1.0) matching cv2.GaussianBlur(ksize=5).
-// Kernel: [1, 4, 6, 4, 1] / 16.
+// cv2.BORDER_REFLECT_101 (cv2 default border), valid for |offset| <= n-1;
+// clamp fallback for degenerate sizes.
+inline int reflect_101(int i, int n) {
+    if (i < 0) {
+        i = -i;
+    }
+    if (i >= n) {
+        i = 2 * (n - 1) - i;
+    }
+    return std::clamp(i, 0, n - 1);
+}
+
+// Exact cv2.GaussianBlur(ksize=5, sigma=0) kernel: [1,4,6,4,1]/16
+// (verified: cv2.getGaussianKernel(5, 0) returns exactly this binomial).
+// Separable, BORDER_REFLECT_101, horizontal pass stays scaled (no rounding),
+// single rounding descale by 16*16=256 at the end (OpenCV fixed-point math).
 std::vector<uint8_t> gaussian_blur_5x5(const std::vector<uint8_t>& src, int width, int height) {
     const size_t np = static_cast<size_t>(width) * static_cast<size_t>(height);
-    std::vector<uint16_t> tmp(np, 0);
+    std::vector<uint32_t> tmp(np, 0);
     std::vector<uint8_t> dst(np, 0);
 
     const auto at = [width](int x, int y) {
         return static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
     };
 
-    // Horizontal pass
+    // Horizontal pass (scaled by 16, exact)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             uint32_t v = 0;
             for (int k = -2; k <= 2; ++k) {
-                const int sx = std::clamp(x + k, 0, width - 1);
+                const int sx = reflect_101(x + k, width);
                 const uint32_t weight = static_cast<uint32_t>(6 - std::abs(k) * 2);
                 v += static_cast<uint32_t>(src[at(sx, y)]) * weight;
             }
-            tmp[at(x, y)] = static_cast<uint16_t>(v);
+            tmp[at(x, y)] = v;
         }
     }
 
-    // Vertical pass + normalize by 16*16=256
+    // Vertical pass + rounded descale by 256 (CV_DESCALE-style round half up)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             uint32_t v = 0;
             for (int k = -2; k <= 2; ++k) {
-                const int sy = std::clamp(y + k, 0, height - 1);
+                const int sy = reflect_101(y + k, height);
                 const uint32_t weight = static_cast<uint32_t>(6 - std::abs(k) * 2);
-                v += static_cast<uint32_t>(tmp[at(x, sy)]) * weight;
+                v += tmp[at(x, sy)] * weight;
             }
-            dst[at(x, y)] = static_cast<uint8_t>(std::clamp(v / 256u, 0u, 255u));
+            dst[at(x, y)] = static_cast<uint8_t>(std::clamp((v + 128u) >> 8, 0u, 255u));
         }
     }
     return dst;
 }
 
-// Approximate 3x3 Gaussian blur (separable), matching cv2.GaussianBlur(ksize=3).
-// Kernel: [1, 2, 1] / 4 in each axis (equivalent to the 3x3 [1,2,1;2,4,2;1,2,1]/16).
+// Exact cv2.GaussianBlur(ksize=3, sigma=0) kernel: [1,2,1]/4
+// (verified: cv2.getGaussianKernel(3, 0) returns exactly this binomial).
+// Separable, BORDER_REFLECT_101, single rounding descale by 4*4=16.
 std::vector<uint8_t> gaussian_blur_3x3(const std::vector<uint8_t>& src, int width, int height) {
     const size_t np = static_cast<size_t>(width) * static_cast<size_t>(height);
-    std::vector<uint16_t> tmp(np, 0);
+    std::vector<uint32_t> tmp(np, 0);
     std::vector<uint8_t> dst(np, 0);
 
     const auto at = [width](int x, int y) {
         return static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
     };
 
-    // Horizontal pass
+    // Horizontal pass (scaled by 4, exact)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             uint32_t v = 0;
             for (int k = -1; k <= 1; ++k) {
-                const int sx = std::clamp(x + k, 0, width - 1);
+                const int sx = reflect_101(x + k, width);
                 const uint32_t weight = static_cast<uint32_t>(2 - std::abs(k));
                 v += static_cast<uint32_t>(src[at(sx, y)]) * weight;
             }
-            tmp[at(x, y)] = static_cast<uint16_t>(v);
+            tmp[at(x, y)] = v;
         }
     }
 
-    // Vertical pass + normalize by 4*4=16
+    // Vertical pass + rounded descale by 16 (CV_DESCALE-style round half up)
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             uint32_t v = 0;
             for (int k = -1; k <= 1; ++k) {
-                const int sy = std::clamp(y + k, 0, height - 1);
+                const int sy = reflect_101(y + k, height);
                 const uint32_t weight = static_cast<uint32_t>(2 - std::abs(k));
-                v += static_cast<uint32_t>(tmp[at(x, sy)]) * weight;
+                v += tmp[at(x, sy)] * weight;
             }
-            dst[at(x, y)] = static_cast<uint8_t>(std::clamp(v / 16u, 0u, 255u));
+            dst[at(x, y)] = static_cast<uint8_t>(std::clamp((v + 8u) >> 4, 0u, 255u));
         }
     }
     return dst;
 }
 
-// Edge magnitude via 3x3 Sobel operators (Gx, Gy) followed by sqrt(Gx^2 + Gy^2).
-// ponytail: SUPer uses cv2.Sobel(dx=1, dy=1, ksize=5) — the mixed diagonal
-// derivative. Gradient magnitude is the canonical edge metric and is cheaper;
-// behavioral parity is what matters (SUPer itself runs a different SSIM, SSIM_PIL).
-// Upgrade path: hand-roll the ksize=5 mixed kernel if real-dataset decisions diverge.
-std::vector<uint8_t> sobel_magnitude(const std::vector<uint8_t>& src, int width, int height) {
+// cv2.Sobel(src, ddepth=cv2.CV_8U, dx=1, dy=1, ksize=5) equivalent (SUPer
+// render2.py:1291-1292): mixed second derivative, kernel
+// K[i][j] = ky[i] * kx[j] with kx = ky = [-1,-2,0,2,1]
+// (verified via cv2.getDerivKernels(1, 0, 5)), BORDER_REFLECT_101 (cv2
+// default), exact integer convolution saturate_cast<uchar> (negatives clip
+// to 0, values > 255 clip to 255).
+std::vector<uint8_t> sobel_mixed_derivative(const std::vector<uint8_t>& src, int width, int height) {
     const size_t np = static_cast<size_t>(width) * static_cast<size_t>(height);
     std::vector<uint8_t> dst(np, 0);
 
@@ -145,31 +161,20 @@ std::vector<uint8_t> sobel_magnitude(const std::vector<uint8_t>& src, int width,
         return static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
     };
 
+    static constexpr int kK[5] = {-1, -2, 0, 2, 1};  // kx = ky, offsets -2..+2
+
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            // Read the 3x3 neighborhood with clamped borders (OpenCV default).
-            const int xm = x > 0 ? x - 1 : 0;
-            const int xp = x < width - 1 ? x + 1 : width - 1;
-            const int ym = y > 0 ? y - 1 : 0;
-            const int yp = y < height - 1 ? y + 1 : height - 1;
-
-            const uint32_t tl = src[at(xm, ym)];
-            const uint32_t tc = src[at(x,  ym)];
-            const uint32_t tr = src[at(xp, ym)];
-            const uint32_t ml = src[at(xm, y)];
-            const uint32_t mr = src[at(xp, y)];
-            const uint32_t bl = src[at(xm, yp)];
-            const uint32_t bc = src[at(x,  yp)];
-            const uint32_t br = src[at(xp, yp)];
-
-            const int32_t gx = static_cast<int32_t>(tr + 2 * mr + br) -
-                               static_cast<int32_t>(tl + 2 * ml + bl);
-            const int32_t gy = static_cast<int32_t>(bl + 2 * bc + br) -
-                               static_cast<int32_t>(tl + 2 * tc + tr);
-
-            const double mag = std::sqrt(static_cast<double>(gx) * gx +
-                                         static_cast<double>(gy) * gy);
-            dst[at(x, y)] = static_cast<uint8_t>(std::clamp(mag, 0.0, 255.0));
+            int32_t acc = 0;
+            for (int dy = -2; dy <= 2; ++dy) {
+                const int sy = reflect_101(y + dy, height);
+                const int32_t wy = kK[dy + 2];
+                for (int dx = -2; dx <= 2; ++dx) {
+                    const int sx = reflect_101(x + dx, width);
+                    acc += static_cast<int32_t>(src[at(sx, sy)]) * wy * kK[dx + 2];
+                }
+            }
+            dst[at(x, y)] = static_cast<uint8_t>(std::clamp(acc, 0, 255));
         }
     }
     return dst;
@@ -199,10 +204,10 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
             ++overlap_count;
         }
     }
-    cross_percentage = static_cast<double>(overlap_count) / static_cast<double>(np);
-
     if (overlap_count == 0) {
-        return 0.0;  // SUPer: alpha intersection empty → score 0 (no similarity)
+        // SUPer render2.py:1297-1299: no alpha intersection → (score=1.0, cross=1.0)
+        cross_percentage = 1.0;
+        return 1.0;
     }
 
     // Apply Gaussian blur to the mask and binarize, as SUPer does.
@@ -212,6 +217,16 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
             v = 255;
         }
     }
+
+    // SUPer render2.py:1284: cross_percentage is the dilated (blurred +
+    // binarized) mask area over the total, computed AFTER the blur.
+    size_t mask_count = 0;
+    for (size_t i = 0; i < np; ++i) {
+        if (mask[i] > 0) {
+            ++mask_count;
+        }
+    }
+    cross_percentage = static_cast<double>(mask_count) / static_cast<double>(np);
 
     // Convert to luminance and apply mask (a_bitmap & mask[:, :, None]).
     std::vector<uint8_t> l1 = rgba_to_luminance(img1, width, height);
@@ -232,8 +247,8 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
         std::vector<uint8_t> e2 = rgba_to_luminance(img2, width, height);
         e1 = gaussian_blur_3x3(e1, width, height);
         e2 = gaussian_blur_3x3(e2, width, height);
-        e1 = sobel_magnitude(e1, width, height);
-        e2 = sobel_magnitude(e2, width, height);
+        e1 = sobel_mixed_derivative(e1, width, height);
+        e2 = sobel_mixed_derivative(e2, width, height);
         for (size_t i = 0; i < np; ++i) {
             if (mask[i] == 0) {
                 e1[i] = 0;
