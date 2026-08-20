@@ -95,8 +95,12 @@ private:
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
-    bool m_allow_normal_case = false;
-    bool m_prefer_normal_case = false;
+    // Normal-case flags: SUPer's normal case requires two windows (redefine one
+    // while keeping the other). OpenSUP-go is single-window, so these are
+    // intentionally unused (no-op, matching single-window SUPer) and reserved
+    // for a future multi-window renderer.
+    [[maybe_unused]] bool m_allow_normal_case = false;
+    [[maybe_unused]] bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
     double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
