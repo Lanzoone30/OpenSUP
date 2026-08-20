@@ -327,9 +327,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);  // ssim_tol adjustment
     const int insert_acqs = m_insert_acquisitions;       // extra_acq
 
-    // Resolution-dependent base SSIM threshold (SUPer formula)
+    // Resolution-dependent base SSIM threshold (SUPer render2.py:176:
+    // min(0.9999, 0.9608 + height*(0.986-0.972)/(1080-480)) — height maps
+    // 480->0.972 and 1080->0.986; no offset subtraction).
     const double base_ssim_threshold = std::min(0.9999, 0.9608 +
-        (static_cast<double>(m_height) - 480.0) * (0.986 - 0.972) / (1080.0 - 480.0));
+        static_cast<double>(m_height) * (0.986 - 0.972) / (1080.0 - 480.0));
 
     m_drought = 0.0;
 
@@ -580,12 +582,17 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     pcs_c::composition_state_e comp_state;
     bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
 
-    if (reusable || m_allow_normal_case || m_prefer_normal_case) {
-        // Candidate for NORMAL state
-        comp_state = pcs_c::composition_state_e::normal;
-    } else {
-        comp_state = pcs_c::composition_state_e::epoch_start;
-    }
+    // Candidate for NORMAL (palette-update) state. In SUPer a NORMAL "normal
+    // case" redefines one of TWO windows while keeping the other; it is only
+    // possible with multi-window content (render2.py:513: sum(new_mask)==1 and
+    // sum(objects is not None)==2). OpenSUP-go is single-window (window_id=0),
+    // so the normal-case and its allow_normal_case / prefer_normal_case flags
+    // are a no-op here, exactly as they are for single-window SUPer. The
+    // single-window analog of a normal case is `reusable` (same object re-emit
+    // as a palette update), which therefore drives the NORMAL state alone.
+    comp_state = reusable
+        ? pcs_c::composition_state_e::normal
+        : pcs_c::composition_state_e::epoch_start;
 
     // Decode-margin signals (SUPer find_acqs): acq = valid timing, dtl = slack
     // ratio between this event's decode start and the previous decode end.
