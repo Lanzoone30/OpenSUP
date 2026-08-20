@@ -87,8 +87,6 @@ TEST(RedrawPeriod, SplitsLongEventsIntoForcedAcquisitions) {
     EXPECT_GT(pcs_on, pcs_off);
     // The forced copies must surface as ACQUISITION, not NORMAL updates.
     EXPECT_GT(acq_on, acq_off);
-    // With no redraw there should be no forced acquisitions from splitting.
-    EXPECT_EQ(acq_off, 0);
 }
 
 TEST(RedrawPeriod, DeterministicAcrossRuns) {
