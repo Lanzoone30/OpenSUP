@@ -43,13 +43,16 @@ static size_t stream_hash(const std::vector<std::shared_ptr<pg_segment_c>>& segs
 }
 
 TEST(RefreshAcq, HigherCompressionSuppressesRefresh) {
-    // synth_bdn.xml: 3 same-size (585x105) SSIM-similar events, 1.5-2.4s each.
+    // synth_similar.xml: 3 SSIM-similar (score ~1.0 > 0.986 threshold) events,
+    // 4.0s each. Events 1..3 fuse via SSIM -> reusable candidates for the
+    // decode-margin (refresh) path; higher compression (thresh=1.0) suppresses
+    // refreshes, so it must emit fewer segments than thresh=0.8.
     // Events 1 and 2 are reusable candidates. Decode-margin ratio dtl:
     //   k=1 (gap after event 0): ~1.24  -> fires at thresh 1.0 too
     //   k=2 (contiguous):         ~0.997 -> fires at thresh 0.8, not at 1.0
     // So compression=100 must emit fewer segments than compression=80.
     encode_config_t cfg_hi;
-    cfg_hi.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
+    cfg_hi.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
     cfg_hi.output_path = "refresh_acq_hi.sup";
     cfg_hi.overwrite = true;
     cfg_hi.compression = 100;  // thresh = 1.0
