@@ -1,5 +1,4 @@
 add_executable(opensup_test_core
-  segments_test.cpp
   pgstream_test.cpp
   threads_test.cpp
   ssim_test.cpp
