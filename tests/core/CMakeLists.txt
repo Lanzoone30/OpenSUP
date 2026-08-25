@@ -6,6 +6,8 @@ add_executable(opensup_test_core
   refresh_acq_test.cpp
   group_chain_test.cpp
   redraw_test.cpp
+  layout_engine_test.cpp
+  params_test.cpp
 )
 
 target_link_libraries(opensup_test_core
