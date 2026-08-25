@@ -10,6 +10,7 @@
 #include "opensup/media/pgraphics.h"
 #include "opensup/common/logger.h"
 #include "opensup/common/ssim.h"
+#include "opensup/core/ctu.h"
 
 #include <cmath>
 #include <algorithm>
@@ -520,9 +521,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         if (have_prev && !reusable && bbox_matches_compo) {
             // Compare current trimmed bitmap against the group's accumulated composite
-            ssim_score = common::ssim_c::compare_with_alpha(
-                compo_rgba.data(), trimmed_rgba.data(),
-                obj_w, obj_h, cross_percentage);
+            // CTU (SUPer render2.py:1186-1245): recursive area-weighted SSIM with 0.325 discount for identical regions
+            const auto [ctu_score, ctu_cross] = core::ctu_c::evaluate(compo_rgba, trimmed_rgba, obj_w, obj_h);
+            ssim_score = ctu_score;
+            cross_percentage = ctu_cross;
 
             // SUPer threshold logic (WindowAnalyzer line 1366)
             double thr_score = std::min(1.0, effective_ssim_threshold +
@@ -757,9 +759,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 const int ny = nev.y() + ((nth > 0) ? nty : 0);
                 if (nx == compo_x && ny == compo_y &&
                     naw == compo_w && nah == compo_h) {
-                    double ncross = 0.0;
-                    const double nssim = common::ssim_c::compare_with_alpha(
-                        compo_rgba.data(), ntrim.data(), naw, nah, ncross);
+                    // CTU for P4b lookahead
+                    const auto [nctu_score, nctu_cross] = core::ctu_c::evaluate(compo_rgba, ntrim, naw, nah);
+                    const double nssim = nctu_score;
+                    const double ncross = nctu_cross;
                     const double nthr = std::min(1.0, effective_ssim_threshold +
                         (1.0 - effective_ssim_threshold) * (1.0 - ncross) -
                         0.008333 * (1.0 - ssim_offset));
