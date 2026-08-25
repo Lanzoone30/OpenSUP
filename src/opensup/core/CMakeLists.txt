@@ -4,6 +4,8 @@ add_library(opensup_core
   renderer.cpp
   interface.cpp
   pgstream.cpp
+  layout_engine.cpp
+  ctu.cpp
 )
 
 target_include_directories(opensup_core
