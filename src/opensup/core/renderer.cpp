@@ -114,7 +114,8 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
     , m_quality_factor(quality_factor)
     , m_refresh_rate(refresh_rate)
     , m_ssim_tol(ssim_tol)
-    , m_insert_acquisitions(insert_acquisitions) {}
+    , m_insert_acquisitions(insert_acquisitions)
+    , m_windows{} {}
 
 bool
 epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
@@ -175,7 +176,7 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     std::vector<c_object_t> cobjects;
     c_object_t obj;
     obj.o_id = in.obj_id;
-    obj.window_id = 0;
+    obj.window_id = in.window_id;
     obj.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
     obj.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
     obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
@@ -196,7 +197,7 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     double wds_pts = timings.base_pts - timings.wipe_dur;
     if (wds_pts < timings.base_dts) wds_pts = timings.base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
     window_definition_t wd;
-    wd.window_id = 0;
+    wd.window_id = in.window_id;
     wd.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
     wd.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
     wd.width = static_cast<uint16_t>(in.obj_w);
@@ -247,10 +248,16 @@ std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                const std::vector<bool>& redraw_flags,
                                common::fps_e fps_enum,
-                               int& palette_id_counter)
+                               int& palette_id_counter,
+                               const std::vector<window_definition_t>& windows)
 {
     std::vector<std::shared_ptr<pg_segment_c>> result;
     if (events.empty()) return result;
+
+    // Use provided windows or default to single full-screen window
+    m_windows = windows.empty()
+        ? std::vector<window_definition_t>{window_definition_t{0, 0, 0, static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height)}}
+        : windows;
 
     // SUPer: redraw_flags marks forced ACQUISITION points (periodic refresh)
     const std::vector<bool>& forced_acq = redraw_flags;
@@ -258,7 +265,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
     palette_id_counter++;
 
-    int double_buffer = 1;  // SUPer: double-buffering alternates 0/1 for 1 window
+    // For single window: double_buffer = 1 (alternates 0/1)
+    // For multi-window: SUPer uses more complex logic, but for now keep simple
+    int double_buffer = 1;
 
     // Track previous event for clear DS insertion (SUPer _get_undisplay pattern)
     double prev_tc_out = 0.0;
@@ -385,7 +394,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 if (e.has_clear)
                     emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
                                       false, fps_enum, e.own_palette, e.own_indexed,
                                       e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -403,7 +412,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             if (i == 0) {
                 // Group start: union bitmap + full palette.
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
                                       false, fps_enum, sol.palettes[0], sol.bitmap,
                                       e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -411,7 +420,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             } else {
                 // Palette update event: PCS/WDS/ENDS as today + diff PDS.
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
                                       true /* reuse: no ODS */, fps_enum,
                                       sol.palettes[i], e.own_indexed, e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -453,7 +462,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 event_emit_input_t acq_in{e.w, e.h, e.crop_x, e.crop_y,
                                           e.ev_x, e.ev_y, e.ev_forced,
                                           pcs_c::composition_state_e::acquisition,
-                                          e.obj_id, palette_id, false, fps_enum,
+                                          e.obj_id, 0, palette_id, false, fps_enum,
                                           e.own_palette, e.own_indexed, e.acq_timings};
                 auto acq_segs = emit_event_segments(acq_in, result);
                 for (auto& seg : acq_segs) result.push_back(std::move(seg));
@@ -466,8 +475,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     for (size_t k = 0; k < events.size(); k++) {
         // Fixed SSIM bar: similarity decides reusable vs force_acquisition only.
         // The drought effect belongs to the decode-margin check (SUPer render2:258).
-        const double effective_ssim_threshold = std::min(1.0, base_ssim_threshold +
-            ssim_offset);
+        // SUPer applies ssim_offset ONLY inside thr_score (render2.py:1366:
+        // -0.008333*(1-ssim_offset)), never to the base threshold.
+        const double effective_ssim_threshold = base_ssim_threshold;
 
         auto& ev = events[k];
         bool forced = (k < forced_acq.size() && forced_acq[k]);
@@ -810,7 +820,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         // Emit the full display set for this event.
         event_emit_input_t in{
             obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-            comp_state, obj_id, palette_id, emit_reusable, fps_enum,
+            comp_state, obj_id, 0, palette_id, emit_reusable, fps_enum,
             palette, indexed, timings};
         auto segs = emit_event_segments(in, result);
         for (auto& seg : segs)
@@ -819,7 +829,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             // Same object, same obj_id (re-acquire the current buffer).
             event_emit_input_t acq_in{
                 obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-                pcs_c::composition_state_e::acquisition, obj_id, palette_id,
+                pcs_c::composition_state_e::acquisition, obj_id, 0, palette_id,
                 false /* emit ODS: fresh acquisition */, fps_enum,
                 palette, indexed, acq_timings};
             auto acq_segs = emit_event_segments(acq_in, result);
