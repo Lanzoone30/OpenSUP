@@ -4,6 +4,7 @@
 // OpenSUP - PGS Encoder
 //
 // Parameter parity with SUPer: ssim_tol and acqrate (refresh rate).
+// CTU parity: separated regions break like SUPer (D2).
 
 #include <gtest/gtest.h>
 #include <string>
@@ -92,7 +93,46 @@ TEST(AcqRate, DroughtAccumulationEnablesLateRefresh) {
     ASSERT_TRUE(res_zero.success) << res_zero.error;
     ASSERT_TRUE(res_full.success) << res_full.error;
     EXPECT_NE(stream_hash(zero.segments()), stream_hash(full.segments()))
-        << "acqrate must scale drought accumulation";
+        << "acqrate must scale drought and change emission pattern";
+}
+
+TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
+    // D2 regression: SUPer CTU (render2.py:1186-1245) discounts identical regions
+    // by 0.325 so a diverging region is not diluted by unchanged ones.
+    // Fixture: two spatially separated bands (top 60px identical gray=128,
+    // bottom 60px noise delta=40). Flat SSIM fuses (score > thr), CTU breaks.
+    // Expected: 2nd display set = ACQUISITION (not palette update).
+    encode_config_t cfg;
+    cfg.input_path = OPENDSUP_FIXTURES_DIR "/ctu_bands_delta40.xml";
+    cfg.output_path = "ctu_test.sup";
+    cfg.overwrite = true;
+    cfg.extra_acq = 0;
+    cfg.ssim_tol = 0;
+    cfg.compression = 80;
+    cfg.acqrate = 0;
+
+    bdn_render_c renderer(cfg);
+    const auto res = renderer.execute();
+    ASSERT_TRUE(res.success) << res.error;
+
+    const auto& segs = renderer.segments();
+    // Find PCS segments (composition states)
+    int acquisition_count = 0;
+    int normal_count = 0;
+    for (const auto& seg : segs) {
+        if (seg->type() == pg_segment_c::segment_type_e::pcs) {
+            auto pcs = std::dynamic_pointer_cast<pcs_c>(seg);
+            if (pcs->composition_state() == pcs_c::composition_state_e::acquisition) {
+                acquisition_count++;
+            } else if (pcs->composition_state() == pcs_c::composition_state_e::normal) {
+                normal_count++;
+            }
+        }
+    }
+    // Event 1: EPOCH_START (counts as acquisition)
+    // Event 2: must be ACQUISITION (CTU breaks due to delta=40 in bottom band)
+    EXPECT_EQ(acquisition_count, 2) << "CTU must break for separated bands delta=40 (like SUPer)";
+    EXPECT_EQ(normal_count, 0) << "No palette update (NORMAL) allowed for this delta";
 }
 
 }  // namespace
