@@ -44,7 +44,7 @@ public:
     void set_tc_out(double tc) noexcept { m_tc_out = tc; }
 
     [[nodiscard]] std::vector<uint8_t> load_image() const;
-    void unload() noexcept;
+    void unload() const noexcept;
 
 private:
     double m_tc_in = 0.0;
