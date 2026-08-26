@@ -120,7 +120,7 @@ TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
     int acquisition_count = 0;
     int normal_count = 0;
     for (const auto& seg : segs) {
-        if (seg->type() == pg_segment_c::segment_type_e::pcs) {
+        if (seg->type() == segment_type_e::pcs) {
             auto pcs = std::dynamic_pointer_cast<pcs_c>(seg);
             if (pcs->composition_state() == pcs_c::composition_state_e::acquisition) {
                 acquisition_count++;
