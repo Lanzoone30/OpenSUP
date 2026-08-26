@@ -61,7 +61,7 @@ bdn_xml_event_c::load_image() const
 }
 
 void
-bdn_xml_event_c::unload() noexcept
+bdn_xml_event_c::unload() const noexcept
 {
     m_cached_image.clear();
     m_cached_image.shrink_to_fit();
