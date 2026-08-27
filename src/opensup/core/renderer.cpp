@@ -166,6 +166,21 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
     return t;
 }
 
+uint8_t
+epoch_encoder_c::window_for(int ev_x, int ev_y, int crop_x, int crop_y) const noexcept
+{
+    // Single-window mode (no layout windows): everything lives in window 0.
+    if (m_windows.size() < 2) return 0;
+    const int px = ev_x + crop_x;
+    const int py = ev_y + crop_y;
+    for (const auto& wd : m_windows) {
+        if (px >= wd.h_pos && px < wd.h_pos + wd.width &&
+            py >= wd.v_pos && py < wd.v_pos + wd.height)
+            return wd.window_id;
+    }
+    return 0;
+}
+
 std::vector<std::shared_ptr<pg_segment_c>>
 epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
                                      const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far)
@@ -182,6 +197,19 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     obj.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
     obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
     cobjects.push_back(obj);
+    // Normal case: the other window's object stays on screen as a CObject
+    // reference without a new ODS (SUPer render2.py:737-746,
+    // CObject.from_scratch(oid, wid, pos, False)). Its palette/image are the
+    // one already decoded from that window's last ODS.
+    if (in.normal_case_ref) {
+        c_object_t ref;
+        ref.o_id = in.ref_obj_id;
+        ref.window_id = in.ref_window_id;
+        ref.h_pos = static_cast<uint16_t>(std::max(0, in.ref_x));
+        ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
+        ref.flags = c_object_t::standard;
+        cobjects.push_back(ref);
+    }
 
     // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
     const auto& timings = in.timings;
@@ -194,16 +222,24 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         false, palette_id, cobjects, timings.base_pts, timings.base_dts);
     result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
 
-    // WDS: PTS = PCS_PTS - wipe_dur
+    // WDS: PTS = PCS_PTS - wipe_dur. Window comes from the epoch layout when
+    // windows were provided; otherwise fall back to the object rectangle
+    // (single-window byte-compatible behaviour).
     double wds_pts = timings.base_pts - timings.wipe_dur;
     if (wds_pts < timings.base_dts) wds_pts = timings.base_dts + 1.0 / (pg_decoder_t::FREQ * 2);
-    window_definition_t wd;
-    wd.window_id = in.window_id;
-    wd.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
-    wd.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
-    wd.width = static_cast<uint16_t>(in.obj_w);
-    wd.height = static_cast<uint16_t>(in.obj_h);
-    auto wds = wds_c::from_scratch({wd}, wds_pts, timings.base_dts);
+    std::vector<window_definition_t> wds_windows;
+    if (in.window_id < m_windows.size()) {
+        wds_windows.push_back(m_windows[in.window_id]);
+    } else {
+        window_definition_t wd;
+        wd.window_id = in.window_id;
+        wd.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
+        wd.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
+        wd.width = static_cast<uint16_t>(in.obj_w);
+        wd.height = static_cast<uint16_t>(in.obj_h);
+        wds_windows.push_back(wd);
+    }
+    auto wds = wds_c::from_scratch(wds_windows, wds_pts, timings.base_dts);
     result.push_back(std::make_shared<wds_c>(std::move(wds)));
 
     // PDS: PTS = DTS (instant), or earlier in overlap mode (previous ENDS).
@@ -256,9 +292,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     if (events.empty()) return result;
 
     // Use provided windows or default to single full-screen window
-    m_windows = windows.empty()
-        ? std::vector<window_definition_t>{window_definition_t{0, 0, 0, static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height)}}
-        : windows;
+    // Layout windows for this epoch (may be empty: single-window emission
+    // then falls back to per-object windows below).
+    m_windows = windows;
 
     // SUPer: redraw_flags marks forced ACQUISITION points (periodic refresh)
     const std::vector<bool>& forced_acq = redraw_flags;
@@ -274,6 +310,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     double prev_tc_out = 0.0;
     int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
     bool have_prev = false;
+    int prev_window_id = 0; // layout window of the previous event's object
 
     // Previous event timing (SUPer find_acqs: dts/dts_end/margin for the
     // decode-margin acquisition decision). pts_gap and dtl are computed per event.
@@ -395,7 +432,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 if (e.has_clear)
                     emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       false, fps_enum, e.own_palette, e.own_indexed,
                                       e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -413,7 +450,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             if (i == 0) {
                 // Group start: union bitmap + full palette.
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       false, fps_enum, sol.palettes[0], sol.bitmap,
                                       e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -421,7 +458,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             } else {
                 // Palette update event: PCS/WDS/ENDS as today + diff PDS.
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
-                                      e.ev_forced, e.comp_state, e.obj_id, 0, palette_id,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       true /* reuse: no ODS */, fps_enum,
                                       sol.palettes[i], e.own_indexed, e.timings};
                 auto segs = emit_event_segments(in, result);
@@ -463,7 +500,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 event_emit_input_t acq_in{e.w, e.h, e.crop_x, e.crop_y,
                                           e.ev_x, e.ev_y, e.ev_forced,
                                           pcs_c::composition_state_e::acquisition,
-                                          e.obj_id, 0, palette_id, false, fps_enum,
+                                          e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id, false, fps_enum,
                                           e.own_palette, e.own_indexed, e.acq_timings};
                 auto acq_segs = emit_event_segments(acq_in, result);
                 for (auto& seg : acq_segs) result.push_back(std::move(seg));
@@ -593,18 +630,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // ── Drought decision (SUPer shape_stream logic) ──
     pcs_c::composition_state_e comp_state;
     bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
+    // Layout window this event's object targets (multi-window Fase 1).
+    const uint8_t cur_window = window_for(ev.x(), ev.y(), crop_x, crop_y);
 
-    // Candidate for NORMAL (palette-update) state. In SUPer a NORMAL "normal
-    // case" redefines one of TWO windows while keeping the other; it is only
-    // possible with multi-window content (render2.py:513: sum(new_mask)==1 and
-    // sum(objects is not None)==2). OpenSUP-go is single-window (window_id=0),
-    // so the normal-case and its allow_normal_case / prefer_normal_case flags
-    // are a no-op here, exactly as they are for single-window SUPer. The
-    // single-window analog of a normal case is `reusable` (same object re-emit
-    // as a palette update), which therefore drives the NORMAL state alone.
-    comp_state = reusable
-        ? pcs_c::composition_state_e::normal
-        : pcs_c::composition_state_e::epoch_start;
+    // The two-window normal case below redefines one window as NORMAL; the
+    // single-window analog is `reusable`, which also drives the NORMAL state.
 
     // Decode-margin signals (SUPer find_acqs): acq = valid timing, dtl = slack
     // ratio between this event's decode start and the previous decode end.
@@ -613,6 +643,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // full-screen model.
     bool acq_valid = false;
     double dtl = 0.0;
+    bool nc_margin = false; // normal case: new object decodes after the previous one
     if (have_prev) {
         const double obj_decode_dur = timings.obj_decode_time + timings.wipe_dur;
         const double dts_eff = timings.base_pts - obj_decode_dur;
@@ -620,21 +651,39 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         const double pts_gap = timings.base_pts - prev_base_pts;
         const double prev_display_dur = prev_tc_out - prev_tc_in;
         acq_valid = (dts_eff > prev_dts_end) && (pts_gap > epoch_write_dur);
+        nc_margin = (dts_eff > prev_dts_end);
         dtl = (prev_display_dur > 0.0) ? (dts_eff - prev_dts_end) / prev_display_dur : 0.0;
     }
 
+    // Normal case (SUPer render2.py:513-544): when the epoch has two layout
+    // windows and the new event takes over a different window while the
+    // previous object is still on screen, this display set may redefine only
+    // that window as NORMAL instead of restarting the whole composition.
+    // Requires allow_normal_case and enough decode margin (dts_start_nc >
+    // dts_start, the nc_margin signal below). The other window's object stays
+    // on screen; its CObject reference is added in Fase 3 (refresh parcial).
+    const bool normal_case =
+        m_allow_normal_case && m_windows.size() == 2 && have_prev &&
+        ev.tc_in() < prev_tc_out && cur_window != prev_window_id &&
+        nc_margin;
+    comp_state = (normal_case || reusable)
+        ? pcs_c::composition_state_e::normal
+        : pcs_c::composition_state_e::epoch_start;
     // SUPer drought logic:
     // if (forced or (acq and margin > max(thresh - dthresh*drought, 0))) and
     //    NOT nc_refresh -> ACQUISITION   (render2.py:258)
     // else -> drought += refresh_rate
     // nc_refresh nodes (reusable palette updates) NEVER become ACQUISITION;
     // with enough decode margin they only re-emit the ODS (stay NORMAL).
-    if (thresh == 0.0 && !reusable) {
+    if (thresh == 0.0 && !reusable && !normal_case) {
         // compression=0 -> force all ACQUISITION
         comp_state = pcs_c::composition_state_e::acquisition;
         m_drought = 0.0;
     } else if (comp_state != pcs_c::composition_state_e::acquisition) {
-        if (forced || force_acquisition) {
+        if (normal_case) {
+            // NORMAL-case winner is never downgraded to ACQUISITION
+            // (SUPer: flags[k]=1, states[k]=NORMAL).
+        } else if (forced || force_acquisition) {
             comp_state = pcs_c::composition_state_e::acquisition;
             m_drought = 0.0;
         } else if (reusable && acq_valid &&
@@ -812,19 +861,21 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             flush_chain();
             chain_active = false;
         }
-        // Full acquisition: clear DS before every non-first event.
-        if (have_prev) {
-            logger_c::instance().log(common::log_level_e::hdebug,
-                "Clear DS at " + std::to_string(prev_tc_out) +
-                " before event at " + std::to_string(ev.tc_in()));
-            emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h,
-                          prev_pos_x, prev_pos_y);
-        }
+        // SUPer parity: the mid-stream clear is only written when the previous
+        // node belongs to a chain (render2.py:859, durs[i][1] != 0), which is
+        // already handled by flush_chain()'s has_clear path. An independent
+        // acquisition (no parent) replaces the composition outright, so no
+        // clear display set precedes it. The end-of-epoch clear below remains.
         // Emit the full display set for this event.
         event_emit_input_t in{
             obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-            comp_state, obj_id, 0, palette_id, emit_reusable, fps_enum,
+            comp_state, obj_id, window_for(ev.x(), ev.y(), crop_x, crop_y), palette_id, emit_reusable, fps_enum,
             palette, indexed, timings};
+        in.normal_case_ref = normal_case;
+        in.ref_window_id = static_cast<uint8_t>(prev_window_id);
+        in.ref_obj_id = prev_obj_id;
+        in.ref_x = prev_pos_x;
+        in.ref_y = prev_pos_y;
         auto segs = emit_event_segments(in, result);
         for (auto& seg : segs)
             result.push_back(std::move(seg));
@@ -832,7 +883,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             // Same object, same obj_id (re-acquire the current buffer).
             event_emit_input_t acq_in{
                 obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-                pcs_c::composition_state_e::acquisition, obj_id, 0, palette_id,
+                pcs_c::composition_state_e::acquisition, obj_id, window_for(ev.x(), ev.y(), crop_x, crop_y), palette_id,
                 false /* emit ODS: fresh acquisition */, fps_enum,
                 palette, indexed, acq_timings};
             auto acq_segs = emit_event_segments(acq_in, result);
@@ -844,6 +895,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     }
 
         prev_obj_id = obj_id;
+        prev_window_id = cur_window;
 
         // Save event data for next iteration's clear DS and decode-margin check
         prev_tc_out = ev.tc_out();
