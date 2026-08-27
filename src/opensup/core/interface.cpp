@@ -10,6 +10,7 @@
 #include "opensup/core/renderer.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/core/pgstream.h"
+#include "opensup/core/layout_engine.h"
 #include "opensup/common/logger.h"
 
 #include <filesystem>
@@ -23,6 +24,60 @@ namespace opensup {
 namespace core {
 
 using common::logger_c;
+
+// Helper: extract alpha channel from RGBA image
+static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int w, int h) {
+    std::vector<uint8_t> alpha;
+    size_t reserve_size = static_cast<size_t>(std::max(0, w)) * static_cast<size_t>(std::max(0, h));
+    alpha.reserve(reserve_size);
+    for (size_t i = 0; i < rgba.size(); i += 4) {
+        alpha.push_back(rgba[i + 3]);
+    }
+    return alpha;
+}
+
+// Helper: determine window layout for a group of events
+static std::vector<window_definition_t>
+determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
+    layout_engine_c layout_engine(width, height);
+    
+    for (const auto& event : events) {
+        auto rgba = event.load_image();
+        if (rgba.empty()) continue;
+        
+        int ew = event.width();
+        int eh = event.height();
+        if (ew <= 0 || eh <= 0) continue;
+        
+        auto alpha = extract_alpha(rgba, ew, eh);
+        layout_engine.add(event.x(), event.y(), alpha, ew, eh);
+        event.unload();  // free memory after use
+    }
+    
+    auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
+    
+    std::vector<window_definition_t> windows;
+    window_definition_t wd0;
+    wd0.window_id = 0;
+    wd0.h_pos = static_cast<uint16_t>(w0.x);
+    wd0.v_pos = static_cast<uint16_t>(w0.y);
+    wd0.width = static_cast<uint16_t>(w0.dx);
+    wd0.height = static_cast<uint16_t>(w0.dy);
+    windows.push_back(wd0);
+    
+    // If w0 != w1, we have a split - add second window
+    if (w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) {
+        window_definition_t wd1;
+        wd1.window_id = 1;
+        wd1.h_pos = static_cast<uint16_t>(w1.x);
+        wd1.v_pos = static_cast<uint16_t>(w1.y);
+        wd1.width = static_cast<uint16_t>(w1.dx);
+        wd1.height = static_cast<uint16_t>(w1.dy);
+        windows.push_back(wd1);
+    }
+    
+    return windows;
+}
 
 // ── BDN Render ──
 bdn_render_c::bdn_render_c(const encode_config_t& config)
@@ -100,6 +155,9 @@ bdn_render_c::execute()
             no_redraw = std::move(flags);
         }
 
+        // Determine window layout for this epoch (before encoding)
+        auto windows = determine_windows(group, m_config.width, m_config.height);
+
         // Encode (palette ids restart at 0 per epoch, SUPer threaded parity)
         epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
                                 m_config.quantizer_id,
@@ -111,7 +169,7 @@ bdn_render_c::execute()
                                 m_config.ssim_tol / 100.0,
                                 m_config.extra_acq);
         int palette_base = 0;
-        auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base);
+        auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
         epoch_results[static_cast<size_t>(epoch_index)] = std::move(segs);
 
