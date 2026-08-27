@@ -209,7 +209,10 @@ bdn_xml_c::groups(double dt_split) const
             continue;
         }
         double td = ev.tc_in() - current.back().tc_out();
-        if (td >= 0 && td < dt_split) {
+        // SUPer find_epochs: a new event joins the current epoch while the
+        // previous one is still on screen (overlap, td < 0) or starts within
+        // the split threshold. Only a td >= dt_split opens a new epoch.
+        if (td < dt_split) {
             current.push_back(ev);
         } else {
             result.push_back(std::move(current));
