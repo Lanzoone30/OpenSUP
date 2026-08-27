@@ -63,7 +63,7 @@ TEST(RedrawPeriod, SplitsLongEventsIntoForcedAcquisitions) {
     // ACQUISITION. Baseline (redraw=0) yields one PCS per event.
     encode_config_t baseline;
     baseline.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
-    baseline.output_path = "redraw_baseline.sup";
+    baseline.output_path = OPENDSUP_TEST_OUTPUT_DIR "/redraw_baseline.sup";
     baseline.overwrite = true;
     baseline.redraw_period = 0.0;
 
@@ -74,7 +74,7 @@ TEST(RedrawPeriod, SplitsLongEventsIntoForcedAcquisitions) {
 
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
-    cfg.output_path = "redraw_on.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/redraw_on.sup";
     cfg.overwrite = true;
     cfg.redraw_period = 1.0;
 
@@ -92,7 +92,7 @@ TEST(RedrawPeriod, SplitsLongEventsIntoForcedAcquisitions) {
 TEST(RedrawPeriod, DeterministicAcrossRuns) {
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
-    cfg.output_path = "redraw_det1.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/redraw_det1.sup";
     cfg.overwrite = true;
     cfg.redraw_period = 1.5;
 
@@ -100,7 +100,7 @@ TEST(RedrawPeriod, DeterministicAcrossRuns) {
     ASSERT_TRUE(r1.execute().success);
     const size_t h1 = stream_hash(r1.segments());
 
-    cfg.output_path = "redraw_det2.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/redraw_det2.sup";
     bdn_render_c r2(cfg);
     ASSERT_TRUE(r2.execute().success);
     const size_t h2 = stream_hash(r2.segments());
