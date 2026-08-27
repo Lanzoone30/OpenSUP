@@ -25,7 +25,7 @@ TEST(GroupChain, FusedEventsGetPaletteChain) {
     // updates on a shared union bitmap.
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
-    cfg.output_path = "group_chain.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/group_chain.sup";
     cfg.overwrite = true;
     cfg.compression = 80;
     cfg.extra_acq = 0;  // isolate the P4b path from extra_acq inserts
@@ -69,12 +69,12 @@ TEST(GroupChain, FusedEventsGetPaletteChain) {
 TEST(GroupChain, Deterministic) {
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
-    cfg.output_path = "group_chain_det1.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/group_chain_det1.sup";
     cfg.overwrite = true;
     cfg.extra_acq = 0;
 
     encode_config_t cfg2 = cfg;
-    cfg2.output_path = "group_chain_det2.sup";
+    cfg2.output_path = OPENDSUP_TEST_OUTPUT_DIR "/group_chain_det2.sup";
 
     bdn_render_c r1(cfg);
     bdn_render_c r2(cfg2);
