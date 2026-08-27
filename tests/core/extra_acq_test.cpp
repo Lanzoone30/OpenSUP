@@ -43,12 +43,12 @@ TEST(ExtraAcq, OffVsOnInsertsMidEventAcquisitions) {
     // synth_similar.xml: 3 different-width events (non-reusable, NORMAL chain).
     encode_config_t cfg_off;
     cfg_off.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
-    cfg_off.output_path = "extra_acq_off.sup";
+    cfg_off.output_path = OPENDSUP_TEST_OUTPUT_DIR "/extra_acq_off.sup";
     cfg_off.overwrite = true;
     cfg_off.extra_acq = 0;
 
     encode_config_t cfg_on = cfg_off;
-    cfg_on.output_path = "extra_acq_on.sup";
+    cfg_on.output_path = OPENDSUP_TEST_OUTPUT_DIR "/extra_acq_on.sup";
     cfg_on.extra_acq = 1;
 
     bdn_render_c off(cfg_off);
@@ -69,12 +69,12 @@ TEST(ExtraAcq, Deterministic) {
     // Same config twice → byte-identical stream.
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
-    cfg.output_path = "extra_acq_det1.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/extra_acq_det1.sup";
     cfg.overwrite = true;
     cfg.extra_acq = 1;
 
     encode_config_t cfg2 = cfg;
-    cfg2.output_path = "extra_acq_det2.sup";
+    cfg2.output_path = OPENDSUP_TEST_OUTPUT_DIR "/extra_acq_det2.sup";
 
     bdn_render_c r1(cfg);
     bdn_render_c r2(cfg2);
