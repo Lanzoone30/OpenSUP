@@ -37,12 +37,20 @@ struct event_emit_input_t {
     bool ev_forced = false;       ///< Event forced-subtitle flag.
     pcs_c::composition_state_e comp_state = pcs_c::composition_state_e::epoch_start;
     uint16_t obj_id = 0;          ///< Object id (double-buffering/reuse aware).
-    uint8_t palette_id = 0;       ///< Palette/window id for this event.
+    uint8_t window_id = 0;        ///< Window ID for this object (0 or 1).
+    uint8_t palette_id = 0;       ///< Palette ID for this event.
     bool reusable = false;        ///< Event reuses the previous event's object.
     common::fps_e fps_enum;       ///< Source frame rate (for the PCS fps byte).
     const media::palette_t& palette;     ///< Ready-to-emit palette (transparent offset applied).
     const std::vector<uint8_t>& indexed; ///< Ready-to-emit indexed pixels.
     const epoch_timings_t& timings;      ///< Per-segment timestamps.
+    // Normal-case refresh: also re-emit the kept other-window object as a
+    // CObject reference without a new ODS. Defaults keep the classic layout
+    // and are only set by the caller that computes `normal_case`.
+    bool normal_case_ref = false; ///< Emit the reference CObject too.
+    uint8_t ref_window_id = 0;    ///< Window ID of the kept object.
+    uint16_t ref_obj_id = 0;      ///< Object id of the kept object (its last ODS).
+    int ref_x = 0, ref_y = 0;     ///< Position of the kept object.
 };
 
 // ── Epoch Encoder ──
@@ -64,11 +72,14 @@ public:
                      int insert_acquisitions = 2);
 
     /// Render the given events; returns the PGS segments for this epoch.
+    /// @param windows Window definitions for this epoch (1 or 2 windows). 
+    ///                If empty, defaults to single full-screen window.
     std::vector<std::shared_ptr<pg_segment_c>>
     encode_epoch(const std::vector<bdn_xml_event_c>& events,
                   const std::vector<bool>& redraw_flags,
                   common::fps_e fps_enum,
-                  int& palette_id_counter);
+                  int& palette_id_counter,
+                  const std::vector<window_definition_t>& windows = {});
 
     /// Number of events detected as reusable (same bitmap as previous event).
     [[nodiscard]] int reuse_candidates() const noexcept { return m_reuse_candidates; }
@@ -96,11 +107,9 @@ private:
     int m_width, m_height;
     int m_quantizer_id = 0;
     // Normal-case flags: SUPer's normal case requires two windows (redefine one
-    // while keeping the other). OpenSUP-go is single-window, so these are
-    // intentionally unused (no-op, matching single-window SUPer) and reserved
-    // for a future multi-window renderer.
-    [[maybe_unused]] bool m_allow_normal_case = false;
-    [[maybe_unused]] bool m_prefer_normal_case = false;
+    // while keeping the other).
+    bool m_allow_normal_case = false;
+    bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
     double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
@@ -112,6 +121,10 @@ private:
     int m_composition_n = 1;
     int m_palette_vn = 0;
     int m_reuse_candidates = 0;
+    std::vector<window_definition_t> m_windows;  // Window definitions for this epoch
+    /// Resolve the window owning the point (ev_x+crop_x, ev_y+crop_y).
+    /// 0 when no layout windows are provided (single-window mode).
+    [[nodiscard]] uint8_t window_for(int ev_x, int ev_y, int crop_x, int crop_y) const noexcept;
 };
 
 } // namespace core
