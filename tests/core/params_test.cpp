@@ -48,13 +48,13 @@ TEST(SSIMTol, ExtremesDoNotShiftBaseThreshold) {
     // Both extremes must therefore produce byte-identical streams.
     encode_config_t cfg_lo;
     cfg_lo.input_path = OPENDSUP_FIXTURES_DIR "/synth_ssimband.xml";
-    cfg_lo.output_path = "ssimtol_lo.sup";
+    cfg_lo.output_path = OPENDSUP_TEST_OUTPUT_DIR "/ssimtol_lo.sup";
     cfg_lo.overwrite = true;
     cfg_lo.extra_acq = 0;
     cfg_lo.ssim_tol = -100;
 
     encode_config_t cfg_hi = cfg_lo;
-    cfg_hi.output_path = "ssimtol_hi.sup";
+    cfg_hi.output_path = OPENDSUP_TEST_OUTPUT_DIR "/ssimtol_hi.sup";
     cfg_hi.ssim_tol = 100;
 
     bdn_render_c lo(cfg_lo);
@@ -76,14 +76,14 @@ TEST(AcqRate, DroughtAccumulationEnablesLateRefresh) {
     // With acqrate=0 the drought stays 0 and event 4 must NOT refresh.
     encode_config_t cfg_zero;
     cfg_zero.input_path = OPENDSUP_FIXTURES_DIR "/synth_drought.xml";
-    cfg_zero.output_path = "acqrate_zero.sup";
+    cfg_zero.output_path = OPENDSUP_TEST_OUTPUT_DIR "/acqrate_zero.sup";
     cfg_zero.overwrite = true;
     cfg_zero.extra_acq = 0;
     cfg_zero.compression = 100;
     cfg_zero.acqrate = 0;
 
     encode_config_t cfg_full = cfg_zero;
-    cfg_full.output_path = "acqrate_full.sup";
+    cfg_full.output_path = OPENDSUP_TEST_OUTPUT_DIR "/acqrate_full.sup";
     cfg_full.acqrate = 100;
 
     bdn_render_c zero(cfg_zero);
@@ -104,7 +104,7 @@ TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
     // Expected: 2nd display set = ACQUISITION (not palette update).
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/ctu_bands_delta40.xml";
-    cfg.output_path = "ctu_test.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/ctu_test.sup";
     cfg.overwrite = true;
     cfg.extra_acq = 0;
     cfg.ssim_tol = 0;
@@ -122,7 +122,12 @@ TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
     for (const auto& seg : segs) {
         if (seg->type() == segment_type_e::pcs) {
             auto pcs = std::dynamic_pointer_cast<pcs_c>(seg);
-            if (pcs->composition_state() == pcs_c::composition_state_e::acquisition) {
+            // SUPer parity stream for two independent events (render2.py:227-228,
+            // :1067): [EPOCH_START, ACQUISITION, NORMAL(end-of-epoch wipe)].
+            // EPOCH_START (0x80) is the first composition, same role as an
+            // acquisition; NORMAL must only appear once, as the terminal wipe.
+            if (pcs->composition_state() == pcs_c::composition_state_e::acquisition ||
+                pcs->composition_state() == pcs_c::composition_state_e::epoch_start) {
                 acquisition_count++;
             } else if (pcs->composition_state() == pcs_c::composition_state_e::normal) {
                 normal_count++;
@@ -132,7 +137,7 @@ TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
     // Event 1: EPOCH_START (counts as acquisition)
     // Event 2: must be ACQUISITION (CTU breaks due to delta=40 in bottom band)
     EXPECT_EQ(acquisition_count, 2) << "CTU must break for separated bands delta=40 (like SUPer)";
-    EXPECT_EQ(normal_count, 0) << "No palette update (NORMAL) allowed for this delta";
+    EXPECT_EQ(normal_count, 1) << "Only the end-of-epoch NORMAL wipe (SUPer perform_wds_end)";
 }
 
 }  // namespace
