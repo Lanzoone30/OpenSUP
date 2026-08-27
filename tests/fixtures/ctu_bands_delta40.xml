@@ -10,10 +10,10 @@
   </Description>
   <Events>
     <Event InTC="00:00:01:00" OutTC="00:00:05:00" Forced="False">
-      <Graphic Width="600" Height="120" X="660" Y="480">ctu_band1.bmp</Graphic>
+      <Graphic Width="600" Height="100" X="660" Y="480">ctu_band1.png</Graphic>
     </Event>
     <Event InTC="00:00:05:00" OutTC="00:00:09:00" Forced="False">
-      <Graphic Width="600" Height="120" X="660" Y="480">ctu_band2.bmp</Graphic>
+      <Graphic Width="600" Height="100" X="660" Y="480">ctu_band2.png</Graphic>
     </Event>
   </Events>
 </BDN>
