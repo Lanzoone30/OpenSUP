@@ -7,6 +7,8 @@ add_executable(opensup_test_core
   group_chain_test.cpp
   redraw_test.cpp
   layout_engine_test.cpp
+  multiwindow_test.cpp
+  normalcase_test.cpp
   params_test.cpp
 )
 
@@ -24,6 +26,7 @@ target_include_directories(opensup_test_core
 target_compile_definitions(opensup_test_core
   PRIVATE
     OPENDSUP_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../tests/fixtures"
+    OPENDSUP_TEST_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../temp/test_output"
 )
 
 gtest_discover_tests(opensup_test_core)
