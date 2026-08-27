@@ -35,8 +35,8 @@ static size_t stream_hash(const std::vector<std::shared_ptr<pg_segment_c>>& segs
 TEST(Threads, DeterministicAcrossWorkerCounts) {
     // Multi-epoch fixture: 6 events spaced >1s apart → 6 epochs.
     const std::string input = OPENDSUP_FIXTURES_DIR "/synth_bdn_multi.xml";
-    const std::string out1 = "threads_det_j1.sup";
-    const std::string out4 = "threads_det_j4.sup";
+    const std::string out1 = OPENDSUP_TEST_OUTPUT_DIR "/threads_det_j1.sup";
+    const std::string out4 = OPENDSUP_TEST_OUTPUT_DIR "/threads_det_j4.sup";
 
     encode_config_t cfg1;
     cfg1.input_path = input;
@@ -64,7 +64,7 @@ TEST(Threads, AutoThreadsSameOutput) {
     // 0 = auto: same deterministic result as explicit worker counts.
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
-    cfg.output_path = "threads_auto.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/threads_auto.sup";
     cfg.overwrite = true;
     cfg.threads = 0;
 
