@@ -53,13 +53,13 @@ TEST(RefreshAcq, HigherCompressionSuppressesRefresh) {
     // So compression=100 must emit fewer segments than compression=80.
     encode_config_t cfg_hi;
     cfg_hi.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
-    cfg_hi.output_path = "refresh_acq_hi.sup";
+    cfg_hi.output_path = OPENDSUP_TEST_OUTPUT_DIR "/refresh_acq_hi.sup";
     cfg_hi.overwrite = true;
     cfg_hi.compression = 100;  // thresh = 1.0
     cfg_hi.extra_acq = 0;      // isolate the refresh path from extra_acq
 
     encode_config_t cfg_lo = cfg_hi;
-    cfg_lo.output_path = "refresh_acq_lo.sup";
+    cfg_lo.output_path = OPENDSUP_TEST_OUTPUT_DIR "/refresh_acq_lo.sup";
     cfg_lo.compression = 80;   // thresh = 0.8 (default)
 
     bdn_render_c hi(cfg_hi);
@@ -77,12 +77,12 @@ TEST(RefreshAcq, Deterministic) {
     // Same config twice -> byte-identical stream.
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_bdn.xml";
-    cfg.output_path = "refresh_acq_det1.sup";
+    cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/refresh_acq_det1.sup";
     cfg.overwrite = true;
     cfg.extra_acq = 0;
 
     encode_config_t cfg2 = cfg;
-    cfg2.output_path = "refresh_acq_det2.sup";
+    cfg2.output_path = OPENDSUP_TEST_OUTPUT_DIR "/refresh_acq_det2.sup";
 
     bdn_render_c r1(cfg);
     bdn_render_c r2(cfg2);
