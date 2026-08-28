@@ -99,6 +99,21 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
     }
 }
 
+// ── find_acqs decode-margin signals (SUPer render2.py:1073-1135) ──
+acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
+                                double pts, double prev_pts,
+                                double write_duration, double margin)
+{
+    // valid[k] (render2.py:1132): decode starts after the previous decode end
+    // and the PTS gap exceeds the epoch write duration.
+    acq_signals_t sig;
+    sig.valid = (dts > prev_dts_end) && (pts - prev_pts > write_duration);
+    // dtl[k] (render2.py:1133): slack normalized by the previous node duration;
+    // invalid timings map to -1 (SUPer: -1 + 2*(k==0), k==0 never reaches here).
+    sig.dtl = sig.valid ? (dts - prev_dts_end) / margin : -1.0;
+    return sig;
+}
+
 // ── Epoch Encoder ──
 epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id,
                                  bool allow_normal_case, bool overlap,
@@ -295,7 +310,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
-
+    // Overlap + two windows: SUPer's shift_forward_overlay merges acquisitions
+    // into the previous window's nodes, so the whole epoch must be planned
+    // before emission (two-phase). Default and single-window overlap keep the
+    // single-pass path below (byte-frozen by FR-6).
+    if (m_overlap && m_windows.size() == 2)
+        return encode_epoch_overlap(events, redraw_flags, fps_enum,
+                                    palette_id_counter);
     // SUPer: redraw_flags marks forced ACQUISITION points (periodic refresh)
     const std::vector<bool>& forced_acq = redraw_flags;
 
@@ -305,6 +326,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // For single window: double_buffer = 1 (alternates 0/1)
     // For multi-window: SUPer uses more complex logic, but for now keep simple
     int double_buffer = 1;
+    // Per-window slot sizing and new-object mask (SUPer find_acqs,
+    // render2.py:1103-1104,1117,1121): max (dy,dx) seen per window and which
+    // window got new content per event. Consumed by F2 (specs/007).
+    const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
+    std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
+    std::vector<uint8_t> new_mask(nwin, 0);
 
     // Track previous event for clear DS insertion (SUPer _get_undisplay pattern)
     double prev_tc_out = 0.0;
@@ -429,7 +456,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             logger_c::instance().warn(
                 "Group co-quantization failed; falling back to per-event emission");
             for (const auto& e : chain) {
-                if (e.has_clear)
+                // Same gap-only clear rule as the main path (render2.py:859).
+                if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
                     emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
                                       e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
@@ -445,7 +473,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         for (size_t i = 0; i < chain.size(); i++) {
             auto& e = chain[i];
-            if (e.has_clear)
+            // SUPer emits the undisplay clear only for gap (wipe) nodes —
+            // render2.py:859, durs[i][1]!=0 — "zero unless there are no PG
+            // objects shown at some point in the epoch". Contiguous updates
+            // replace/refresh the composition with no clear (no blinking).
+            // In overlap mode the chain follows that rule: the clear is
+            // emitted only when a real gap precedes the event.
+            if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
                 emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
             if (i == 0) {
                 // Group start: union bitmap + full palette.
@@ -632,27 +666,41 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
     // Layout window this event's object targets (multi-window Fase 1).
     const uint8_t cur_window = window_for(ev.x(), ev.y(), crop_x, crop_y);
+    // Slot sizing and new-object mask (render2.py:1103-1104,1117): the window
+    // slot grows to the max object bbox seen; a non-reusable event brings new
+    // content to its window (new_mask drives the SUPer normal-case filter).
+    {
+        auto& mb = min_boxes[cur_window];
+        mb.first = std::max(mb.first, obj_h);
+        mb.second = std::max(mb.second, obj_w);
+        std::fill(new_mask.begin(), new_mask.end(), 0);
+        new_mask[cur_window] = reusable ? 0 : 1;
+    }
 
     // The two-window normal case below redefines one window as NORMAL; the
     // single-window analog is `reusable`, which also drives the NORMAL state.
 
-    // Decode-margin signals (SUPer find_acqs): acq = valid timing, dtl = slack
-    // ratio between this event's decode start and the previous decode end.
-    // Object-specific decode time (RD read + RC write) as in SUPer's
-    // get_decode_duration; the emitted base_dts keeps the conservative
-    // full-screen model.
+    // Decode-margin signals (SUPer find_acqs, render2.py:1073-1135): structured
+    // port via find_acqs_signals(). Margin is the previous NODE duration
+    // (render2.py:1122-1125): the inter-event gap (wipe node) when one exists,
+    // else the previous event duration. Object-specific decode time (RD read +
+    // RC write) as the dts numerator; the emitted base_dts keeps the
+    // conservative full-screen model.
     bool acq_valid = false;
-    double dtl = 0.0;
+    double dtl = -1.0;
     bool nc_margin = false; // normal case: new object decodes after the previous one
     if (have_prev) {
         const double obj_decode_dur = timings.obj_decode_time + timings.wipe_dur;
         const double dts_eff = timings.base_pts - obj_decode_dur;
         const double prev_dts_end = prev_base_pts - prev_wipe_dur;
-        const double pts_gap = timings.base_pts - prev_base_pts;
-        const double prev_display_dur = prev_tc_out - prev_tc_in;
-        acq_valid = (dts_eff > prev_dts_end) && (pts_gap > epoch_write_dur);
+        const double gap = ev.tc_in() - prev_tc_out;
+        const double margin = (gap > 0.0) ? gap : (prev_tc_out - prev_tc_in);
+        const acq_signals_t sig = find_acqs_signals(
+            dts_eff, prev_dts_end, timings.base_pts, prev_base_pts,
+            epoch_write_dur, margin);
+        acq_valid = sig.valid;
+        dtl = sig.dtl;
         nc_margin = (dts_eff > prev_dts_end);
-        dtl = (prev_display_dur > 0.0) ? (dts_eff - prev_dts_end) / prev_display_dur : 0.0;
     }
 
     // Normal case (SUPer render2.py:513-544): when the epoch has two layout
@@ -684,6 +732,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             // NORMAL-case winner is never downgraded to ACQUISITION
             // (SUPer: flags[k]=1, states[k]=NORMAL).
         } else if (forced || force_acquisition) {
+            // absolutes[k] (render2.py:1119) consolidates here: force_acquisition
+            // (SSIM break) is the C++ analog of a new ProspectiveObject popping
+            // in a window — both force ACQUISITION and reset the drought.
             comp_state = pcs_c::composition_state_e::acquisition;
             m_drought = 0.0;
         } else if (reusable && acq_valid &&
@@ -924,8 +975,381 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y);
         logger_c::instance().log(common::log_level_e::hdebug, "Final clear DS at " + std::to_string(prev_tc_out));
     }
+    // ── align_palette_updates (SUPer render2.py:286-313, overlap mode) ──
+    // Buffered palette updates must keep a strictly monotonic DTS: a display
+    // set may never start decoding before the previous one finished. SUPer
+    // shifts the PU DTS into (prev_dts_end+1 tick, next_dts); the C++ model
+    // applies the same +1-tick rule over the emitted stream, pushing both
+    // timestamps of an offending segment forward (SUPer pushes PTS forward
+    // frame-by-frame for the same reason, render2.py:1007-1036).
+    if (m_overlap) {
+        double last_dts = -1.0;
+        for (auto& seg : result) {
+            if (seg->dts() <= last_dts) {
+                const double nd = last_dts + 1.0 / pg_decoder_t::FREQ;
+                seg->set_dts(nd);
+                if (seg->pts() < nd)
+                    seg->set_pts(nd);
+                last_dts = nd;
+            } else {
+                last_dts = seg->dts();
+            }
+        }
+    }
+    // Slot sizes accumulated over the epoch (find_acqs min_boxes) — diagnostic
+    // parity aid for F2 (specs/007) slot-based decode timing.
+    for (size_t w = 0; w < min_boxes.size(); ++w) {
+        logger_c::instance().log(common::log_level_e::hdebug,
+            "min_boxes w" + std::to_string(w) + " dy=" + std::to_string(min_boxes[w].first) +
+            " dx=" + std::to_string(min_boxes[w].second));
+    }
     logger_c::instance().info("Encoded epoch with " + std::to_string(events.size()) +
                                 " events, " + std::to_string(result.size()) + " segments.");
+    return result;
+}
+// ──────────────────────────────────────────────────────────────────────
+// F2: Overlap pipeline (SUPer render2.py:315-408, 408-460)
+// Active only when m_overlap && m_windows.size() == 2.
+
+void epoch_encoder_c::shift_forward_overlay(
+    std::vector<epoch_node_t>& nodes,
+    const std::vector<bool>& forced_acq) const
+{
+    (void)forced_acq;
+    // SUPer shift_forward_overlay (render2.py:315-408): backtracks from an
+    // acquisition node with exactly one new object (sum(new_mask)==1) and
+    // merges it into the best previous node of the other window, so the
+    // object decodes earlier and the intermediate range stays NORMAL.
+    for (size_t k = 0; k < nodes.size(); ++k) {
+        auto& node = nodes[k];
+        if (node.acq || !node.has_object || !node.new_mask || !node.absolute)
+            continue;
+        const int future_wid = node.window_id;
+        size_t drop_pal_ups_def = 0;
+        bool drop_abs_acq_def = false;
+        int j = static_cast<int>(k);
+        while (j > 0) {
+            --j;
+            if (nodes[static_cast<size_t>(j)].dts_end < node.timings.base_dts &&
+                nodes[static_cast<size_t>(j)].timings.base_pts + 1.0 / m_fps < node.timings.base_pts)
+                break;
+            drop_abs_acq_def |= nodes[static_cast<size_t>(j)].absolute;
+            if (!m_overlap && nodes[static_cast<size_t>(j)].nc_refresh)
+                ++drop_pal_ups_def;
+        }
+        size_t other_new_mask = 0;
+        struct cand_t { size_t best_pk; size_t jk; size_t drop_pal_ups; };
+        std::vector<cand_t> candidates;
+        for (size_t pk = 1; pk <= 15 && k >= pk; ++pk) {
+            const size_t pj = k - pk;
+            auto& pnode = nodes[pj];
+            if (!pnode.has_object)
+                continue;
+            const bool redefine_same_object =
+                pnode.new_mask && pnode.window_id == future_wid;
+            const bool overlap_in_window =
+                pnode.has_object && pnode.window_id == future_wid;
+            if (pnode.window_id != future_wid && pnode.new_mask)
+                ++other_new_mask;
+            if (redefine_same_object || overlap_in_window || other_new_mask > 1)
+                break;
+            // The candidate is a copy of pnode (render2.py:349 new_node =
+            // pnode.copy()), so the scoring gap is measured against the
+            // PROMOTED node's timings, not the original node's (render2.py:358).
+            bool drop_abs_acq = false;
+            size_t drop_pal_ups = 0;
+            size_t jk = 0;
+            int jj = static_cast<int>(pj);
+            while (jj >= 0) {
+                if (jj == static_cast<int>(pj)) { --jj; continue; }
+                if (jj < 0) break;
+                if (nodes[static_cast<size_t>(jj)].dts_end < pnode.timings.base_dts &&
+                    nodes[static_cast<size_t>(jj)].timings.base_pts + 1.0 / m_fps < pnode.timings.base_pts) {
+                    jk = static_cast<size_t>(jj) + 1;
+                    break;
+                }
+                drop_abs_acq |= nodes[static_cast<size_t>(jj)].absolute;
+                if (!m_overlap && nodes[static_cast<size_t>(jj)].nc_refresh)
+                    ++drop_pal_ups;
+                if (jj == 0) { jk = 0; break; }
+                --jj;
+            }
+            if (drop_abs_acq)
+                continue;
+            // The promoted node must fit after the scoring gap: the node right
+            // before jk must not collide with the promoted node's decode
+            // (render2.py:369: nodes[j].dts_end() < new_node.dts() and
+            // nodes[j].pts()+pts_delta < new_node.pts()).
+            if (jk == 0 || (nodes[jk - 1].dts_end < pnode.timings.base_dts &&
+                            nodes[jk - 1].timings.base_pts + 1.0 / m_fps < pnode.timings.base_pts)) {
+                candidates.push_back({pk, jk, drop_pal_ups});
+                // Quick exit (render2.py:373): first candidate in overlap mode.
+                if (drop_pal_ups == 0 || m_overlap)
+                    break;
+            }
+        }
+        if (candidates.empty())
+            continue;
+        auto best_it = std::min_element(
+            candidates.begin(), candidates.end(),
+            [k](const cand_t& a, const cand_t& b) {
+                const double sa = static_cast<double>(a.drop_pal_ups) +
+                0.1249 * (static_cast<double>(k) - static_cast<double>(a.best_pk));
+                const double sb = static_cast<double>(b.drop_pal_ups) +
+                0.1249 * (static_cast<double>(k) - static_cast<double>(b.best_pk));
+                return sa < sb;
+            });
+        const size_t best_pk = best_it->best_pk;
+        const size_t jk = best_it->jk;
+        const size_t drop_palups = best_it->drop_pal_ups;
+        if (drop_pal_ups_def <= drop_palups && !drop_abs_acq_def)
+            continue;
+        auto& target = nodes[k - best_pk];
+        target.pad_left = static_cast<int>(best_pk);
+        target.shifted = true;
+        target.new_mask = true;
+        target.absolute = true;
+        target.state = pcs_c::composition_state_e::acquisition;
+        target.nc_refresh = false;
+        target.rgba = node.rgba;
+        target.w = node.w;
+        target.h = node.h;
+        target.crop_x = node.crop_x;
+        target.crop_y = node.crop_y;
+        target.ev_x = node.ev_x;
+        target.ev_y = node.ev_y;
+        target.obj_id = node.obj_id;
+        target.palette = node.palette;
+        target.indexed = node.indexed;
+        target.reusable = false;
+        target.has_object = true;
+        for (size_t z = jk; z < k - best_pk; ++z) {
+            nodes[z].state = pcs_c::composition_state_e::normal;
+            nodes[z].nc_refresh = true;
+        }
+        for (size_t z = k - best_pk + 1; z <= k; ++z) {
+            nodes[z].state = pcs_c::composition_state_e::normal;
+            nodes[z].nc_refresh = true;
+            nodes[z].absolute = false;
+        }
+        node.acq = false;
+        node.new_mask = false;
+    }
+}
+
+void epoch_encoder_c::set_extended_visibilities(
+    std::vector<epoch_node_t>& nodes) const
+{
+    // SUPer set_pgobjects_extended_visibilities (render2.py:408-460): an
+    // object stays on screen across contiguous events until a wipe/gap. This
+    // pass marks nc_refresh for events that keep the same window object.
+    const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
+    std::vector<size_t> running_objs(nwin, SIZE_MAX);
+    for (size_t k = 0; k < nodes.size(); ++k) {
+        auto& node = nodes[k];
+        if (!node.has_object || static_cast<size_t>(node.window_id) >= nwin)
+            continue;
+        const size_t wid = static_cast<size_t>(node.window_id);
+        if (running_objs[wid] != SIZE_MAX && !node.absolute && !node.acq)
+            node.nc_refresh = true;
+        running_objs[wid] = k;
+    }
+}
+
+/// Two-phase encoding for overlap + 2 windows: build the node plan, run the
+/// overlap pre-passes, then emit. The default (non-overlap) path is untouched.
+std::vector<std::shared_ptr<pg_segment_c>>
+epoch_encoder_c::encode_epoch_overlap(
+    const std::vector<bdn_xml_event_c>& events,
+    const std::vector<bool>& redraw_flags,
+    common::fps_e fps_enum,
+    int& palette_id_counter)
+{
+    std::vector<std::shared_ptr<pg_segment_c>> result;
+    if (events.empty()) return result;
+    const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
+    (void)nwin;
+    std::vector<epoch_node_t> nodes;
+    nodes.reserve(events.size());
+    double prev_pts = 0.0;
+    double prev_dts_end = 0.0;
+    int prev_window_id = 0;
+    double prev_base_pts = 0.0;
+    for (size_t k = 0; k < events.size(); ++k) {
+        const auto& ev = events[k];
+        const bool forced = ev.forced();
+        epoch_node_t node;
+        node.window_id = window_for(ev.x(), ev.y(), 0, 0);
+        node.forced = forced;
+        node.timings = compute_timings(ev.tc_in(),
+            static_cast<uint64_t>(ev.width()) * static_cast<uint64_t>(ev.height()));
+        node.dts_end = node.timings.base_dts + node.timings.wipe_dur;
+        node.has_object = true;
+        node.ev_x = ev.x();
+        node.ev_y = ev.y();
+        const bool reusable = (k > 0 && node.window_id == prev_window_id);
+        node.reusable = reusable;
+        node.new_mask = !reusable;
+        node.absolute = (k == 0) || forced ||
+            (k < redraw_flags.size() && redraw_flags[k]) ||
+            (node.new_mask && node.window_id != prev_window_id);
+        const double write_dur = node.timings.decode_duration;
+        const double margin = (k == 0) ? 0.0 : (node.timings.base_pts - prev_base_pts);
+        const auto sig = find_acqs_signals(node.timings.base_dts, prev_dts_end,
+                                           node.timings.base_pts, prev_pts,
+                                           write_dur, margin);
+        node.acq = sig.valid;
+        node.state = node.absolute
+            ? pcs_c::composition_state_e::acquisition
+            : (node.reusable ? pcs_c::composition_state_e::normal
+                             : pcs_c::composition_state_e::epoch_start);
+        // acq and absolute stay independent (SUPer find_acqs): absolute means
+        // a new object appeared (forced/redraw/first), acq means the decode
+        // fits with margin. A node with absolute && !acq is the shift_forward
+        // candidate — its acquisition did not fit and gets moved backward.
+
+        auto rgba = ev.load_image();
+        if (rgba.empty()) {
+            logger_c::instance().warn("Empty image at event " + std::to_string(k));
+            node.has_object = false;
+            nodes.push_back(std::move(node));
+            prev_pts = node.timings.base_pts;
+            prev_dts_end = node.dts_end;
+            prev_base_pts = node.timings.base_pts;
+            continue;
+        }
+        std::vector<uint8_t> trimmed_rgba;
+        int trim_w = 0, trim_h = 0, trim_x = 0, trim_y = 0;
+        trim_transparent_padding(rgba, ev.width(), ev.height(),
+                                 trimmed_rgba, trim_w, trim_h, trim_x, trim_y);
+        node.w = (trim_w > 0) ? trim_w : ev.width();
+        node.h = (trim_h > 0) ? trim_h : ev.height();
+        node.crop_x = (trim_w > 0) ? trim_x : 0;
+        node.crop_y = (trim_h > 0) ? trim_y : 0;
+        node.rgba = trimmed_rgba;
+        media::palette_t pal;
+        std::vector<uint8_t> idx;
+        if (quantize_image(trimmed_rgba, node.w, node.h, pal, idx)) {
+            node.palette = std::move(pal);
+            node.indexed = std::move(idx);
+        }
+        prev_pts = node.timings.base_pts;
+        prev_dts_end = node.dts_end;
+        prev_base_pts = node.timings.base_pts;
+        prev_window_id = node.window_id;
+        nodes.push_back(std::move(node));
+    }
+    shift_forward_overlay(nodes, redraw_flags);
+    set_extended_visibilities(nodes);
+    return emit_epoch_from_nodes(nodes, fps_enum, palette_id_counter);
+}
+
+/// Emit the full epoch from the prepared nodes (post overlap pre-passes).
+std::vector<std::shared_ptr<pg_segment_c>>
+epoch_encoder_c::emit_epoch_from_nodes(
+    const std::vector<epoch_node_t>& nodes,
+    common::fps_e fps_enum,
+    int& palette_id_counter)
+{
+    std::vector<std::shared_ptr<pg_segment_c>> result;
+    if (nodes.empty()) return result;
+    auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
+    palette_id_counter++;
+    for (size_t k = 0; k < nodes.size(); ++k) {
+        const auto& node = nodes[k];
+        if (!node.has_object)
+            continue;
+        if (node.has_clear && (!m_overlap || node.clear_pts < node.timings.base_pts)) {
+            // Clear display set (SUPer _get_undisplay) — inline analog of the
+            // emit_clear_ds lambda in encode_epoch (US1 gap rule).
+            const double wipe_dur = std::ceil(static_cast<double>(node.clear_w) *
+                static_cast<double>(node.clear_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
+                pg_decoder_t::FREQ;
+            double dts = node.clear_pts - wipe_dur;
+            if (dts < 0) dts = 0;
+            auto clear_pcs = pcs_c::from_scratch(
+                static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+                static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                static_cast<uint16_t>(m_composition_n++),
+                pcs_c::composition_state_e::normal, false, palette_id,
+                {}, node.clear_pts, dts);
+            result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+            window_definition_t clear_wd;
+            clear_wd.window_id = 0;
+            clear_wd.h_pos = static_cast<uint16_t>(node.clear_x);
+            clear_wd.v_pos = static_cast<uint16_t>(node.clear_y);
+            clear_wd.width = static_cast<uint16_t>(node.clear_w);
+            clear_wd.height = static_cast<uint16_t>(node.clear_h);
+            auto clear_wds = wds_c::from_scratch({clear_wd}, node.clear_pts, dts);
+            result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
+            auto clear_end = ends_c::from_scratch(node.clear_pts, dts);
+            result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+        }
+        event_emit_input_t in{
+            node.w, node.h, node.crop_x, node.crop_y,
+            node.ev_x, node.ev_y, node.forced,
+            node.state, node.obj_id,
+            static_cast<uint8_t>(node.window_id), palette_id,
+            node.reusable, fps_enum, node.palette, node.indexed,
+            node.timings};
+        auto segs = emit_event_segments(in, result);
+        for (auto& seg : segs)
+            result.push_back(std::move(seg));
+    }
+    // End-of-epoch clear (SUPer: final wipe) — parity with the single-pass
+    // path (encode_epoch: emit_clear_ds after the last event).
+    if (!nodes.empty()) {
+        double last_pts = 0.0;
+        int last_w = 0, last_h = 0, last_x = 0, last_y = 0;
+        for (const auto& node : nodes) {
+            if (!node.has_object) continue;
+            last_pts = node.timings.base_pts;
+            last_w = node.w;
+            last_h = node.h;
+            last_x = node.ev_x;
+            last_y = node.ev_y;
+        }
+        if (last_w > 0 && last_h > 0) {
+            const double wipe_dur = std::ceil(static_cast<double>(last_w) *
+                static_cast<double>(last_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
+                pg_decoder_t::FREQ;
+            double dts = last_pts - wipe_dur;
+            if (dts < 0) dts = 0;
+            auto clear_pcs = pcs_c::from_scratch(
+                static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+                static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                static_cast<uint16_t>(m_composition_n++),
+                pcs_c::composition_state_e::normal, false, palette_id,
+                {}, last_pts, dts);
+            result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+            window_definition_t clear_wd;
+            clear_wd.window_id = 0;
+            clear_wd.h_pos = static_cast<uint16_t>(last_x);
+            clear_wd.v_pos = static_cast<uint16_t>(last_y);
+            clear_wd.width = static_cast<uint16_t>(last_w);
+            clear_wd.height = static_cast<uint16_t>(last_h);
+            auto clear_wds = wds_c::from_scratch({clear_wd}, last_pts, dts);
+            result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
+            auto clear_end = ends_c::from_scratch(last_pts, dts);
+            result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+        }
+    }
+    // align_palette_updates (SUPer render2.py:286-313) — parity with the
+    // single-pass path (US3): strictly monotonic DTS over the emitted stream.
+    if (m_overlap) {
+        double last_dts = -1.0;
+        for (auto& seg : result) {
+            if (seg->dts() <= last_dts) {
+                const double nd = last_dts + 1.0 / pg_decoder_t::FREQ;
+                seg->set_dts(nd);
+                if (seg->pts() < nd)
+                    seg->set_pts(nd);
+                last_dts = nd;
+            } else {
+                last_dts = seg->dts();
+            }
+        }
+    }
     return result;
 }
 
