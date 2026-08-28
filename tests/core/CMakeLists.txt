@@ -10,6 +10,8 @@ add_executable(opensup_test_core
   multiwindow_test.cpp
   normalcase_test.cpp
   params_test.cpp
+  findacqs_test.cpp
+  ahead_test.cpp
 )
 
 target_link_libraries(opensup_test_core
