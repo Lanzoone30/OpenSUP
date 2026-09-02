@@ -83,8 +83,7 @@ palette_entry_t::from_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a,
 std::array<uint8_t, 4>
 palette_entry_t::to_bytes() const noexcept
 {
-    // Internal: y=Y, cr=Cb, cb=Cr, alpha=A
-    // PGS spec: [Y, Cr, Cb, Alpha]
+    // PGS byte order is [Y, Cr, Cb, Alpha]; internal cr/Cb are swapped.
     return {y, cb, cr, alpha};
 }
 
