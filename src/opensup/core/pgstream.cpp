@@ -22,7 +22,7 @@ namespace {
 
 using common::logger_c;
 
-/// Python round() semantics (banker's rounding, half-to-even) as used by SUPer.
+/// Python round() semantics (banker's rounding, half-to-even) as used by the original.
 int64_t round_banker(double x) noexcept {
     double fl = std::floor(x);
     int64_t r = static_cast<int64_t>(fl);
