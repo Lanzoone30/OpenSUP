@@ -211,7 +211,6 @@ pcs_c::pcs_c(const std::vector<uint8_t>& data)
     size_t offset = 11;
     for (uint8_t i = 0; i < n; i++) {
         if (offset >= pl.size()) break;
-        // Determine if cropped: check flag byte at offset+3
         bool cropped = (pl[offset + 3] & c_object_t::cropped);
         size_t obj_size = cropped ? 16 : 8;
         if (offset + obj_size > pl.size()) break;
