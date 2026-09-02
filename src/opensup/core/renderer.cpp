@@ -122,11 +122,13 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
                                  double quality_factor,
                                  double refresh_rate,
                                  double ssim_tol,
-                                 int insert_acquisitions)
+                                 int insert_acquisitions,
+                                 bool alternate_oids)
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
     , m_allow_normal_case(allow_normal_case), m_prefer_normal_case(prefer_normal_case)
     , m_overlap(overlap)
     , m_full_palette(full_palette)
+    , m_alternate_oids(alternate_oids)
     , m_quality_factor(quality_factor)
     , m_refresh_rate(refresh_rate)
     , m_ssim_tol(ssim_tol)
@@ -223,7 +225,15 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         ref.h_pos = static_cast<uint16_t>(std::max(0, in.ref_x));
         ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
         ref.flags = c_object_t::standard;
-        cobjects.push_back(ref);
+        if (m_alternate_oids) {
+            // SUPer orders the kept (id_skipped) CObject first in the
+            // composition list (render2.py:786-792, sorted f_is_first_cobj):
+            // "the refreshed object has to come first (key eval to zero)".
+            // The reference never alternates (uses the on-screen oid).
+            cobjects.insert(cobjects.begin(), ref);
+        } else {
+            cobjects.push_back(ref);
+        }
     }
 
     // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
@@ -273,7 +283,6 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         auto pds = pds_c::from_scratch(in.palette, p_vn, palette_id, pds_pts, pds_dts);
         result.push_back(std::make_shared<pds_c>(std::move(pds)));
 
-        // ODS: PTS = DTS + obj_decode_time, DTS = timings.base_dts.
         // Skipped for reused events — the object is already decoded.
         double ods_pts = timings.base_dts + timings.obj_decode_time;
         auto rle_data = encode_rle(in.indexed, in.obj_w, in.obj_h);
@@ -330,6 +339,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // render2.py:1103-1104,1117,1121): max (dy,dx) seen per window and which
     // window got new content per event. Consumed by F2 (specs/007).
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
+    // SUPer double_buffering[wid] (render2.py:844): per-window oid alternation,
+    // only active with m_alternate_oids && 2+ windows.
+    std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
     std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
     std::vector<uint8_t> new_mask(nwin, 0);
 
@@ -770,6 +782,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         uint16_t obj_id;
         if (reusable) {
             obj_id = prev_obj_id;
+        } else if (m_alternate_oids && m_windows.size() >= 2) {
+            // SUPer double_buffering[wid] (render2.py:749-750): each window
+            // alternates its own oid so the decoder never rewrites the buffer
+            // being presented. init db = [n]*n; db[w] = abs(n - db[w]).
+            int& dbw = double_buffer_db[static_cast<size_t>(cur_window)];
+            dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
+            obj_id = static_cast<uint16_t>(cur_window + dbw);
         } else {
             double_buffer = 1 - double_buffer;
             obj_id = static_cast<uint16_t>(double_buffer);
@@ -912,7 +931,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             flush_chain();
             chain_active = false;
         }
-        // SUPer parity: the mid-stream clear is only written when the previous
+        // Parity with the original: the mid-stream clear is only written when the previous
         // node belongs to a chain (render2.py:859, durs[i][1] != 0), which is
         // already handled by flush_chain()'s has_clear path. An independent
         // acquisition (no parent) replaces the composition outright, so no
@@ -1169,6 +1188,8 @@ epoch_encoder_c::encode_epoch_overlap(
     if (events.empty()) return result;
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
     (void)nwin;
+    // SUPer double_buffering[wid] (render2.py:844): per-window oid alternation.
+    std::vector<int> overlap_db(nwin, static_cast<int>(nwin));
     std::vector<epoch_node_t> nodes;
     nodes.reserve(events.size());
     double prev_pts = 0.0;
@@ -1187,26 +1208,24 @@ epoch_encoder_c::encode_epoch_overlap(
         node.has_object = true;
         node.ev_x = ev.x();
         node.ev_y = ev.y();
-        const bool reusable = (k > 0 && node.window_id == prev_window_id);
-        node.reusable = reusable;
-        node.new_mask = !reusable;
-        node.absolute = (k == 0) || forced ||
-            (k < redraw_flags.size() && redraw_flags[k]) ||
-            (node.new_mask && node.window_id != prev_window_id);
+        // NOTE: `reusable` (byte-identical bitmap in the same window) is
+        // resolved below, after the frame is loaded and trimmed — matching
+        // the single-pass path. Marking a node reusable on window_id alone
+        // suppressed ODS/PDS for genuinely new images (truncated subtitles).
+        node.reusable = false;
+        node.new_mask = true;
         const double write_dur = node.timings.decode_duration;
         const double margin = (k == 0) ? 0.0 : (node.timings.base_pts - prev_base_pts);
         const auto sig = find_acqs_signals(node.timings.base_dts, prev_dts_end,
                                            node.timings.base_pts, prev_pts,
                                            write_dur, margin);
         node.acq = sig.valid;
-        node.state = node.absolute
-            ? pcs_c::composition_state_e::acquisition
-            : (node.reusable ? pcs_c::composition_state_e::normal
-                             : pcs_c::composition_state_e::epoch_start);
         // acq and absolute stay independent (SUPer find_acqs): absolute means
         // a new object appeared (forced/redraw/first), acq means the decode
         // fits with margin. A node with absolute && !acq is the shift_forward
         // candidate — its acquisition did not fit and gets moved backward.
+        // NOTE: node.absolute and node.state are resolved after the frame is
+        // loaded below (they depend on the real reusable decision).
 
         auto rgba = ev.load_image();
         if (rgba.empty()) {
@@ -1233,6 +1252,37 @@ epoch_encoder_c::encode_epoch_overlap(
             node.palette = std::move(pal);
             node.indexed = std::move(idx);
         }
+        // Resolve reusable now that the frame is known: byte-identical trimmed
+        // bitmap in the same window reuses the previously decoded object.
+        // (single-pass parity, renderer.cpp:592-593)
+        if (k > 0 && node.window_id == prev_window_id) {
+            auto& prev = nodes.back();
+            node.reusable = (prev.has_object &&
+                             prev.w == node.w && prev.h == node.h &&
+                             prev.rgba == node.rgba);
+        } else {
+            node.reusable = false;
+        }
+        node.new_mask = !node.reusable;
+        // SUPer double_buffering[wid] (render2.py:749-750): per-window oid
+        // alternation, only with m_alternate_oids && 2+ windows. Reused events
+        // keep their window's previous oid (already decoded).
+        if (m_alternate_oids && m_windows.size() >= 2) {
+            int& dbw = overlap_db[static_cast<size_t>(node.window_id)];
+            if (!node.reusable) {
+                dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
+                node.obj_id = static_cast<uint16_t>(node.window_id + dbw);
+            } else {
+                node.obj_id = static_cast<uint16_t>(node.window_id + dbw);
+            }
+        }
+        node.absolute = (k == 0) || forced ||
+            (k < redraw_flags.size() && redraw_flags[k]) ||
+            (node.new_mask && node.window_id != prev_window_id);
+        node.state = node.absolute
+            ? pcs_c::composition_state_e::acquisition
+            : (node.reusable ? pcs_c::composition_state_e::normal
+                             : pcs_c::composition_state_e::epoch_start);
         prev_pts = node.timings.base_pts;
         prev_dts_end = node.dts_end;
         prev_base_pts = node.timings.base_pts;
@@ -1349,6 +1399,17 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 last_dts = seg->dts();
             }
         }
+    }
+    // Parity with encode_epoch (single-pass): report the epoch's node count
+    // and emitted segment count so the overlap path shows the same progress
+    // log lines the default path does.
+    {
+        size_t with_object = 0;
+        for (const auto& node : nodes)
+            if (node.has_object) with_object++;
+        logger_c::instance().info("Encoded epoch with " +
+            std::to_string(with_object) + " events, " +
+            std::to_string(result.size()) + " segments.");
     }
     return result;
 }
