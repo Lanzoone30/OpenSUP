@@ -25,7 +25,6 @@ namespace core {
 
 using common::logger_c;
 
-// Helper: extract alpha channel from RGBA image
 static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int w, int h) {
     std::vector<uint8_t> alpha;
     size_t reserve_size = static_cast<size_t>(std::max(0, w)) * static_cast<size_t>(std::max(0, h));
@@ -36,7 +35,6 @@ static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int 
     return alpha;
 }
 
-// Helper: determine window layout for a group of events
 static std::vector<window_definition_t>
 determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
     layout_engine_c layout_engine(width, height);
@@ -65,7 +63,6 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     wd0.height = static_cast<uint16_t>(w0.dy);
     windows.push_back(wd0);
     
-    // If w0 != w1, we have a split - add second window
     if (w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) {
         window_definition_t wd1;
         wd1.window_id = 1;
@@ -121,7 +118,7 @@ bdn_render_c::execute()
         return result;
     }
 
-    // Encode epochs in parallel. Each epoch is independent (SUPer parity:
+    // Encode epochs in parallel. Each epoch is independent (parity with the original:
     // palette ids restart at 0 per epoch) so results are deterministically
     // assembled by epoch index after all workers finish.
     const int total_epochs = static_cast<int>(event_groups.size());
@@ -148,7 +145,6 @@ bdn_render_c::execute()
         auto& group = event_groups[static_cast<size_t>(epoch_index)];
         std::vector<bool> no_redraw;
 
-        // Periodic redraw: split events if redraw_period > 0
         if (m_config.redraw_period > 0.0) {
             auto [expanded, flags] = add_periodic_refreshes(group, m_config.fps, m_config.redraw_period);
             group = std::move(expanded);
@@ -158,7 +154,7 @@ bdn_render_c::execute()
         // Determine window layout for this epoch (before encoding)
         auto windows = determine_windows(group, m_config.width, m_config.height);
 
-        // Encode (palette ids restart at 0 per epoch, SUPer threaded parity)
+        // Encode (palette ids restart at 0 per epoch, threaded parity with the original)
         epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
                                 m_config.quantizer_id,
                                 m_config.allow_normal_case, m_config.overlap,
@@ -167,7 +163,8 @@ bdn_render_c::execute()
                                 m_config.compression / 100.0,
                                 m_config.acqrate / 100.0,
                                 m_config.ssim_tol / 100.0,
-                                m_config.extra_acq);
+                                m_config.extra_acq,
+                                m_config.alternate_oids);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
@@ -229,12 +226,11 @@ bdn_render_c::execute()
     if (m_config.max_kbps > 0) {
         logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +
                                   std::to_string(m_config.max_kbps) + " Kbps...");
-        // Result intentionally unused: underflow only warns, never fails (SUPer parity).
+        // Result intentionally unused: underflow only warns, never fails (parity with the original).
         (void)test_rx_bitrate(m_segments,
                               static_cast<int64_t>(m_config.max_kbps) * 1000 / 8);
     }
 
-    // Write output SUP
     sup_file_c::write_sup(m_config.output_path, m_segments);
 
     if (m_config.both_formats) {
