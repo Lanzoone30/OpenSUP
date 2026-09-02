@@ -50,6 +50,8 @@ parse_args(int argc, char** argv)
                   "Prefer normal case object redefinition.");
     app.add_flag("--overlap", opts.overlap,
                   "Allow palette update buffering.");
+    app.add_flag("--alternate-oids", opts.alternate_oids,
+                  "Alternate per-window object ids (double buffering, multi-window).");
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
@@ -67,7 +69,7 @@ parse_args(int argc, char** argv)
                     "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 1)")
         ->check(CLI::Range(0, 1024));
 
-    // Drought / quality parameters (SUPer parity)
+    // Drought / quality parameters (parity with the original)
     app.add_option("-c,--compression", opts.compression,
                     "Compression/quality factor [0-100, 0 = force all acquisitions] (def: 80)")
         ->check(CLI::Range(0, 100));
@@ -110,6 +112,7 @@ options_to_config(const cli_options_t& opts)
     cfg.allow_normal_case = opts.allow_normal_case;
     cfg.prefer_normal_case = opts.prefer_normal_case;
     cfg.overlap = opts.overlap;
+    cfg.alternate_oids = opts.alternate_oids;
     cfg.bt_matrix = opts.bt_matrix;
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
