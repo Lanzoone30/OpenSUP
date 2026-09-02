@@ -130,7 +130,8 @@ public:
                      double quality_factor = 0.8,
                      double refresh_rate = 1.0,
                      double ssim_tol = 0.0,
-                     int insert_acquisitions = 2);
+                     int insert_acquisitions = 2,
+                     bool alternate_oids = false);
 
     /// Render the given events; returns the PGS segments for this epoch.
     /// @param windows Window definitions for this epoch (1 or 2 windows). 
@@ -173,8 +174,9 @@ private:
     bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
+    bool m_alternate_oids = false;       // SUPer double_buffering[wid] (render2.py:749-750)
     double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
-    double m_dquality_factor = 0.035;    // drought decay factor (SUPer default)
+    double m_dquality_factor = 0.035;    // drought decay factor (original default)
     double m_refresh_rate = 1.0;         // acqrate/100 (scales drought)
     double m_ssim_tol = 0.0;             // ssim_tol/100 (adjusts threshold per resolution)
     int m_insert_acquisitions = 2;       // extra_acq (min palette updates to force acq)
