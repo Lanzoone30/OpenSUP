@@ -15,8 +15,9 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, ThemeSystem, d.Theme)
 	assert.Empty(t, d.LastBDNDir)
 	assert.Empty(t, d.LastOutDir)
-	assert.True(t, d.ParamsOpen)
-	assert.True(t, d.EngineOpen)
+	// Collapsible-card flags are legacy: no longer written or defaulted.
+	assert.False(t, d.ParamsOpen)
+	assert.False(t, d.EngineOpen)
 	assert.False(t, d.AdvancedOpen)
 }
 
