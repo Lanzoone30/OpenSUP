@@ -1,18 +1,9 @@
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════
    OpenSUP — Frontend stylesheet
    Wails/Go desktop app. Light editorial palette, light/dark/system themes.
-   ═══════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Reset ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
 
 /* ── Design tokens (light) ── */
 :root {
@@ -31,7 +22,7 @@
   /* Text */
   --text: #18171A;
   --text-secondary: #47454C;
-  --text-muted: #928F8B;
+  --text-muted: #6B6B72;
   --text-inverse: #FFFFFF;
 
   /* Accent — teal */
@@ -40,6 +31,7 @@
   --accent-active: #007A66;
   --accent-soft: #E6F7F4;
   --accent-ring: rgba(0, 171, 139, 0.2);
+  --accent-btn: #007A63;  /* primary button bg (AA with white text) */
 
   /* Semantic */
   --danger: #DC2626;
@@ -49,6 +41,27 @@
   --danger-ring: rgba(220, 38, 38, 0.18);
   --success: #15803D;
   --warn: #B45309;
+
+  /* Progress bar + LED (light) — aero Windows 7 blue */
+  --bar-fill-1: #0193CD;
+  --bar-fill-2: #66D4E5;
+  --bar-fill-3: #0193CD;
+  --bar-fail-1: #C0392B;
+  --bar-fail-2: #F1948A;
+  --bar-glass-top: rgba(255, 255, 255, 0.8);
+  --bar-glass-mid: rgba(255, 255, 255, 0.4);
+  --bar-glass-bottom: rgba(255, 255, 255, 0.2);
+  --bar-border-overlay: rgba(255, 255, 255, 0.15);
+  --bar-track-bg: var(--surface-alt);
+  --bar-track-border: var(--border);
+  --bar-track-groove: none;
+  --bar-track-slot: var(--surface-alt);
+  --led-blue: #0193CD;
+  --led-blue-glow: rgba(1, 147, 205, 0.6);
+  --led-green: #2ECC71;
+  --led-green-glow: rgba(46, 204, 113, 0.8);
+  --led-red: #C0392B;
+  --led-red-glow: rgba(192, 57, 43, 0.6);
 
   /* Layout offset: align left column with the log box */
   --col-offset: 36px;
@@ -73,6 +86,18 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.04);
 
+  /* Colored glows — buttons (semantic, same value per theme for now) */
+  --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+  --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --bar-glass-transparent: rgba(255, 255, 255, 0);
+
   /* Radii */
   --r-card: 12px;
   --r-btn: 8px;
@@ -84,6 +109,8 @@
   --logo-h: 48px;
   --logo-w: 180px;
   --gap: 20px;
+  --bar-track-bg: var(--surface-alt);
+  --bar-track-border: var(--border);
 
   /* Type */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -113,7 +140,7 @@
 
   --text: #EEEEF0;
   --text-secondary: #B0B0BA;
-  --text-muted: #68686F;
+  --text-muted: #8A8A93;
   --text-inverse: #0F0F12;
 
   --accent: #2DD4BF;
@@ -121,6 +148,7 @@
   --accent-active: #99F6E4;
   --accent-soft: #0F3D3C;
   --accent-ring: rgba(45, 212, 191, 0.25);
+  --accent-btn: #2DD4BF;  /* primary button bg (dark text on it, AA) */
 
   --danger: #F87171;
   --danger-hover: #FCA5A5;
@@ -129,6 +157,27 @@
   --danger-ring: rgba(248, 113, 113, 0.22);
   --success: #4ADE80;
   --warn: #FCD34D;
+
+  /* Progress bar + LED (dark) — aero blue + clear glass. */
+  --bar-fill-1: #0193CD;
+  --bar-fill-2: #66D4E5;
+  --bar-fill-3: #0193CD;
+  --bar-fail-1: #EF4444;
+  --bar-fail-2: #F87171;
+  --bar-glass-top: rgba(255, 255, 255, 0.45);
+  --bar-glass-mid: rgba(255, 255, 255, 0.20);
+  --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+  --bar-border-overlay: rgba(255, 255, 255, 0.10);
+  --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+  --bar-track-border: var(--border);
+  --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  --bar-track-slot: rgba(25, 26, 32, 1);
+  --led-blue: #0E7490;
+  --led-blue-glow: rgba(14, 116, 144, 0.7);
+  --led-green: #10B981;
+  --led-green-glow: rgba(16, 185, 129, 0.7);
+  --led-red: #EF4444;
+  --led-red-glow: rgba(239, 68, 68, 0.7);
 
   --log-debug: #5A5A62;
   --log-debug-bg: transparent;
@@ -148,6 +197,18 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.56), 0 4px 8px rgba(0, 0, 0, 0.24);
 
+  /* Colored glows — buttons (semantic, same value per theme for now) */
+  --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+  --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --bar-glass-transparent: rgba(255, 255, 255, 0);
+
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368686F' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
@@ -166,7 +227,7 @@
 
     --text: #EEEEF0;
     --text-secondary: #B0B0BA;
-    --text-muted: #68686F;
+    --text-muted: #8A8A93;
     --text-inverse: #0F0F12;
 
     --accent: #2DD4BF;
@@ -174,6 +235,7 @@
     --accent-active: #99F6E4;
     --accent-soft: #0F3D3C;
     --accent-ring: rgba(45, 212, 191, 0.25);
+    --accent-btn: #2DD4BF;
 
     --danger: #F87171;
     --danger-hover: #FCA5A5;
@@ -182,6 +244,27 @@
     --danger-ring: rgba(248, 113, 113, 0.22);
     --success: #4ADE80;
     --warn: #FCD34D;
+
+    /* Progress bar + LED (system-dark) — same track structure as light */
+    --bar-fill-1: #0193CD;
+    --bar-fill-2: #66D4E5;
+    --bar-fill-3: #0193CD;
+    --bar-fail-1: #EF4444;
+    --bar-fail-2: #F87171;
+    --bar-glass-top: rgba(255, 255, 255, 0.45);
+    --bar-glass-mid: rgba(255, 255, 255, 0.20);
+    --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+    --bar-border-overlay: rgba(255, 255, 255, 0.10);
+    --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+    --bar-track-border: var(--border);
+    --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+    --bar-track-slot: rgba(25, 26, 32, 1);
+    --led-blue: #0E7490;
+    --led-blue-glow: rgba(14, 116, 144, 0.7);
+    --led-green: #10B981;
+    --led-green-glow: rgba(16, 185, 129, 0.7);
+    --led-red: #EF4444;
+    --led-red-glow: rgba(239, 68, 68, 0.7);
 
     --log-debug: #5A5A62;
     --log-debug-bg: transparent;
@@ -201,11 +284,32 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.56), 0 4px 8px rgba(0, 0, 0, 0.24);
 
+  /* Colored glows — buttons (semantic, same value per theme for now) */
+  --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+  --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --bar-glass-transparent: rgba(255, 255, 255, 0);
+
     --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368686F' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
 
-/* ═══ Base ═══ */
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+/* ── Base ── */
 html,
 body {
   height: 100%;
@@ -248,7 +352,655 @@ body {
   background: var(--border-strong);
 }
 
-/* ═══ Layout ═══ */
+
+/* ── File label ── */
+.file-label {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-style: italic;
+  margin: -2px 0 2px 2px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  width: 100%;
+  transition: color var(--dur) var(--ease);
+}
+
+.file-label:not(:empty) {
+  color: var(--text-secondary);
+  font-style: normal;
+}
+/* ── Selects (native) ── */
+select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  padding: 6px 30px 6px 11px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+
+select:hover {
+  border-color: var(--accent);
+}
+
+select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.header-controls select {
+  min-width: 78px;
+  font-size: 12px;
+}
+/* ── Help tip (?) tooltip ── */
+.help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+}
+/* ── Compact numeric input (Anchor interval) ── */
+.input-num {
+  width: 64px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  outline: none;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.input-num:hover {
+  border-color: var(--accent);
+}
+
+.input-num:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.input-num::-webkit-inner-spin-button {
+  opacity: 0.5;
+}
+/* ── Status LED (base + states) ── */
+.led {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-led);
+}
+
+.led-standing {
+  background: var(--led-blue);
+  box-shadow: 0 0 8px var(--led-blue-glow);
+}
+.led-working {
+  background: var(--led-blue);
+  box-shadow: 0 0 10px var(--led-blue-glow);
+}
+/* Green flash when an epoch completes (2 cycles); updateProgress() clears it. */
+.led-done {
+  background: var(--led-green);
+  box-shadow: 0 0 10px var(--led-green-glow);
+  animation: led-blink var(--beat, 0.3s) ease-in-out 2 both;
+}
+.led-finished {
+  background: var(--led-green);
+  box-shadow: 0 0 8px var(--led-green-glow);
+}
+.led-failed {
+  background: var(--led-red);
+  box-shadow: 0 0 8px var(--led-red-glow);
+}
+@keyframes led-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+/* ── Icon helpers (seg) ── */
+.seg-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.seg-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.seg-icon svg {
+  width: 100%;
+  height: 100%;
+}
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--r-btn);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+  white-space: nowrap;
+  user-select: none;
+  outline: none;
+  position: relative;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary */
+.btn-primary {
+  background: var(--accent-btn);
+  color: var(--text-inverse);
+  min-height: 42px;
+  padding: 10px 28px;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-accent-xs);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-btn);
+  filter: brightness(0.95);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-accent-md);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--accent-active);
+  transform: translateY(0);
+  box-shadow: var(--shadow-accent-active);
+}
+
+/* Secondary */
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+  padding: 7px 14px;
+  width: 100%;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: var(--surface-alt);
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Danger — same style line as primary, red */
+.btn-danger {
+  background: var(--danger);
+  color: var(--text-inverse);
+  min-height: 42px;
+  padding: 10px 28px;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-danger-xs);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-danger-md);
+}
+
+.btn-danger:active:not(:disabled) {
+  background: var(--danger-active);
+  transform: translateY(0);
+  box-shadow: var(--shadow-danger-active);
+}
+
+.btn-danger:disabled {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+  opacity: 0.45;
+}
+
+/* Ghost */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 4px 11px;
+  font-size: 11.5px;
+  border-radius: var(--r-btn);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-alt);
+}
+
+
+/* ── Parameter rows ── */
+.param-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.param-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+/* Extra separation between related controls (e.g. Quantizer vs Color Space). */
+.param-row + .param-row.param-row-gap {
+  margin-top: 10px;
+}
+
+/* Same breathing room between the last parameter row (Color Space) and the
+   Advanced Options sub-accordion that follows it. */
+.param-row + .adv,
+.adv + .param-row {
+  margin-top: 12px;
+}
+
+/* ── Checkbox list ── */
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color var(--dur) var(--ease);
+}
+
+.check:hover {
+  color: var(--text);
+}
+
+.check input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+/* ── Custom dropdown (quantizer) ── */
+.dropdown {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dd-btn {
+  appearance: none;
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  padding: 6px 30px 6px 11px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  outline: none;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.dd-btn:hover {
+  border-color: var(--accent);
+}
+
+.dd-btn:focus-visible,
+.dd-btn.open {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.dd-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  box-shadow: var(--shadow-sm);
+  display: none;
+}
+
+.dd-list.open {
+  display: block;
+}
+
+.dd-list li {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Long option text scrolls horizontally on hover so it is fully readable
+   without widening the list (CSS-only marquee). */
+.dd-list li span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.dd-list li span.overflow:hover,
+.dd-list li span.overflow:focus-within {
+  animation: dd-marquee 4s linear infinite;
+}
+
+@keyframes dd-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  40% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.dd-list li:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.dd-list li.active {
+  background: var(--accent-ring);
+  color: var(--text);
+}
+/* ── Dropdown variants in header ── */
+.hdr-dd .dd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-width: 0;
+  padding: 7px 32px 7px 12px;
+  position: relative;
+  background-image: none;
+}
+
+/* Language button keeps a stable width: "English (US)" is wider than
+   "Spanish", so without a floor the control resizes on locale switch. */
+#dd_language .dd-btn {
+  min-width: 152px;
+}
+
+.hdr-dd .dd-flag {
+  width: 20px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.hdr-dd .dd-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+/* Rotating chevron on open/close */
+.hdr-dd .dd-btn::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.hdr-dd .dd-btn.open::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.hdr-dd .dd-list {
+  left: auto;
+  right: 0;
+  min-width: 140px;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-pop);
+  transform-origin: top right;
+}
+
+.hdr-dd .dd-list.open {
+  display: block;
+  animation: dd-pop var(--dur-slow) var(--ease-out);
+}
+
+.hdr-dd .dd-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hdr-dd .dd-list li.active {
+  background: var(--accent-soft);
+}
+
+.hdr-dd .dd-list li.active::before {
+  content: "✓";
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+@keyframes dd-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Group: numeric input + help tip side by side */
+.redraw-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.redraw-group .help-tip {
+  margin-left: 0;
+}
+
+.help-tip::before {
+  content: "?";
+}
+/* ── Output row (Set SUP Output full width) ── */
+.output-row {
+  display: flex;
+}
+
+/* ── Output file label + reveal folder icon ── */
+.output-file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.output-file-row .file-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.output-file-row .btn-icon {
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-input);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: auto;
+}
+
+.btn-icon .seg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-icon:hover:not(:disabled) .seg-icon {
+  color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* ── Drop zones ── */
+.drop-zone {
+  --wails-drop-target: drop;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  margin: -6px;
+  border-radius: var(--r-card);
+  transition: background-color var(--dur) var(--ease),
+    outline-color var(--dur) var(--ease);
+}
+
+.drop-zone.wails-drop-target-active {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+
+/* ── Layout ── */
 #app {
   display: flex;
   flex-direction: column;
@@ -328,7 +1080,7 @@ body {
   min-height: 0;
 }
 
-/* ═══ Left column: controls ═══ */
+/* ── Left column: controls ── */
 .controls {
   display: flex;
   flex-direction: column;
@@ -349,7 +1101,6 @@ body {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
 }
-
 /* ── Cards ── */
 .card {
   background: var(--surface);
@@ -362,14 +1113,6 @@ body {
   box-shadow: var(--shadow-xs);
   position: relative;
   transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
-}
-
-/* The help-tip tooltip must paint above the next card: raise the hosting
-   card while its tip is active (transform on hover otherwise creates a
-   stacking context that traps the tooltip behind the following card). */
-.card:has(.help-tip:hover),
-.card:has(.help-tip:focus-visible) {
-  z-index: 60;
 }
 
 .card:hover {
@@ -462,700 +1205,7 @@ details[open] > summary.card-title::before {
 details[open] > summary.adv-title::before {
   transform: rotate(45deg);
 }
-
-/* ── File label ── */
-.file-label {
-  color: var(--text-muted);
-  font-size: 11.5px;
-  font-style: italic;
-  margin: -2px 0 2px 2px;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  width: 100%;
-  transition: color var(--dur) var(--ease);
-}
-
-.file-label:not(:empty) {
-  color: var(--text-secondary);
-  font-style: normal;
-}
-
-/* ── Parameter rows ── */
-.param-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.param-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-/* ── Checkbox list ── */
-.check-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: color var(--dur) var(--ease);
-}
-
-.check:hover {
-  color: var(--text);
-}
-
-.check input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-/* ═══ Selects ═══ */
-select {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-input);
-  padding: 6px 30px 6px 11px;
-  font-size: 13px;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: var(--select-arrow);
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  transition:
-    border-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease),
-    background var(--dur) var(--ease);
-}
-
-select:hover {
-  border-color: var(--accent);
-}
-
-select:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-ring);
-}
-
-select option {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.header-controls select {
-  min-width: 78px;
-  font-size: 12px;
-}
-
-/* ═══ Custom dropdown (quantizer) ═══ */
-.dropdown {
-  position: relative;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.dd-btn {
-  appearance: none;
-  width: 100%;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-input);
-  padding: 6px 30px 6px 11px;
-  font-size: 13px;
-  font-family: var(--font-sans);
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background-image: var(--select-arrow);
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  outline: none;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.dd-btn:hover {
-  border-color: var(--accent);
-}
-
-.dd-btn:focus-visible,
-.dd-btn.open {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-ring);
-}
-
-.dd-list {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 50;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-input);
-  box-shadow: var(--shadow-sm);
-  display: none;
-}
-
-.dd-list.open {
-  display: block;
-}
-
-.dd-list li {
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-/* Long option text scrolls horizontally on hover so it is fully readable
-   without widening the list (marquee, ponytail: 2 options, CSS-only). */
-.dd-list li span {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.dd-list li span.overflow:hover,
-.dd-list li span.overflow:focus-within {
-  animation: dd-marquee 4s linear infinite;
-}
-
-@keyframes dd-marquee {
-  0% {
-    transform: translateX(0);
-  }
-
-  40% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-100%);
-  }
-}
-
-.dd-list li:hover {
-  background: var(--surface-alt);
-  color: var(--text);
-}
-
-.dd-list li.active {
-  background: var(--accent-ring);
-  color: var(--text);
-}
-
-/* ── Help tip (?) tooltip ── */
-.help-tip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  margin-left: 4px;
-  border-radius: 50%;
-  background: var(--surface-alt);
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: help;
-  position: relative;
-  vertical-align: middle;
-}
-
-/* ── Compact numeric input (Anchor interval) ── */
-.input-num {
-  width: 64px;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-family: var(--font-sans);
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-input);
-  outline: none;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.input-num:hover {
-  border-color: var(--accent);
-}
-
-.input-num:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-ring);
-}
-
-.input-num::-webkit-inner-spin-button {
-  opacity: 0.5;
-}
-
-/* Group: numeric input + help tip side by side */
-.redraw-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.redraw-group .help-tip {
-  margin-left: 0;
-}
-
-.help-tip::before {
-  content: "?";
-}
-
-.help-tip::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  left: auto;
-  transform: none;
-  width: max-content;
-  max-width: 260px;
-  padding: 8px 10px;
-  background: #1e1e24;
-  color: #f2f2f2;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
-  text-align: left;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s var(--ease);
-  z-index: 60;
-}
-
-.help-tip::after {
-  visibility: hidden;
-}
-
-.help-tip:hover::after,
-.help-tip:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Arrow under the tip */
-.help-tip:hover::before,
-.help-tip:focus-visible::before {
-  color: var(--accent);
-}
-
-/* ═══ Output row (Set SUP Output full width) ═══ */
-.output-row {
-  display: flex;
-}
-
-/* ═══ Output file label + reveal folder icon ═══ */
-.output-file-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.output-file-row .file-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
-}
-
-.output-file-row .btn-icon {
-  flex-shrink: 0;
-}
-
-.btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  min-height: 36px;
-  padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-input);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-
-.btn-icon svg {
-  width: 18px;
-  height: auto;
-}
-
-.btn-icon .seg-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.btn-icon:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.btn-icon:hover:not(:disabled) .seg-icon {
-  color: var(--accent);
-}
-
-.btn-icon:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* ═══ Status LED ═══ */
-.led {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.25);
-}
-
-.led-standing {
-  background: #0193CD;
-  box-shadow: 0 0 8px rgba(1, 147, 205, 0.6);
-}
-
-.led-working {
-  background: #0193CD;
-  box-shadow: 0 0 10px rgba(1, 147, 205, 0.8);
-}
-
-/* Epoch completed: green flash (2-cycle burst, HDD-like) on top of the
-   blue working state; duration set per-event via --beat. Returns to the
-   base class when updateProgress() removes led-done. */
-.led-done {
-  background: #2ECC71;
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
-  animation: led-blink var(--beat, 0.3s) ease-in-out 2 both;
-}
-
-.led-finished {
-  background: #2ECC71;
-  box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
-}
-
-.led-failed {
-  background: #C0392B;
-  box-shadow: 0 0 8px rgba(192, 57, 43, 0.6);
-}
-
-@keyframes led-blink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.25;
-  }
-}
-
-/* ═══ Header dropdowns (language / theme) ═══ */
-.seg-source {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.seg-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.seg-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.hdr-dd .dd-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: auto;
-  min-width: 0;
-  padding: 7px 32px 7px 12px;
-  position: relative;
-  background-image: none;
-}
-
-/* Language button keeps a stable width: "English (US)" is wider than
-   "Spanish", so without a floor the control resizes on locale switch. */
-#dd_language .dd-btn {
-  min-width: 152px;
-}
-
-.hdr-dd .dd-flag {
-  width: 20px;
-  height: auto;
-  flex-shrink: 0;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px var(--border);
-}
-
-.hdr-dd .dd-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12.5px;
-}
-
-/* Rotating chevron on open/close */
-.hdr-dd .dd-btn::after {
-  content: "";
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 10px;
-  height: 6px;
-  transform: translateY(-50%);
-  background-image: var(--select-arrow);
-  background-repeat: no-repeat;
-  background-size: contain;
-  pointer-events: none;
-  transition: transform var(--dur) var(--ease);
-}
-
-.hdr-dd .dd-btn.open::after {
-  transform: translateY(-50%) rotate(180deg);
-}
-
-.hdr-dd .dd-list {
-  left: auto;
-  right: 0;
-  min-width: 140px;
-  border-radius: var(--r-card);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
-  transform-origin: top right;
-}
-
-.hdr-dd .dd-list.open {
-  display: block;
-  animation: dd-pop var(--dur-slow) var(--ease-out);
-}
-
-.hdr-dd .dd-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hdr-dd .dd-list li.active {
-  background: var(--accent-soft);
-}
-
-.hdr-dd .dd-list li.active::before {
-  content: "✓";
-  color: var(--accent);
-  font-weight: 700;
-  margin-right: 6px;
-}
-
-@keyframes dd-pop {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* ── Drop zones ── */
-.drop-zone {
-  --wails-drop-target: drop;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 6px;
-  margin: -6px;
-  border-radius: var(--r-card);
-  transition: background-color var(--dur) var(--ease),
-    outline-color var(--dur) var(--ease);
-}
-
-.drop-zone.wails-drop-target-active {
-  background: var(--accent-soft);
-  outline: 2px dashed var(--accent);
-  outline-offset: 2px;
-}
-
-/* ═══ Buttons ═══ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: var(--r-btn);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease),
-    border-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease),
-    transform var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
-  white-space: nowrap;
-  user-select: none;
-  outline: none;
-  position: relative;
-}
-
-.btn:focus-visible {
-  box-shadow: 0 0 0 3px var(--accent-ring);
-}
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* Primary */
-.btn-primary {
-  background: var(--accent);
-  color: #FFFFFF;
-  min-height: 42px;
-  padding: 10px 28px;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.01em;
-  box-shadow: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-.btn-primary:active:not(:disabled) {
-  background: var(--accent-active);
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 171, 139, 0.2);
-}
-
-/* Secondary */
-.btn-secondary {
-  background: var(--surface);
-  color: var(--text-secondary);
-  border-color: var(--border-strong);
-  padding: 7px 14px;
-  width: 100%;
-  box-shadow: var(--shadow-xs);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-secondary:active:not(:disabled) {
-  background: var(--surface-alt);
-  transform: translateY(1px);
-  box-shadow: none;
-}
-
-/* Danger — same style line as primary, red */
-.btn-danger {
-  background: var(--danger);
-  color: #FFFFFF;
-  min-height: 42px;
-  padding: 10px 28px;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.01em;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--danger-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-.btn-danger:active:not(:disabled) {
-  background: var(--danger-active);
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
-}
-
-.btn-danger:disabled {
-  background: transparent;
-  color: var(--danger);
-  border-color: var(--danger);
-  opacity: 0.45;
-}
-
-/* Ghost */
-.btn-ghost {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  padding: 4px 11px;
-  font-size: 11.5px;
-  border-radius: var(--r-btn);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--surface-alt);
-}
-
-/* ═══ Right column: monitoring panel ═══ */
+/* ── Right column: monitoring panel ── */
 .log-panel {
   display: flex;
   flex-direction: column;
@@ -1317,7 +1367,6 @@ select option {
   background: var(--log-fatal-bg);
   font-weight: 500;
 }
-
 /* ── Progress card ── */
 .card-progress {
   gap: 10px;
@@ -1331,22 +1380,38 @@ select option {
   position: relative;
   width: 100%;
   height: 28px;
-  background: var(--surface-alt);
+  background: var(--bar-track-bg, var(--bar-track-slot, var(--surface-alt)));
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--bar-track-border);
+  /* Diffuse inner shadow (no inner frame): the dark bar reads the same
+     size as the light one, with the fill flush to the track border. */
+  box-shadow: var(--shadow-inset), var(--bar-track-groove, none);
 }
 
+/* Clipped with clip-path: the gradient is not distorted by progress and
+   the glass only covers the loaded area. */
+.progress-reveal {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+  transition: clip-path 0.35s var(--ease);
+}
+
+/* Tile = half the track (background-size: 50%): the left→right cycle
+   travels exactly one tile, so the animation never visibly "cuts". */
 .progress-fill {
-  height: 100%;
-  width: 0%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
   background: linear-gradient(90deg,
-      #0193CD 30%, #66D4E5 80%, #0193CD 100%);
+      var(--bar-fill-1) 30%, var(--bar-fill-2) 80%, var(--bar-fill-3) 100%);
   background-size: 50% 100%;
   background-repeat: repeat-x;
   animation: moving-gradient 3s linear infinite;
-  transition: width 0.35s var(--ease);
 }
 
 @keyframes moving-gradient {
@@ -1359,35 +1424,25 @@ select option {
   }
 }
 
-/* Glass reflection overlay: sits above the fill, covers the full track */
+/* Glass reflection overlay: sits above the fill, clipped with the
+   reveal so it only appears over the loaded portion of the track */
 .progress-gradient-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom,
-      rgba(255, 255, 255, 0.8) 0%,
-      rgba(255, 255, 255, 0.4) 50%,
-      rgba(255, 255, 255, 0) 50%,
-      rgba(255, 255, 255, 0.2) 100%);
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-/* Inner border highlight */
-.progress-border-overlay {
-  position: absolute;
-  inset: 1px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: inherit;
+      var(--bar-glass-top) 0%,
+      var(--bar-glass-mid) 50%,
+      var(--bar-glass-transparent) 50%,
+      var(--bar-glass-bottom) 100%);
   pointer-events: none;
 }
 
 .progress-fill.failed {
   background: linear-gradient(90deg,
-      #C0392B 30%, #F1948A 80%, #C0392B 100%);
+      var(--bar-fail-1) 30%, var(--bar-fail-2) 80%, var(--bar-fail-1) 100%);
   background-size: 50% 100%;
   background-repeat: repeat-x;
 }
-
 .progress-info {
   display: flex;
   justify-content: space-between;
@@ -1413,7 +1468,6 @@ select option {
   font-weight: 600;
   font-family: var(--font-mono);
 }
-
 /* ── Action row ── */
 .encode-row {
   display: flex;
@@ -1473,4 +1527,18 @@ select option {
 
 .log-panel>.encode-row {
   animation-delay: 0.20s;
+}
+/* ── Reduced motion: keep state changes, drop decorative animation ── */
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .progress-reveal,
+  .led-done,
+  .dd-list.open,
+  .card,
+  .log-panel>.log-card,
+  .log-panel>.card-progress,
+  .log-panel>.encode-row {
+    animation: none !important;
+    transition: none !important;
+  }
 }
