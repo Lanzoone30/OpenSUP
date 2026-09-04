@@ -41,6 +41,7 @@ export namespace engine {
 	    AllowNormalCase: boolean;
 	    PreferNormalCase: boolean;
 	    Overlap: boolean;
+	    AlternateOids: boolean;
 	    RedrawPeriod: number;
 	    MaxKbps: number;
 	    Threads: number;
@@ -66,6 +67,7 @@ export namespace engine {
 	        this.AllowNormalCase = source["AllowNormalCase"];
 	        this.PreferNormalCase = source["PreferNormalCase"];
 	        this.Overlap = source["Overlap"];
+	        this.AlternateOids = source["AlternateOids"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
 	        this.MaxKbps = source["MaxKbps"];
 	        this.Threads = source["Threads"];
