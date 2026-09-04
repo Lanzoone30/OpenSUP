@@ -95,7 +95,7 @@
             </select>
           </div>
         </div>
-        <div class="param-row">
+        <div class="param-row param-row-gap">
           <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color Space</label>
           <select id="combo_colorspace">
             <option value="bt709">BT.709</option>
@@ -184,12 +184,16 @@
             <span data-i18n="fullPalette">Write full palette.</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="chk_alternate_oids"/>
+            <span data-i18n="alternateOids">Alternate per-window object ids (multi-window).</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="chk_both_formats"/>
             <span data-i18n="bothFormats">Generate both SUP and PES+MUI files.</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_ignore_res"/>
-            <span data-i18n="ignoreRes">Ignore Resolution Validation (Experimental)</span>
+            <span data-i18n="ignoreRes">Ignore Resolution Validation</span>
           </label>
         </div>
       </details>
@@ -227,9 +231,10 @@
           <span id="lbl_eta" class="eta">—</span>
         </div>
         <div class="progress-track">
-          <div class="progress-border-overlay"></div>
-          <div class="progress-gradient-overlay"></div>
-          <div id="progress_fill" class="progress-fill"></div>
+          <div id="progress_reveal" class="progress-reveal">
+            <div id="progress_fill" class="progress-fill"></div>
+            <div class="progress-gradient-overlay"></div>
+          </div>
         </div>
       </div>
 
