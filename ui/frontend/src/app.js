@@ -42,8 +42,8 @@ function applyI18n() {
     // current state, it is re-applied at the end of this function.
     if (el.id === "lbl_progress_text") return;
     if (el.classList.contains("help-tip")) {
-      // Help tips keep a "?" glyph; the text goes into the tooltip.
-      el.dataset.tooltip = t(el.dataset.i18n);
+      // Native tooltip (title): never clipped by the scrolling column.
+      el.title = t(el.dataset.i18n);
       return;
     }
     el.textContent = t(el.dataset.i18n);
@@ -55,6 +55,7 @@ function applyI18n() {
     chk_full_palette: "tipFullPalette",
     chk_both_formats: "tipBothFormats",
     chk_overlap: "tipOverlapBuf",
+    chk_alternate_oids: "tipAlternateOids",
     chk_ignore_res: "tipIgnoreRes",
   };
   for (const [id, key] of Object.entries(tips)) {
@@ -87,6 +88,8 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", themes[theme] || "system");
 }
 
+// ── Log: format, area and clearing ──
+
 // ── Log area ──
 const QT_LEVEL_NAMES = { debug: "DEBUG", info: "INFO", warn: "WARN", pass: "PASS", error: "ERROR", fail: "FAIL", fatal: "FATAL" };
 
@@ -105,9 +108,8 @@ function appendLog(level, msg) {
   }
 }
 
-// Replicates the Qt GUI line format: "HH:mm:ss │ LEVEL │ text".
-// The C++ logger prefixes "HH:MM:SS LEVEL: text", so the prefix is
-// stripped and rebuilt with the same separators and colors the old UI used.
+// Replicates the Qt format "HH:mm:ss │ LEVEL │ text"; the C++ logger
+// prefixes "HH:MM:SS LEVEL: " and that prefix is dropped and rebuilt.
 function formatQtLogLine(level, msg) {
   const css = levelNameToCss(level);
   const name = QT_LEVEL_NAMES[css] || "INFO";
@@ -129,9 +131,27 @@ function levelNameToCss(level) {
   return map[level] || "info";
 }
 
-// Custom dropdown: the <select> stays the source of truth; the dropdown
-// button shows the full option text (quantizer keeps its parenthesized
-// descriptor), and the list shows the same options with hover-marquee.
+function clearLog() {
+  const area = $("txt_log");
+  // replaceChildren is cheaper and does not disturb the WebView2 DOM tree.
+  area.replaceChildren();
+  state.logEntries = 0;
+  followLog = true;
+  const fb = $("btn_log_follow");
+  if (fb) fb.hidden = true;
+  updateLogCount();
+  updateLogPlaceholder();
+  // Qt pattern: reset bar/ETA; keep "failed" so a red (aborted) bar stays
+  // red while it resets — a new encode clears it in startEncode().
+  setProgressClip(0);
+  $("progress_fill").classList.remove("active");
+  setStatus("standing");
+  $("lbl_pct").textContent = "0%";
+  $("lbl_eta").textContent = "—";
+}
+
+// ── Custom dropdown (molecule) ──
+
 function syncDropdown(ddId) {
   const dd = $(ddId);
   if (!dd) return;
@@ -143,9 +163,8 @@ function syncDropdown(ddId) {
     const active = li.dataset.val === sel.value;
     li.classList.toggle("active", active);
     if (active) {
-      // Buttons show the full option text; the quantizer includes the
-      // parenthesized descriptor ("libimagequant (best, fast)") so the
-      // closed control is as informative as the open list.
+      // The button shows the full option text (the quantizer keeps its
+      // parenthesized descriptor) so the closed control stays informative.
       const label = btn.querySelector(".dd-label");
       const iconOnly = btn.querySelector(".seg-icon");
       const full = li.textContent.trim();
@@ -256,6 +275,7 @@ function wireLogFollow() {
   });
 }
 
+
 // ── Status LED + label (standing / working / finished / failed / aborted) ──
 function setStatus(mode) {
   const led = $("status_led");
@@ -279,38 +299,27 @@ function setStatus(mode) {
   if (label) label.textContent = t(s.key);
 }
 
-function clearLog() {
-  const area = $("txt_log");
-  // replaceChildren is cheaper and does not disturb the WebView2 DOM tree.
-  area.replaceChildren();
-  state.logEntries = 0;
-  followLog = true;
-  const fb = $("btn_log_follow");
-  if (fb) fb.hidden = true;
-  updateLogCount();
-  updateLogPlaceholder();
-  // Qt pattern: also reset the progress bar and ETA.
-  // Keep the "failed" class so an aborted (red) bar stays red while it
-  // animates back; a new encode clears it in startEncode().
-  $("progress_fill").style.width = "0%";
-  $("progress_fill").classList.remove("active");
-  setStatus("standing");
-  $("lbl_pct").textContent = "0%";
-  $("lbl_eta").textContent = "—";
+// ── Progress + ETA ──
+
+// Clips the reveal with clip-path (not scale): the pattern is not
+// distorted and the glass only covers the loaded area. frac 0..1 → inset.
+function setProgressClip(frac) {
+  const reveal = $("progress_reveal");
+  if (reveal) {
+    const f = Math.max(0, Math.min(1, frac));
+    reveal.style.clipPath = "inset(0 " + Math.round((1 - f) * 1000) / 10 + "% 0 0)";
+  }
 }
 
-// ── Progress + ETA ──
 function updateProgress(percent, epoch, total) {
   const fill = $("progress_fill");
-  fill.style.width = percent + "%";
+  setProgressClip(percent / 100);
   fill.classList.remove("failed");
   fill.classList.toggle("active", percent > 0 && percent < 100);
   $("lbl_pct").textContent = percent + "%";
 
-  // Epoch completed: green HDD-like burst on the blue working LED.
-  // duration = clamp(dt*0.6, 0.12s, 0.8s) where dt is the gap to the
-  // previous progress event; the burst restarts per event and the LED
-  // returns to the blue base once it ends.
+  // Green burst when an epoch completes: duration = clamp(dt*0.6, 0.12s,
+  // 0.8s), proportional to the gap between progress events.
   const led = $("status_led");
   if (led && state.isEncoding) {
     const now = Date.now();
@@ -336,7 +345,7 @@ function updateProgress(percent, epoch, total) {
       const eta = remainingS >= 60
         ? `${Math.floor(remainingS / 60)}m ${remainingS % 60}s`
         : `${remainingS}s`;
-      // "Epoch" stays in English in both UI languages (SUPer parity).
+      // "Epoch" stays in English in both UI languages (parity with the original).
       $("lbl_eta").textContent = "Epoch " + epoch + "/" + total + " · ETA " + eta;
     } else {
       $("lbl_eta").textContent = "Epoch " + epoch + "/" + total;
@@ -359,6 +368,7 @@ function updateReadyState() {
   $("btn_encode").disabled =
     state.isEncoding || !state.inputPath || !state.outputPath;
 }
+
 
 // ── Wails Go bindings (via runtime bridge) ──
 const go = () => window.go?.main?.App;
@@ -440,6 +450,7 @@ function startEncode() {
     PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
+    AlternateOids:   $("chk_alternate_oids").checked,
     RedrawPeriod:    numOr($("input_redraw"), 0),
     MaxKbps:         numOr($("input_max_kbps"), 0),
     Threads:         numOr($("combo_threads"), 0),
@@ -450,7 +461,7 @@ function startEncode() {
   };
 
   setEncodingState(true);
-  $("progress_fill").style.width = "0%";
+  setProgressClip(0);
   $("progress_fill").classList.remove("failed", "active");
   setStatus("working");
   $("lbl_pct").textContent = "0%";
@@ -478,9 +489,8 @@ function abortEncode() {
   const app = go();
   if (!app?.AbortEncode) return;
   app.AbortEncode();
-  // Qt pattern: immediate UI feedback (bar turns red + log message).
-  // "error" (not the numeric level) is used so levelNameToCss maps to the
-  // red .log-entry.error style; the log stays English regardless of UI language.
+  // Qt pattern: immediate feedback (red bar + message). "error" (string)
+  // so levelNameToCss maps to the red log style.
   appendLog("error", "Encoding aborted by user.");
   $("progress_fill").classList.add("failed");
   $("progress_fill").classList.remove("active");
@@ -519,10 +529,8 @@ async function loadSettings() {
         syncDropdown("dd_theme");
         if (s.last_bdn_dir)  state.lastBDNDir = s.last_bdn_dir;
         if (s.last_output_dir)  state.lastOutDir = s.last_output_dir;
-        // Restore collapsible card state (default: collapsed).
-        setAccordionOpen("dd_params", s.params_open);
-        setAccordionOpen("dd_engine", s.engine_open);
-        setAccordionOpen("dd_advanced", s.advanced_open);
+        // Collapsed card state is not restored: the markup defines
+        // Parameters/Engine expanded and Advanced collapsed on every start.
       }
     } catch (err) {
       console.error("LoadSettings:", err);
@@ -530,12 +538,6 @@ async function loadSettings() {
   }
   applyI18n();
   updateControlsFade();
-}
-
-// Open/close a collapsible card (details element) from persisted settings.
-function setAccordionOpen(id, open) {
-  const el = $(id);
-  if (el) el.open = !!open;
 }
 
 async function saveSettings() {
@@ -547,9 +549,6 @@ async function saveSettings() {
       Theme:      parseInt($("cmb_theme").value),
       LastBDNDir: state.lastBDNDir || "",
       LastOutDir: state.lastOutDir || "",
-      ParamsOpen:   !!$("dd_params")?.open,
-      EngineOpen:   !!$("dd_engine")?.open,
-      AdvancedOpen: !!$("dd_advanced")?.open,
     });
   } catch (err) {
     console.error("SaveSettings:", err);
@@ -575,7 +574,7 @@ function wireEngineEvents() {
     const fill = $("progress_fill");
     fill.classList.remove("active");
     if (data && data.success) {
-      fill.style.width = "100%";
+      setProgressClip(1);
       setStatus("finished");
     } else if (data && data.cancelled) {
       setStatus("aborted");
@@ -638,11 +637,11 @@ function wireDomEvents() {
 
   wireLogFollow();
 
-  // Persist collapsible card state and keep the sidebar edge fade in sync
-  // with the new scroll height (native <details> needs no JS to toggle).
+  // Keep the sidebar edge fade in sync with the new scroll height when a
+  // collapsible card opens/closes (native <details> needs no JS to toggle).
+  // The open/collapsed state is not persisted (see loadSettings).
   ["dd_params", "dd_engine", "dd_advanced"].forEach((id) => {
     $(id)?.addEventListener("toggle", () => {
-      saveSettings();
       updateControlsFade();
     });
   });
@@ -673,7 +672,7 @@ function wireDomEvents() {
 
   // Re-evaluate encode readiness if options change (button gate: paths only).
   ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
-   "chk_both_formats", "chk_overlap", "chk_ignore_res"]
+   "chk_both_formats", "chk_overlap", "chk_alternate_oids", "chk_ignore_res"]
     .forEach((id) => {
       $(id).addEventListener("change", updateReadyState);
     });
