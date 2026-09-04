@@ -47,6 +47,7 @@ type EncodeConfig struct {
 	AllowNormalCase  bool
 	PreferNormalCase bool
 	Overlap          bool
+	AlternateOids    bool
 	RedrawPeriod     float64
 	MaxKbps          int
 	Threads          int
@@ -320,6 +321,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.Overlap {
 		args = append(args, "--overlap")
+	}
+	if cfg.AlternateOids {
+		args = append(args, "--alternate-oids")
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))
