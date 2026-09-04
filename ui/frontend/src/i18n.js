@@ -39,13 +39,13 @@ const Table = {
 
   // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
-  allowNormal:    { en: "Allow normal case object redefinition.", es: "Permitir redefinición normal case" },
-  preferNormal:   { en: "Prefer normal case object redefinition.", es: "Preferir redefinición normal case" },
-  fullPalette:    { en: "Write full palette.",            es: "Paleta Completa" },
+  allowNormal:    { en: "Allow normal case object redefinition.", es: "Allow normal case object redefinition." },
+  preferNormal:   { en: "Prefer normal case object redefinition.", es: "Prefer normal case object redefinition." },
+  fullPalette:    { en: "Write full palette.",            es: "Write full palette." },
   bothFormatsTip: { en: "Generate both .sup and .pes/.mui output formats.", es: "Generar formatos .sup y .pes/.mui." },
-  bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "SUP + PES/MUI" },
-  overlapBuf:     { en: "Allow palette update buffering.", es: "Permitir buffering de paleta" },
-  ignoreRes:      { en: "Ignore Resolution Validation (Experimental)", es: "Ignorar Validación de Resolución (Experimental)" },
+  bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "Generar archivos SUP y PES+MUI." },
+  overlapBuf:     { en: "Allow palette update buffering.", es: "Allow palette update buffering." },
+  ignoreRes:      { en: "Ignore Resolution Validation", es: "Ignorar Validación de Resolución" },
 
   // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
@@ -80,7 +80,9 @@ const Table = {
   tipFullPalette:  { en: "Don't optimize palette reduction when there are too many colors.\nInstead, just use the full palette.\nMay improve quality in some rare cases at the cost of bigger output size.", es: "No optimizar la reducción de paleta cuando hay demasiados colores.\nEn su lugar, usar la paleta completa.\nPuede mejorar la calidad en algunos casos raros a costa de un tamaño de salida mayor." },
   tipBothFormats:  { en: "Export also a .pes/.mui file alongside the .sup file.", es: "Exportar también un archivo .pes/.mui junto con el archivo .sup." },
   tipOverlapBuf:   { en: "Allow this encoder to generate overlapping objects in the output stream.\nThis method is more efficient but not well supported by some hardware decoders.", es: "Permitir que este codificador genere objetos superpuestos en el stream de salida.\nEste método es más eficiente pero no es bien soportado por algunos decodificadores de hardware." },
-  tipIgnoreRes:    { en: "Ignore the warning when the input video resolution does not match the expected BDN resolution.", es: "Ignorar la advertencia cuando la resolución del video de entrada no coincide con la resolución BDN esperada." },
+  alternateOids:   { en: "Alternate per-window object ids (multi-window).", es: "Alternate per-window object ids (multi-window)." },
+  tipAlternateOids:{ en: "Alternate the object id per window on every acquisition (double buffering).\nAvoids tearing on hardware that reuses object buffers; identical visual output.", es: "Alternar el id de objeto por ventana en cada adquisición (doble buffer).\nEvita tearing en hardware que reutiliza buffers de objeto; salida visual idéntica." },
+  tipIgnoreRes:    { en: "Ignore the warning when the input video resolution does not match the expected BDN resolution.\nUsing this option improperly may produce streams that fail on some players.", es: "Ignorar la advertencia cuando la resolución del video de entrada no coincide con la resolución BDN esperada.\nUsar esta opción indebidamente puede producir streams que fallen en algunos reproductores." },
 };
 
 // Current language: 0 = EN, 1 = ES
