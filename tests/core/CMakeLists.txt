@@ -12,6 +12,7 @@ add_executable(opensup_test_core
   params_test.cpp
   findacqs_test.cpp
   ahead_test.cpp
+  double_buffer_test.cpp
 )
 
 target_link_libraries(opensup_test_core
