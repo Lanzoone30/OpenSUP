@@ -99,17 +99,17 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
     }
 }
 
-// ── find_acqs decode-margin signals (SUPer render2.py:1073-1135) ──
+// ── find_acqs decode-margin signals ──
 acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
                                 double pts, double prev_pts,
                                 double write_duration, double margin)
 {
-    // valid[k] (render2.py:1132): decode starts after the previous decode end
-    // and the PTS gap exceeds the epoch write duration.
+    // Decode starts after the previous decode end and the PTS gap exceeds the
+    // epoch write duration.
     acq_signals_t sig;
     sig.valid = (dts > prev_dts_end) && (pts - prev_pts > write_duration);
-    // dtl[k] (render2.py:1133): slack normalized by the previous node duration;
-    // invalid timings map to -1 (SUPer: -1 + 2*(k==0), k==0 never reaches here).
+    // Decode slack normalized by the previous node duration; invalid timings
+    // map to -1 (the first node never reaches here).
     sig.dtl = sig.valid ? (dts - prev_dts_end) / margin : -1.0;
     return sig;
 }
@@ -165,7 +165,7 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
 epoch_timings_t
 epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
 {
-    // Decode duration: full screen composition rate (SUPer EPOCH_START model).
+    // Decode duration: full-screen composition rate (epoch-start model).
     // +1 tick margin so PTS-DTS delta strictly exceeds wipe_duration
     // (check_pts_dts_sanity requires delta > wipe_duration, exact tie fails).
     double screen_area = static_cast<double>(m_width) * static_cast<double>(m_height);
@@ -181,6 +181,14 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
                  / pg_decoder_t::FREQ;
     t.decode_duration = decode_duration;
     return t;
+}
+
+uint8_t
+epoch_encoder_c::next_ods_vn(uint16_t o_id)
+{
+    if (m_ods_vn.size() <= o_id)
+        m_ods_vn.resize(static_cast<size_t>(o_id) + 1, 0);
+    return m_ods_vn[o_id]++;
 }
 
 uint8_t
@@ -215,9 +223,8 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
     cobjects.push_back(obj);
     // Normal case: the other window's object stays on screen as a CObject
-    // reference without a new ODS (SUPer render2.py:737-746,
-    // CObject.from_scratch(oid, wid, pos, False)). Its palette/image are the
-    // one already decoded from that window's last ODS.
+    // reference without a new ODS. Its palette/image are the one already
+    // decoded from that window's last ODS.
     if (in.normal_case_ref) {
         c_object_t ref;
         ref.o_id = in.ref_obj_id;
@@ -225,18 +232,14 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         ref.h_pos = static_cast<uint16_t>(std::max(0, in.ref_x));
         ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
         ref.flags = c_object_t::standard;
-        if (m_alternate_oids) {
-            // SUPer orders the kept (id_skipped) CObject first in the
-            // composition list (render2.py:786-792, sorted f_is_first_cobj):
-            // "the refreshed object has to come first (key eval to zero)".
-            // The reference never alternates (uses the on-screen oid).
-            cobjects.insert(cobjects.begin(), ref);
-        } else {
-            cobjects.push_back(ref);
-        }
+        // The kept (id_skipped) CObject must be listed FIRST in the
+        // composition: "the refreshed object has to come first". Always, with
+        // or without alternate_oids. The reference never alternates (it uses
+        // the on-screen oid).
+        cobjects.insert(cobjects.begin(), ref);
     }
 
-    // ── Per-segment timestamps (SUPer set_pts_dts_sc model) ──
+    // ── Per-segment timestamps (set_pts_dts_sc model) ──
     const auto& timings = in.timings;
 
     // PCS: PTS = presentation, DTS = decode start
@@ -286,7 +289,7 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         // Skipped for reused events — the object is already decoded.
         double ods_pts = timings.base_dts + timings.obj_decode_time;
         auto rle_data = encode_rle(in.indexed, in.obj_w, in.obj_h);
-        auto ods_list = ods_c::from_scratch(in.obj_id, 0,
+        auto ods_list = ods_c::from_scratch(in.obj_id, next_ods_vn(in.obj_id),
                                               static_cast<uint16_t>(in.obj_w),
                                               static_cast<uint16_t>(in.obj_h),
                                               rle_data, ods_pts, timings.base_dts);
@@ -315,44 +318,44 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     std::vector<std::shared_ptr<pg_segment_c>> result;
     if (events.empty()) return result;
 
+    m_ods_vn.clear();
     // Use provided windows or default to single full-screen window
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
-    // Overlap + two windows: SUPer's shift_forward_overlay merges acquisitions
-    // into the previous window's nodes, so the whole epoch must be planned
-    // before emission (two-phase). Default and single-window overlap keep the
-    // single-pass path below (byte-frozen by FR-6).
+    // Overlap + two windows: acquisitions merge into the previous window's
+    // nodes, so the whole epoch must be planned before emission (two-phase).
+    // Default and single-window overlap keep the single-pass path below
+    // (byte-frozen by FR-6).
     if (m_overlap && m_windows.size() == 2)
         return encode_epoch_overlap(events, redraw_flags, fps_enum,
                                     palette_id_counter);
-    // SUPer: redraw_flags marks forced ACQUISITION points (periodic refresh)
+    // redraw_flags marks forced ACQUISITION points (periodic refresh)
     const std::vector<bool>& forced_acq = redraw_flags;
 
     auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
     palette_id_counter++;
 
     // For single window: double_buffer = 1 (alternates 0/1)
-    // For multi-window: SUPer uses more complex logic, but for now keep simple
+    // For multi-window: more complex alternation; kept simple here.
     int double_buffer = 1;
-    // Per-window slot sizing and new-object mask (SUPer find_acqs,
-    // render2.py:1103-1104,1117,1121): max (dy,dx) seen per window and which
-    // window got new content per event. Consumed by F2 (specs/007).
+    // Per-window slot sizing and new-object mask: max (dy,dx) seen per window
+    // and which window got new content per event. Consumed by F2.
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
-    // SUPer double_buffering[wid] (render2.py:844): per-window oid alternation,
-    // only active with m_alternate_oids && 2+ windows.
+    // Per-window oid alternation (double buffering), only active with
+    // m_alternate_oids && 2+ windows.
     std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
     std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
     std::vector<uint8_t> new_mask(nwin, 0);
 
-    // Track previous event for clear DS insertion (SUPer _get_undisplay pattern)
+    // Track previous event for clear DS insertion
     double prev_tc_out = 0.0;
     int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
     bool have_prev = false;
     int prev_window_id = 0; // layout window of the previous event's object
 
-    // Previous event timing (SUPer find_acqs: dts/dts_end/margin for the
-    // decode-margin acquisition decision). pts_gap and dtl are computed per event.
+    // Previous event timing (dts/dts_end/margin) for the decode-margin
+    // acquisition decision. pts_gap and dtl are computed per event.
     double prev_base_pts = 0.0;   // previous event's PTS (tc_in)
     double prev_tc_in = 0.0;      // previous event's tc_in (display start)
     double prev_wipe_dur = 0.0;   // previous event's object wipe duration
@@ -364,7 +367,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     int prev_trim_w = 0, prev_trim_h = 0;
     uint16_t prev_obj_id = 0;
 
-    // Composite bitmap for the current group (SUPer alpha_compo).
+    // Composite bitmap for the current group.
     // Accumulates via alpha_over; compared against via compare_with_alpha.
     std::vector<uint8_t> compo_rgba;
     int compo_w = 0, compo_h = 0;
@@ -402,7 +405,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
 
-    // ── Drought / quality parameters (from SUPer render2.py) ──
+    // ── Drought / quality parameters ──
     // m_quality_factor = compression/100 (0 = force all ACQUISITION)
     // m_dquality_factor = 0.035 (drought decay factor)
     // m_refresh_rate = acqrate/100 (scales drought increment)
@@ -413,9 +416,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);  // ssim_tol adjustment
     const int insert_acqs = m_insert_acquisitions;       // extra_acq
 
-    // Resolution-dependent base SSIM threshold (SUPer render2.py:176:
+    // Resolution-dependent base SSIM threshold:
     // min(0.9999, 0.9608 + height*(0.986-0.972)/(1080-480)) — height maps
-    // 480->0.972 and 1080->0.986; no offset subtraction).
+    // 480->0.972 and 1080->0.986; no offset subtraction.
     const double base_ssim_threshold = std::min(0.9999, 0.9608 +
         static_cast<double>(m_height) * (0.986 - 0.972) / (1080.0 - 480.0));
 
@@ -427,8 +430,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // ── Group buffering (P4b) ──
     // A run of SSIM-fused / byte-identical events sharing one composition is
     // buffered and co-quantized at group end: 1 union ODS + per-event palette
-    // diffs (SUPer solve_and_remap + diff_cluts). Before P4b, fused events
-    // emitted no bitmap at all, so fades were invisible.
+    // diffs. Before P4b, fused events emitted no bitmap at all, so fades were
+    // invisible.
     struct chain_event_t {
         std::vector<uint8_t> rgba;      // trimmed frame (raw, for co-quant)
         int w = 0, h = 0, crop_x = 0, crop_y = 0, ev_x = 0, ev_y = 0;
@@ -468,7 +471,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             logger_c::instance().warn(
                 "Group co-quantization failed; falling back to per-event emission");
             for (const auto& e : chain) {
-                // Same gap-only clear rule as the main path (render2.py:859).
+                // Same gap-only clear rule as the main path.
                 if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
                     emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
@@ -485,12 +488,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         for (size_t i = 0; i < chain.size(); i++) {
             auto& e = chain[i];
-            // SUPer emits the undisplay clear only for gap (wipe) nodes —
-            // render2.py:859, durs[i][1]!=0 — "zero unless there are no PG
-            // objects shown at some point in the epoch". Contiguous updates
-            // replace/refresh the composition with no clear (no blinking).
-            // In overlap mode the chain follows that rule: the clear is
-            // emitted only when a real gap precedes the event.
+            // The undisplay clear is emitted only for gap (wipe) nodes —
+            // "zero unless there are no PG objects shown at some point in the
+            // epoch". Contiguous updates replace/refresh the composition with
+            // no clear (no blinking). In overlap mode the chain follows that
+            // rule: the clear is emitted only when a real gap precedes the
+            // event.
             if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
                 emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
             if (i == 0) {
@@ -528,11 +531,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 }
             }
             // Refresh: re-send the union object so decoders joining the
-            // composition late can re-acquire it (SUPer nc_refresh).
+            // composition late can re-acquire it.
             if (e.refresh && i > 0) {
                 double ods_pts = e.timings.base_dts + e.timings.obj_decode_time;
                 auto rle = encode_rle(sol.bitmap, e.w, e.h);
-                auto ods_list = ods_c::from_scratch(e.obj_id, 0,
+                auto ods_list = ods_c::from_scratch(e.obj_id, next_ods_vn(e.obj_id),
                     static_cast<uint16_t>(e.w), static_cast<uint16_t>(e.h),
                     rle, ods_pts, e.timings.base_dts);
                 for (auto& ods : ods_list)
@@ -558,9 +561,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
     for (size_t k = 0; k < events.size(); k++) {
         // Fixed SSIM bar: similarity decides reusable vs force_acquisition only.
-        // The drought effect belongs to the decode-margin check (SUPer render2:258).
-        // SUPer applies ssim_offset ONLY inside thr_score (render2.py:1366:
-        // -0.008333*(1-ssim_offset)), never to the base threshold.
+        // The drought effect belongs to the decode-margin check, and ssim_offset
+        // applies ONLY inside thr_score (-0.008333*(1-ssim_offset)), never to
+        // the base threshold.
         const double effective_ssim_threshold = base_ssim_threshold;
 
         auto& ev = events[k];
@@ -586,12 +589,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         int crop_x = (trim_w > 0) ? trim_x : 0;
         int crop_y = (trim_h > 0) ? trim_y : 0;
 
-        // Check for reusable event (identical trimmed bitmap to previous) —
-        // position-free (OpenSUP win: PCS move without ODS; SUPer would break on move).
+        // Check for reusable event (identical trimmed bitmap to previous).
+        // Reuse is position-free: a PCS can move the object without a new ODS.
         bool reusable = (obj_w == prev_trim_w && obj_h == prev_trim_h &&
                          trimmed_rgba == prev_trimmed);
 
-        // ── SSIM comparison vs accumulated composite (SUPer WindowAnalyzer) ──
+        // ── SSIM comparison vs accumulated composite ──
         double ssim_score = 1.0;
         double cross_percentage = 1.0;
         bool force_acquisition = false;
@@ -604,12 +607,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
         if (have_prev && !reusable && bbox_matches_compo) {
             // Compare current trimmed bitmap against the group's accumulated composite
-            // CTU (SUPer render2.py:1186-1245): recursive area-weighted SSIM with 0.325 discount for identical regions
+            // CTU: recursive area-weighted SSIM with a 0.325 discount for
+            // identical regions.
             const auto [ctu_score, ctu_cross] = core::ctu_c::evaluate(compo_rgba, trimmed_rgba, obj_w, obj_h);
             ssim_score = ctu_score;
             cross_percentage = ctu_cross;
 
-            // SUPer threshold logic (WindowAnalyzer line 1366)
+            // Similarity threshold: identical regions get the full discount,
+            // non-overlapping ones lower it toward the base threshold.
             double thr_score = std::min(1.0, effective_ssim_threshold +
                 (1.0 - effective_ssim_threshold) * (1.0 - cross_percentage) - 0.008333 * (1.0 - ssim_offset));
 
@@ -643,8 +648,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_trim_w = obj_w;
         prev_trim_h = obj_h;
 
-        // Per-segment timestamps (SUPer set_pts_dts_sc model). Computed here so
-        // the drought decision below can use the decode-margin (acq/dtl) signals.
+        // Per-segment timestamps. Computed here so the drought decision below
+        // can use the decode-margin (acq/dtl) signals.
         epoch_timings_t timings = compute_timings(ev.tc_in(),
             static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
@@ -673,14 +678,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             continue;
         }
 
-    // ── Drought decision (SUPer shape_stream logic) ──
+    // ── Drought decision ──
     pcs_c::composition_state_e comp_state;
     bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
     // Layout window this event's object targets (multi-window Fase 1).
     const uint8_t cur_window = window_for(ev.x(), ev.y(), crop_x, crop_y);
-    // Slot sizing and new-object mask (render2.py:1103-1104,1117): the window
-    // slot grows to the max object bbox seen; a non-reusable event brings new
-    // content to its window (new_mask drives the SUPer normal-case filter).
+    // Slot sizing and new-object mask: the window slot grows to the max object
+    // bbox seen; a non-reusable event brings new content to its window
+    // (new_mask drives the normal-case filter).
     {
         auto& mb = min_boxes[cur_window];
         mb.first = std::max(mb.first, obj_h);
@@ -692,11 +697,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // The two-window normal case below redefines one window as NORMAL; the
     // single-window analog is `reusable`, which also drives the NORMAL state.
 
-    // Decode-margin signals (SUPer find_acqs, render2.py:1073-1135): structured
-    // port via find_acqs_signals(). Margin is the previous NODE duration
-    // (render2.py:1122-1125): the inter-event gap (wipe node) when one exists,
+    // Decode-margin signals, ported via find_acqs_signals(). Margin is the
+    // previous node duration: the inter-event gap (wipe node) when one exists,
     // else the previous event duration. Object-specific decode time (RD read +
-    // RC write) as the dts numerator; the emitted base_dts keeps the
+    // RC write) is the dts numerator; the emitted base_dts keeps the
     // conservative full-screen model.
     bool acq_valid = false;
     double dtl = -1.0;
@@ -715,13 +719,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         nc_margin = (dts_eff > prev_dts_end);
     }
 
-    // Normal case (SUPer render2.py:513-544): when the epoch has two layout
-    // windows and the new event takes over a different window while the
-    // previous object is still on screen, this display set may redefine only
-    // that window as NORMAL instead of restarting the whole composition.
-    // Requires allow_normal_case and enough decode margin (dts_start_nc >
-    // dts_start, the nc_margin signal below). The other window's object stays
-    // on screen; its CObject reference is added in Fase 3 (refresh parcial).
+    // Normal case: when the epoch has two layout windows and the new event
+    // takes over a different window while the previous object is still on
+    // screen, this display set may redefine only that window as NORMAL instead
+    // of restarting the whole composition. Requires allow_normal_case and
+    // enough decode margin (dts_start_nc > dts_start, the nc_margin signal
+    // below). The other window's object stays on screen as a CObject reference.
     const bool normal_case =
         m_allow_normal_case && m_windows.size() == 2 && have_prev &&
         ev.tc_in() < prev_tc_out && cur_window != prev_window_id &&
@@ -729,47 +732,45 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     comp_state = (normal_case || reusable)
         ? pcs_c::composition_state_e::normal
         : pcs_c::composition_state_e::epoch_start;
-    // SUPer drought logic:
+    // Drought logic:
     // if (forced or (acq and margin > max(thresh - dthresh*drought, 0))) and
-    //    NOT nc_refresh -> ACQUISITION   (render2.py:258)
+    //    NOT nc_refresh -> ACQUISITION
     // else -> drought += refresh_rate
-    // nc_refresh nodes (reusable palette updates) NEVER become ACQUISITION;
-    // with enough decode margin they only re-emit the ODS (stay NORMAL).
+    // Reusable palette-update nodes NEVER become ACQUISITION; with enough
+    // decode margin they only re-emit the ODS (stay NORMAL).
     if (thresh == 0.0 && !reusable && !normal_case) {
         // compression=0 -> force all ACQUISITION
         comp_state = pcs_c::composition_state_e::acquisition;
         m_drought = 0.0;
     } else if (comp_state != pcs_c::composition_state_e::acquisition) {
         if (normal_case) {
-            // NORMAL-case winner is never downgraded to ACQUISITION
-            // (SUPer: flags[k]=1, states[k]=NORMAL).
+            // A NORMAL-case winner is never downgraded to ACQUISITION.
         } else if (forced || force_acquisition) {
-            // absolutes[k] (render2.py:1119) consolidates here: force_acquisition
-            // (SSIM break) is the C++ analog of a new ProspectiveObject popping
-            // in a window — both force ACQUISITION and reset the drought.
+            // force_acquisition (SSIM break) consolidates the absolute marker:
+            // a new object popped in a window — both force ACQUISITION and
+            // reset the drought.
             comp_state = pcs_c::composition_state_e::acquisition;
             m_drought = 0.0;
         } else if (reusable && acq_valid &&
                    dtl > std::max(thresh - m_dquality_factor * m_drought, 0.0)) {
             // Refresh: same object but enough decode margin — re-send the ODS
-            // so late-starting decoders can re-sync, yet stay NORMAL (this is
-            // a palette-update node, not a group restart: SUPer nc_refresh).
+            // so late-starting decoders can re-sync, yet stay NORMAL (a
+            // palette-update node, not a group restart).
             emit_reusable = false;
             m_drought = 0.0;
         } else {
             // Prevent excessive acquisitions, as we want to compress the stream
             m_drought += 1.0 * refresh_rate;
             if (comp_state == pcs_c::composition_state_e::normal) {
-                // Mark as NC refresh candidate (SUPer: node.nc_refresh = True)
-                // For now, just log
+                // NC-refresh candidate: kept NORMAL; only logged for now.
             }
         }
     }
 
-    // Extra acquisition counter (SUPer: len(pals[0]) per window).
-    // Counts NORMAL events (palette updates) since the last acquisition;
-    // EPOCH_START and ACQUISITION both start a new group (reset).
-    // The mid-event acquisition itself is inserted after the display set below.
+    // Extra acquisition counter. Counts NORMAL events (palette updates) since
+    // the last acquisition; EPOCH_START and ACQUISITION both start a new group
+    // (reset). The mid-event acquisition itself is inserted after the display
+    // set below.
     if (comp_state == pcs_c::composition_state_e::acquisition ||
         comp_state == pcs_c::composition_state_e::epoch_start) {
         palette_updates_since_acq = 0;
@@ -777,15 +778,15 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         palette_updates_since_acq++;
     }
 
-        // Object ID double-buffering (SUPer: alternating 0/1 for single window).
+        // Object ID double buffering (alternates 0/1 for single window).
         // Reused events keep the previous object id (already decoded).
         uint16_t obj_id;
         if (reusable) {
             obj_id = prev_obj_id;
         } else if (m_alternate_oids && m_windows.size() >= 2) {
-            // SUPer double_buffering[wid] (render2.py:749-750): each window
-            // alternates its own oid so the decoder never rewrites the buffer
-            // being presented. init db = [n]*n; db[w] = abs(n - db[w]).
+            // Per-window double buffering: each window alternates its own oid
+            // so the decoder never rewrites the buffer being presented.
+            // Init db = [n]*n; db[w] = abs(n - db[w]).
             int& dbw = double_buffer_db[static_cast<size_t>(cur_window)];
             dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
             obj_id = static_cast<uint16_t>(cur_window + dbw);
@@ -794,7 +795,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             obj_id = static_cast<uint16_t>(double_buffer);
         }
 
-    // Composite tracking (SUPer alpha_compo):
+    // Composite tracking:
     // - fuse (reusable via SSIM): already updated via alpha_over in the SSIM block
     // - break/forced: reset composite to current trimmed bitmap
     // Computed before the emit decision because the group lookahead needs the
@@ -819,7 +820,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // If reusable via SSIM, alpha_over already updated compo_rgba in the SSIM block
     // If byte-exact reusable: composite unchanged (deviation: position-free)
 
-    // ── Mid-event acquisition candidate (SUPer render2.py:1003-1036) ──
+    // ── Mid-event acquisition candidate ──
     // Computed for both paths: inline insert (non-group events) or a marker
     // on the buffered record (flushed together with the group).
     bool acq_ok = false;
@@ -827,10 +828,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     if (insert_acqs > 0 && palette_updates_since_acq > insert_acqs && !forced) {
         const double t_diff = ev.tc_out() - ev.tc_in();
         // Temporal margin: the event must be long enough to fit the
-        // acquisition with decode room (SUPer: t_diff > 4.5*write_dur/FREQ).
+        // acquisition with decode room (t_diff > 4.5*write_dur/FREQ).
         if (t_diff > 4.5 * timings.wipe_dur) {
             // Push PTS forward frame-by-frame to create decode margin
-            // (SUPer: while dts < dts_end or pts < npts + wd/FREQ: tc_pts += 1).
+            // (while dts < dts_end or pts < npts + wd/FREQ: tc_pts += 1).
             const double dts_end = timings.base_dts + timings.wipe_dur;
             const double target_dts_end = dts_end + 2.0 / pg_decoder_t::FREQ;
             const double target_pts = timings.base_pts + 2.0 / pg_decoder_t::FREQ;
@@ -846,7 +847,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 if (pushed_pts >= ev.tc_out()) break;  // never exceed the event
             }
             // Guard: tight margin only, and don't eat more than half the event
-            // (SUPer: dts - dts_end < 0.25 and frame_added <= (durs-1)>>1).
+            // (dts - dts_end < 0.25 and frame_added <= (durs-1)>>1).
             const double dts_margin = pushed_dts - target_dts_end;
             const int max_frames = static_cast<int>((t_diff * m_fps - 1.0) / 2.0);
             if (dts_margin < 0.25 && frame_added <= max_frames) {
@@ -915,7 +916,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         rec.clear_w = prev_obj_w;
         rec.clear_h = prev_obj_h;
         rec.clear_pts = prev_tc_out;
-        rec.refresh = (emit_reusable == false);  // SUPer nc_refresh marker
+        rec.refresh = (emit_reusable == false);  // Reusable palette-update marker
         rec.acq_insert = acq_ok;
         rec.acq_timings = acq_timings;
         rec.own_palette = palette;
@@ -931,11 +932,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             flush_chain();
             chain_active = false;
         }
-        // Parity with the original: the mid-stream clear is only written when the previous
-        // node belongs to a chain (render2.py:859, durs[i][1] != 0), which is
-        // already handled by flush_chain()'s has_clear path. An independent
-        // acquisition (no parent) replaces the composition outright, so no
-        // clear display set precedes it. The end-of-epoch clear below remains.
+        // The mid-stream clear is only written when the previous node belongs
+        // to a chain, which is already handled by flush_chain()'s has_clear
+        // path. An independent acquisition (no parent) replaces the composition
+        // outright, so no clear display set precedes it. The end-of-epoch clear
+        // below remains.
         // Emit the full display set for this event.
         event_emit_input_t in{
             obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
@@ -976,7 +977,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_base_pts = timings.base_pts;
         prev_tc_in = ev.tc_in();
         prev_wipe_dur = timings.wipe_dur;
-        if (k == 0) epoch_write_dur = timings.decode_duration; // SUPer: write_duration of first node
+        if (k == 0) epoch_write_dur = timings.decode_duration; // First node's write duration
         have_prev = true;
 
         // Keep prev_trimmed for byte-exact fast path
@@ -985,7 +986,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_trim_h = obj_h;
     }
 
-    // ── Final clear DS after the last event (SUPer: end of epoch wipe) ──
+    // ── Final clear DS after the last event (end of epoch wipe) ──
     if (chain_active) {
         flush_chain();
         chain_active = false;
@@ -994,13 +995,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y);
         logger_c::instance().log(common::log_level_e::hdebug, "Final clear DS at " + std::to_string(prev_tc_out));
     }
-    // ── align_palette_updates (SUPer render2.py:286-313, overlap mode) ──
+    // ── align_palette_updates (overlap mode) ──
     // Buffered palette updates must keep a strictly monotonic DTS: a display
-    // set may never start decoding before the previous one finished. SUPer
-    // shifts the PU DTS into (prev_dts_end+1 tick, next_dts); the C++ model
-    // applies the same +1-tick rule over the emitted stream, pushing both
-    // timestamps of an offending segment forward (SUPer pushes PTS forward
-    // frame-by-frame for the same reason, render2.py:1007-1036).
+    // set may never start decoding before the previous one finished. Shifting
+    // puts each PU DTS into (prev_dts_end+1 tick, next_dts); the same +1-tick
+    // rule applies over the emitted stream, pushing both timestamps of an
+    // offending segment forward (frame by frame if needed).
     if (m_overlap) {
         double last_dts = -1.0;
         for (auto& seg : result) {
@@ -1027,7 +1027,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     return result;
 }
 // ──────────────────────────────────────────────────────────────────────
-// F2: Overlap pipeline (SUPer render2.py:315-408, 408-460)
+// Overlap pipeline
 // Active only when m_overlap && m_windows.size() == 2.
 
 void epoch_encoder_c::shift_forward_overlay(
@@ -1035,10 +1035,10 @@ void epoch_encoder_c::shift_forward_overlay(
     const std::vector<bool>& forced_acq) const
 {
     (void)forced_acq;
-    // SUPer shift_forward_overlay (render2.py:315-408): backtracks from an
-    // acquisition node with exactly one new object (sum(new_mask)==1) and
-    // merges it into the best previous node of the other window, so the
-    // object decodes earlier and the intermediate range stays NORMAL.
+    // shift_forward_overlay: backtracks from an acquisition node with exactly
+    // one new object (sum(new_mask)==1) and merges it into the best previous
+    // node of the other window, so the object decodes earlier and the
+    // intermediate range stays NORMAL.
     for (size_t k = 0; k < nodes.size(); ++k) {
         auto& node = nodes[k];
         if (node.acq || !node.has_object || !node.new_mask || !node.absolute)
@@ -1072,9 +1072,8 @@ void epoch_encoder_c::shift_forward_overlay(
                 ++other_new_mask;
             if (redefine_same_object || overlap_in_window || other_new_mask > 1)
                 break;
-            // The candidate is a copy of pnode (render2.py:349 new_node =
-            // pnode.copy()), so the scoring gap is measured against the
-            // PROMOTED node's timings, not the original node's (render2.py:358).
+            // The candidate is a copy of pnode, so the scoring gap is measured
+            // against the PROMOTED node's timings, not the original node's.
             bool drop_abs_acq = false;
             size_t drop_pal_ups = 0;
             size_t jk = 0;
@@ -1097,12 +1096,12 @@ void epoch_encoder_c::shift_forward_overlay(
                 continue;
             // The promoted node must fit after the scoring gap: the node right
             // before jk must not collide with the promoted node's decode
-            // (render2.py:369: nodes[j].dts_end() < new_node.dts() and
+            // (nodes[j].dts_end() < new_node.dts() and
             // nodes[j].pts()+pts_delta < new_node.pts()).
             if (jk == 0 || (nodes[jk - 1].dts_end < pnode.timings.base_dts &&
                             nodes[jk - 1].timings.base_pts + 1.0 / m_fps < pnode.timings.base_pts)) {
                 candidates.push_back({pk, jk, drop_pal_ups});
-                // Quick exit (render2.py:373): first candidate in overlap mode.
+                // Quick exit: first candidate in overlap mode.
                 if (drop_pal_ups == 0 || m_overlap)
                     break;
             }
@@ -1159,9 +1158,9 @@ void epoch_encoder_c::shift_forward_overlay(
 void epoch_encoder_c::set_extended_visibilities(
     std::vector<epoch_node_t>& nodes) const
 {
-    // SUPer set_pgobjects_extended_visibilities (render2.py:408-460): an
-    // object stays on screen across contiguous events until a wipe/gap. This
-    // pass marks nc_refresh for events that keep the same window object.
+    // set_pgobjects_extended_visibilities: an object stays on screen across
+    // contiguous events until a wipe/gap. This pass marks nc_refresh for
+    // events that keep the same window object.
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
     std::vector<size_t> running_objs(nwin, SIZE_MAX);
     for (size_t k = 0; k < nodes.size(); ++k) {
@@ -1188,7 +1187,7 @@ epoch_encoder_c::encode_epoch_overlap(
     if (events.empty()) return result;
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
     (void)nwin;
-    // SUPer double_buffering[wid] (render2.py:844): per-window oid alternation.
+    // Per-window oid alternation (double buffering).
     std::vector<int> overlap_db(nwin, static_cast<int>(nwin));
     std::vector<epoch_node_t> nodes;
     nodes.reserve(events.size());
@@ -1196,6 +1195,11 @@ epoch_encoder_c::encode_epoch_overlap(
     double prev_dts_end = 0.0;
     int prev_window_id = 0;
     double prev_base_pts = 0.0;
+    double prev_wipe_dur = 0.0;
+    double prev_tc_out = 0.0;
+    uint16_t prev_obj_id = 0;
+    int prev_pos_x = 0, prev_pos_y = 0;
+    int double_buffer = 1;  // Alternates 0/1 for single-window double buffering
     for (size_t k = 0; k < events.size(); ++k) {
         const auto& ev = events[k];
         const bool forced = ev.forced();
@@ -1220,10 +1224,10 @@ epoch_encoder_c::encode_epoch_overlap(
                                            node.timings.base_pts, prev_pts,
                                            write_dur, margin);
         node.acq = sig.valid;
-        // acq and absolute stay independent (SUPer find_acqs): absolute means
-        // a new object appeared (forced/redraw/first), acq means the decode
-        // fits with margin. A node with absolute && !acq is the shift_forward
-        // candidate — its acquisition did not fit and gets moved backward.
+        // acq and absolute stay independent: absolute means a new object
+        // appeared (forced/redraw/first), acq means the decode fits with
+        // margin. A node with absolute && !acq is the shift_forward candidate —
+        // its acquisition did not fit and gets moved backward.
         // NOTE: node.absolute and node.state are resolved after the frame is
         // loaded below (they depend on the real reusable decision).
 
@@ -1264,9 +1268,11 @@ epoch_encoder_c::encode_epoch_overlap(
             node.reusable = false;
         }
         node.new_mask = !node.reusable;
-        // SUPer double_buffering[wid] (render2.py:749-750): per-window oid
-        // alternation, only with m_alternate_oids && 2+ windows. Reused events
-        // keep their window's previous oid (already decoded).
+        // Per-window oid alternation (double buffering), only with
+        // m_alternate_oids && 2+ windows. Reused events keep their window's
+        // previous oid (already decoded). Without the flag all non-reusable
+        // objects alternate a global 0/1 buffer, matching the single-pass
+        // numbering so a co-displayed normal case keeps distinct oids.
         if (m_alternate_oids && m_windows.size() >= 2) {
             int& dbw = overlap_db[static_cast<size_t>(node.window_id)];
             if (!node.reusable) {
@@ -1275,17 +1281,51 @@ epoch_encoder_c::encode_epoch_overlap(
             } else {
                 node.obj_id = static_cast<uint16_t>(node.window_id + dbw);
             }
+        } else if (!node.reusable) {
+            double_buffer = 1 - double_buffer;
+            node.obj_id = static_cast<uint16_t>(double_buffer);
+        } else {
+            node.obj_id = prev_obj_id;   // Reused object keeps its decoded oid
         }
+        // Normal-case takeover: with two windows, the event that takes over the
+        // other window while the previous object is still displayed becomes a
+        // NORMAL composition that also conserves that object as a reference
+        // CObject.
+        const double obj_decode_dur =
+            node.timings.obj_decode_time + node.timings.wipe_dur;
+        const double dts_eff = node.timings.base_pts - obj_decode_dur;
+        const bool nc_margin_ok =
+            (dts_eff > (prev_base_pts - prev_wipe_dur));
+        const bool normal_case =
+            m_allow_normal_case && m_windows.size() == 2 && k > 0 &&
+            node.timings.base_pts < prev_tc_out &&
+            node.window_id != prev_window_id && nc_margin_ok &&
+            !node.reusable;
         node.absolute = (k == 0) || forced ||
             (k < redraw_flags.size() && redraw_flags[k]) ||
             (node.new_mask && node.window_id != prev_window_id);
-        node.state = node.absolute
-            ? pcs_c::composition_state_e::acquisition
-            : (node.reusable ? pcs_c::composition_state_e::normal
-                             : pcs_c::composition_state_e::epoch_start);
+        if (normal_case) {
+            node.state = pcs_c::composition_state_e::normal;
+            node.absolute = false;   // never a shift_forward / acquisition node
+            node.normal_case_ref = true;
+            node.ref_window_id = static_cast<uint8_t>(prev_window_id);
+            node.ref_obj_id = prev_obj_id;
+            node.ref_x = prev_pos_x;
+            node.ref_y = prev_pos_y;
+        } else {
+            node.state = node.absolute
+                ? pcs_c::composition_state_e::acquisition
+                : (node.reusable ? pcs_c::composition_state_e::normal
+                                 : pcs_c::composition_state_e::epoch_start);
+        }
         prev_pts = node.timings.base_pts;
         prev_dts_end = node.dts_end;
         prev_base_pts = node.timings.base_pts;
+        prev_wipe_dur = node.timings.wipe_dur;
+        prev_tc_out = ev.tc_out();
+        prev_obj_id = node.obj_id;
+        prev_pos_x = node.ev_x + node.crop_x;
+        prev_pos_y = node.ev_y + node.crop_y;
         prev_window_id = node.window_id;
         nodes.push_back(std::move(node));
     }
@@ -1310,8 +1350,8 @@ epoch_encoder_c::emit_epoch_from_nodes(
         if (!node.has_object)
             continue;
         if (node.has_clear && (!m_overlap || node.clear_pts < node.timings.base_pts)) {
-            // Clear display set (SUPer _get_undisplay) — inline analog of the
-            // emit_clear_ds lambda in encode_epoch (US1 gap rule).
+            // Clear display set — inline analog of the emit_clear_ds lambda
+            // in encode_epoch (US1 gap rule).
             const double wipe_dur = std::ceil(static_cast<double>(node.clear_w) *
                 static_cast<double>(node.clear_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
                 pg_decoder_t::FREQ;
@@ -1342,12 +1382,17 @@ epoch_encoder_c::emit_epoch_from_nodes(
             static_cast<uint8_t>(node.window_id), palette_id,
             node.reusable, fps_enum, node.palette, node.indexed,
             node.timings};
+        in.normal_case_ref = node.normal_case_ref;
+        in.ref_window_id = node.ref_window_id;
+        in.ref_obj_id = node.ref_obj_id;
+        in.ref_x = node.ref_x;
+        in.ref_y = node.ref_y;
         auto segs = emit_event_segments(in, result);
         for (auto& seg : segs)
             result.push_back(std::move(seg));
     }
-    // End-of-epoch clear (SUPer: final wipe) — parity with the single-pass
-    // path (encode_epoch: emit_clear_ds after the last event).
+    // End-of-epoch clear (final wipe) — parity with the single-pass path
+    // (encode_epoch: emit_clear_ds after the last event).
     if (!nodes.empty()) {
         double last_pts = 0.0;
         int last_w = 0, last_h = 0, last_x = 0, last_y = 0;
@@ -1384,8 +1429,8 @@ epoch_encoder_c::emit_epoch_from_nodes(
             result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
         }
     }
-    // align_palette_updates (SUPer render2.py:286-313) — parity with the
-    // single-pass path (US3): strictly monotonic DTS over the emitted stream.
+    // align_palette_updates — parity with the single-pass path (US3):
+    // strictly monotonic DTS over the emitted stream.
     if (m_overlap) {
         double last_dts = -1.0;
         for (auto& seg : result) {
