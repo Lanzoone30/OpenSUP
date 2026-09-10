@@ -104,9 +104,10 @@ TEST(DbOids, MultiWindowReadquisitionAlternatesPerWindow) {
 }
 
 TEST(DbOids, NormalCaseRefFirstWithAlternate) {
-    // FR-3 (render2.py:786-792): with alternate_oids, the normal case puts the
-    // kept (id_skipped) CObject FIRST in the composition list. Without the
-    // flag the legacy order (fresh first, ref after) is preserved.
+    // FR-3 (render2.py:786-792, sorted f_is_first_cobj): the normal case puts
+    // the kept (id_skipped) CObject FIRST in the composition list. The sort is
+    // unconditional in SUPer — with AND without alternate_oids (010 R2). The
+    // reference never alternates (uses the on-screen oid).
     auto encode_nc = [](const std::string& out, bool alt) {
         encode_config_t cfg;
         cfg.input_path = OPENDSUP_FIXTURES_DIR "/opensup_normalcase.xml";
@@ -138,14 +139,13 @@ TEST(DbOids, NormalCaseRefFirstWithAlternate) {
     ASSERT_TRUE(off_pcs != nullptr);
     ASSERT_EQ(on_pcs->cobjects.size(), 2u);
     ASSERT_EQ(off_pcs->cobjects.size(), 2u);
-    // With the flag: the kept window-0 reference comes first.
+    // The kept window-0 reference comes first in both modes.
     EXPECT_EQ(on_pcs->cobjects[0].window_id, 0u);
     EXPECT_EQ(on_pcs->cobjects[1].window_id, 1u);
-    // Legacy (flag off): fresh window-1 object first, ref after.
-    EXPECT_EQ(off_pcs->cobjects[0].window_id, 1u);
-    EXPECT_EQ(off_pcs->cobjects[1].window_id, 0u);
+    EXPECT_EQ(off_pcs->cobjects[0].window_id, 0u);
+    EXPECT_EQ(off_pcs->cobjects[1].window_id, 1u);
     // The reference keeps the on-screen oid (no alternation) in both.
-    EXPECT_EQ(on_pcs->cobjects[0].o_id, off_pcs->cobjects[1].o_id);
+    EXPECT_EQ(on_pcs->cobjects[0].o_id, off_pcs->cobjects[0].o_id);
 }
 
 TEST(DbOids, OverlapPathAlternatesPerWindow) {
