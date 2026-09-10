@@ -29,33 +29,39 @@ struct epoch_timings_t {
     double decode_duration = 0.0; ///< Full-screen compose duration (RC rate).
 };
 
-/// Per-event decode-margin signals (SUPer find_acqs, render2.py:1073-1135).
+/// Per-event decode-margin signals (find_acqs).
 struct acq_signals_t {
-    bool valid = false;    ///< valid[k] (render2.py:1132): the object decodes after the
-                           ///< previous decode end and the PTS gap exceeds the epoch
-                           ///< write duration.
-    double dtl = -1.0;     ///< dtl[k] (render2.py:1133): decode slack normalized by the
-                           ///< previous node duration (margin = prev_dt/fps, :1125);
+    bool valid = false;    ///< The object decodes after the previous decode end and the
+                           ///< PTS gap exceeds the epoch write duration.
+    double dtl = -1.0;     ///< Decode slack normalized by the previous node duration;
                            ///< -1 when the timing is invalid.
-    bool absolute = false; ///< absolutes[k] (render2.py:1119): a new object appeared
-                           ///< in a window (C++ analog: SSIM break / force_acquisition).
+    bool absolute = false; ///< A new object appeared in a window (SSIM break / forced
+                           ///< acquisition).
 };
 
-/// Per-event node for the overlap pipeline (SUPer DSNode analog).
+/// Per-event node for the overlap pipeline.
 /// Carries the information needed for shift_forward_overlay and
 /// set_pgobjects_extended_visibilities before emission.
 struct epoch_node_t {
-    // Decision signals (SUPer DSNode / find_acqs)
+    // Decision signals
     int window_id = 0;                ///< Layout window this event's object occupies.
     bool has_object = false;          ///< This event has an object (non-wipe).
-    bool new_mask = false;            ///< New object in this window (SUPer new_mask per window).
-    bool absolute = false;            ///< absolutes[k]: forced acquisition (SSIM break / redraw).
-    bool acq = false;                 ///< acqs[k]: valid acquisition candidate (margin OK).
-    bool nc_refresh = false;          ///< SUPer nc_refresh marker (reusable palette update).
+    bool new_mask = false;            ///< New object in this window.
+    bool absolute = false;            ///< Forced acquisition (SSIM break / redraw).
+    bool acq = false;                 ///< Valid acquisition candidate (decode margin OK).
+    bool nc_refresh = false;          ///< Reusable palette-update marker (no new object).
     pcs_c::composition_state_e state = pcs_c::composition_state_e::epoch_start;
     epoch_timings_t timings;          ///< Per-segment timestamps.
-    double dts_end = 0.0;             ///< dts + wipe_dur (decode end, SUPer dts_end()).
+    double dts_end = 0.0;             ///< dts + wipe_dur (decode end).
     bool forced = false;              ///< Event forced-subtitle flag.
+
+    // Normal-case takeover: this node conserves the other window's
+    // still-displayed object as a reference CObject without a new ODS,
+    // mirroring event_emit_input_t (renderer.h).
+    bool normal_case_ref = false;
+    uint8_t ref_window_id = 0;        ///< Window of the kept object.
+    uint16_t ref_obj_id = 0;          ///< Object id of the kept object (last ODS).
+    int ref_x = 0, ref_y = 0;         ///< Position of the kept object.
 
     // Emission payload (object bitmap + derived data)
     std::vector<uint8_t> rgba;        ///< Trimmed frame (raw, for ODS/co-quant).
@@ -75,17 +81,16 @@ struct epoch_node_t {
     bool shifted = false;             ///< This node absorbed an acquisition from a later node.
 };
 
-/// Decode-margin computation of find_acqs (render2.py:1122-1133), adapted to
-/// the object-based decode model (dts = pts - object decode+write; the SUPer
-/// node/slot numerator is a documented ceiling, specs/006 plan §Riesgos).
+/// Decode-margin computation of find_acqs, adapted to the object-based decode
+/// model (dts = pts - object decode+write; the full-screen node/slot numerator
+/// is a documented ceiling).
 /// @param dts decode start of this event's object.
 /// @param prev_dts_end decode end of the previous event's object.
 /// @param pts presentation time of this event.
 /// @param prev_pts presentation time of the previous event.
-/// @param write_duration epoch write duration (first event, DSNode.write_duration).
-/// @param margin previous node duration in seconds (render2.py:1122-1125):
-///        the inter-event gap when one exists (wipe node), else the previous
-///        event duration.
+/// @param write_duration epoch write duration (first event).
+/// @param margin previous node duration in seconds: the inter-event gap when
+///        one exists (wipe node), else the previous event duration.
 [[nodiscard]] acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
                                               double pts, double prev_pts,
                                               double write_duration, double margin);
@@ -165,16 +170,19 @@ private:
     emit_event_segments(const event_emit_input_t& in,
                         const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far);
 
+    /// Next ODS object-version number for o_id (per-object emission counter).
+    uint8_t next_ods_vn(uint16_t o_id);
+
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
-    // Normal-case flags: SUPer's normal case requires two windows (redefine one
-    // while keeping the other).
+    // The normal case requires two windows: it redefines one while keeping the
+    // other's object on screen.
     bool m_allow_normal_case = false;
     bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
-    bool m_alternate_oids = false;       // SUPer double_buffering[wid] (render2.py:749-750)
+    bool m_alternate_oids = false;       // Per-window oid alternation (double buffering)
     double m_quality_factor = 0.8;       // compression/100 (0 = force all ACQUISITION)
     double m_dquality_factor = 0.035;    // drought decay factor (original default)
     double m_refresh_rate = 1.0;         // acqrate/100 (scales drought)
@@ -183,12 +191,13 @@ private:
     double m_drought = 0.0;
     int m_composition_n = 1;
     int m_palette_vn = 0;
+    std::vector<uint8_t> m_ods_vn;  // Per-oid ODS version counter.
     int m_reuse_candidates = 0;
     std::vector<window_definition_t> m_windows;  // Window definitions for this epoch
     /// Resolve the window owning the point (ev_x+crop_x, ev_y+crop_y).
     /// 0 when no layout windows are provided (single-window mode).
     [[nodiscard]] uint8_t window_for(int ev_x, int ev_y, int crop_x, int crop_y) const noexcept;
-    // F2: overlap pipeline pre-passes (SUPer render2.py:315-408, 408-460)
+    // Overlap pipeline pre-passes
     void shift_forward_overlay(std::vector<epoch_node_t>& nodes,
                                 const std::vector<bool>& forced_acq) const;
     void set_extended_visibilities(std::vector<epoch_node_t>& nodes) const;
