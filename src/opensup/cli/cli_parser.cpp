@@ -47,7 +47,7 @@ parse_args(int argc, char** argv)
     app.add_flag("--allow-normal", opts.allow_normal_case,
                   "Allow normal case object redefinition.");
     app.add_flag("--prefer-normal", opts.prefer_normal_case,
-                  "Prefer normal case object redefinition.");
+                  "Prefer normal case object redefinition (implies --allow-normal).");
     app.add_flag("--overlap", opts.overlap,
                   "Allow palette update buffering.");
     app.add_flag("--alternate-oids", opts.alternate_oids,
@@ -66,7 +66,7 @@ parse_args(int argc, char** argv)
         ->check(CLI::Range(0, 48000));
 
     app.add_option("-j,--threads", opts.threads,
-                    "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 1)")
+                    "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 0 = auto)")
         ->check(CLI::Range(0, 1024));
 
     // Drought / quality parameters (parity with the original)
@@ -109,8 +109,9 @@ options_to_config(const cli_options_t& opts)
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
-    cfg.allow_normal_case = opts.allow_normal_case;
     cfg.prefer_normal_case = opts.prefer_normal_case;
+    // A lone --prefer-normal must not be a silent no-op: it implies allow.
+    cfg.allow_normal_case = opts.allow_normal_case || opts.prefer_normal_case;
     cfg.overlap = opts.overlap;
     cfg.alternate_oids = opts.alternate_oids;
     cfg.bt_matrix = opts.bt_matrix;
