@@ -13,17 +13,22 @@ add_executable(opensup_test_core
   findacqs_test.cpp
   ahead_test.cpp
   double_buffer_test.cpp
+  ods_vn_test.cpp
+  cli_parser_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 
 target_link_libraries(opensup_test_core
   PRIVATE
     opensup_core
+    CLI11::CLI11
     GTest::gtest_main
 )
 
 target_include_directories(opensup_test_core
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src
+    ${CMAKE_BINARY_DIR}
 )
 
 target_compile_definitions(opensup_test_core
