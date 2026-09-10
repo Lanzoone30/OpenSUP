@@ -55,13 +55,13 @@ bool leaky_buffer_c::step(const pg_segment_c& seg) {
     const uint32_t new_ts = seg.tdts();
     const uint64_t dticks = (static_cast<uint64_t>(new_ts) - m_last_ts) & TS_MASK;
 
-    // Refill at the given bitrate, capped at the buffer size (SUPer pgstream.py:74).
+    // Refill at the given bitrate, capped at the buffer size.
     m_used_bytes = std::min(
         m_used_bytes +
             round_banker(static_cast<double>(dticks) * static_cast<double>(m_bitrate) / PGS_FREQ),
         SIZE);
 
-    // Payload consumes buffer; SUPer subtracts len(seg) - 2 ('PG' magic excluded).
+    // Payload consumes buffer; subtract len(seg) - 2 ('PG' magic excluded).
     m_used_bytes -= full_len(seg) - 2;
 
     const double u = usage();
@@ -85,7 +85,7 @@ bool leaky_buffer_c::step(const pg_segment_c& seg) {
 }
 
 void leaky_buffer_c::set_bitrate(int64_t size_ds, uint32_t curr_ts) noexcept {
-    // Keep only display-set sizes within the last second (SUPer pgstream.py:93).
+    // Keep only display-set sizes within the last second.
     m_rate_past.erase(
         std::remove_if(m_rate_past.begin(), m_rate_past.end(),
                        [curr_ts](const auto& entry) {
@@ -127,7 +127,7 @@ bool test_rx_bitrate(const std::vector<std::shared_ptr<pg_segment_c>>& segments,
     const uint32_t first_ds_pts = display_sets.front().pts;
     const uint32_t last_ds_pts = display_sets.back().pts;
 
-    // Buffer starts full, one second before the first segment (SUPer pgstream.py:116).
+    // Buffer starts full, one second before the first segment.
     const uint32_t first_tdts = display_sets.front().segments.front()->tdts();
     const uint32_t first_ts = static_cast<uint32_t>(
         (static_cast<uint64_t>(first_tdts) - static_cast<uint64_t>(PGS_FREQ)) & 0xFFFFFFFFull);
@@ -137,7 +137,7 @@ bool test_rx_bitrate(const std::vector<std::shared_ptr<pg_segment_c>>& segments,
     int64_t total_bytes = 0;
     uint32_t prev_ts = first_ts;
     int64_t dur_offset = 0;
-    bool wrap_armed = true; // SUPer: add 2^32 once on the first 32-bit wrap
+    bool wrap_armed = true; // Add 2^32 once on the first 32-bit wrap
 
     for (const auto& ds : display_sets) {
         int64_t ds_bytes = 0;

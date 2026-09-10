@@ -133,7 +133,7 @@ optimiser_c::get_available()
     return backends;
 }
 
-// ── Group co-quantization (SUPer Optimise.solve_and_remap) ──
+// ── Group co-quantization ──
 
 namespace {
 /// Squared L2 distance between two F*4-byte YCrCbA sequences.
@@ -242,17 +242,16 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     std::vector<size_t> rank_of(nseq);
     for (size_t r = 0; r < nseq; r++) rank_of[order[r]] = r;
 
-    // Transparent handling (SUPer solve_and_remap): the first fully
-    // transparent sequence is dropped and remapped to index 0xFF; the other
-    // sequences shift around it so the union bitmap matches the palette
-    // layout (index 0 unused, transparent = 255).
+    // Transparent handling: the first fully transparent sequence is dropped
+    // and remapped to index 0xFF; the other sequences shift around it so the
+    // union bitmap matches the palette layout (index 0 unused, transparent = 255).
     int t = -1;
     for (size_t r = 0; r < nseq; r++) {
         if (seq_infos[order[r]].transparent) { t = static_cast<int>(r); break; }
     }
     if (t == -1 && nseq >= static_cast<size_t>(max_colors)) {
-        // All slots used and no reserved transparent index — SUPer lowers
-        // the color count and retries.
+        // All slots used and no reserved transparent index: lower the color
+        // count and retry.
         return solve_group(frames, max_colors - 1, out);
     }
 
@@ -293,7 +292,7 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     }
 
     // Per-frame palettes: frame 0 carries every entry; later frames only the
-    // entries that changed since last set (SUPer diff_cluts). The transparent
+    // entries that changed since last set. The transparent
     // row t is dropped entirely from the palette space.
     out.palettes.clear();
     out.palettes.reserve(F);

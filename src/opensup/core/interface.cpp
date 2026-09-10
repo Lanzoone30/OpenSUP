@@ -221,7 +221,7 @@ bdn_render_c::execute()
         }
     }
 
-    // Optional stream bitrate validation (SUPer test_output max_kbps path).
+    // Optional stream bitrate validation (max_kbps path).
     // Warns on decoder-buffer underflow; never fails the encode.
     if (m_config.max_kbps > 0) {
         logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +

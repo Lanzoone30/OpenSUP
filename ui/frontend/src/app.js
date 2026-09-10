@@ -401,7 +401,7 @@ async function setOutput() {
       state.outputPath = path;
       state.lastOutDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
       $("lbl_output_file").textContent = path.split(/[\\/]/).pop();
-      // .pes destinations require full palette (SUPer set_outputsup parity).
+      // .pes destinations require full palette.
       if (path.toLowerCase().endsWith(".pes")) {
         $("chk_full_palette").checked = true;
         $("chk_full_palette").disabled = true;
@@ -647,7 +647,7 @@ function wireDomEvents() {
   });
 
   // Both-formats output requires full palette; unchecking only re-enables
-// Full Palette without touching its own value (SUPer hide_chkbox parity).
+  // Full Palette without touching its own value.
   $("chk_both_formats").addEventListener("change", (e) => {
     if (e.target.checked) {
       $("chk_full_palette").checked = true;
@@ -659,7 +659,7 @@ function wireDomEvents() {
   });
 
   // Prefer normal case forces Allow Normal Case ON and disables it; unchecking
-  // only re-enables Allow preserving its own value (SUPer hide_chkbox parity).
+  // only re-enables Allow preserving its own value.
   $("chk_prefer_normal").addEventListener("change", (e) => {
     if (e.target.checked) {
       $("chk_allow_normal").checked = true;

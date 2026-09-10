@@ -147,8 +147,8 @@ std::vector<uint8_t> gaussian_blur_3x3(const std::vector<uint8_t>& src, int widt
     return dst;
 }
 
-// cv2.Sobel(src, ddepth=cv2.CV_8U, dx=1, dy=1, ksize=5) equivalent (SUPer
-// render2.py:1291-1292): mixed second derivative, kernel
+// cv2.Sobel(src, ddepth=cv2.CV_8U, dx=1, dy=1, ksize=5) equivalent: mixed
+// second derivative, kernel
 // K[i][j] = ky[i] * kx[j] with kx = ky = [-1,-2,0,2,1]
 // (verified via cv2.getDerivKernels(1, 0, 5)), BORDER_REFLECT_101 (cv2
 // default), exact integer convolution saturate_cast<uchar> (negatives clip
@@ -205,12 +205,12 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
         }
     }
     if (overlap_count == 0) {
-        // SUPer render2.py:1297-1299: no alpha intersection → (score=1.0, cross=1.0)
+        // No alpha intersection → (score=1.0, cross=1.0)
         cross_percentage = 1.0;
         return 1.0;
     }
 
-    // Apply Gaussian blur to the mask and binarize, as SUPer does.
+    // Dilate the overlap mask: blur it, then binarize back to 0/255.
     mask = gaussian_blur_5x5(mask, width, height);
     for (auto& v : mask) {
         if (v > 0) {
@@ -218,8 +218,8 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
         }
     }
 
-    // SUPer render2.py:1284: cross_percentage is the dilated (blurred +
-    // binarized) mask area over the total, computed AFTER the blur.
+    // cross_percentage is the dilated (blurred + binarized) mask area over
+    // the total, computed AFTER the blur.
     size_t mask_count = 0;
     for (size_t i = 0; i < np; ++i) {
         if (mask[i] > 0) {
@@ -240,7 +240,7 @@ ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
 
     double score = compare(l1.data(), l2.data(), width, height, 1);
 
-    // Edge SSIM (SUPer _compare_f): blur the FULL luminance, take the gradient,
+    // Edge SSIM: blur the full luminance, take the gradient,
     // mask it, compare, and fuse with min() — the worse of the two decides.
     {
         std::vector<uint8_t> e1 = rgba_to_luminance(img1, width, height);

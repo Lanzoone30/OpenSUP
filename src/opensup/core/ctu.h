@@ -16,7 +16,7 @@
 namespace opensup {
 namespace core {
 
-/// Recursive area-weighted SSIM comparison (SUPer render2.py:1186-1245, CTU).
+/// Recursive area-weighted SSIM comparison (CTU).
 /// Splits spatially separated alpha regions with the layout engine and
 /// aggregates per-region scores, discounting identical regions by 0.325 so a
 /// diverging region is not diluted by unchanged ones.

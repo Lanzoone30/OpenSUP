@@ -44,7 +44,7 @@ struct encode_config_t {
     bool allow_normal_case = false;
     bool prefer_normal_case = false;
     bool overlap = false;
-    bool alternate_oids = false;   // SUPer double_buffering[wid] per-window oid alternation
+    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;

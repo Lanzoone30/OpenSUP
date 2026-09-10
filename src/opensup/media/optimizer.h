@@ -74,7 +74,7 @@ struct group_solution_t {
 
 /**
  * @brief Co-quantize a group of frames into one union bitmap plus a chain of
- *        palette updates (SUPer Optimise.solve_and_remap).
+ *        palette updates.
  *
  * Each pixel is assigned a single bitmap index for its whole color sequence;
  * per-frame palettes map that index to the frame's color. Frames must share

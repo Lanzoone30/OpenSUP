@@ -4,7 +4,7 @@
 // OpenSUP - PGS Encoder
 //
 // Adapted from SUPer by cubicibo (https://github.com/cubicibo/SUPer), GPL-3.0-or-later.
-// CTU: recursive area-weighted SSIM (render2.py:1186-1245).
+// CTU: recursive area-weighted SSIM split by connected alpha regions.
 
 #include "opensup/core/ctu.h"
 
@@ -77,8 +77,9 @@ void ctu_c::get_costs(const std::vector<uint8_t>& composite,
     }
 
     if (split_valid) {
-        // ponytail: raw window boxes — SUPer first pads to >=8px via
-        // PaddingEngine.directional_pad; add it if region-edge parity matters.
+        // Deliberate simplification: raw window boxes are used while the
+        // reference pads them to >=8px; add that padding if region-edge
+        // parity ever matters.
         const bool sizes_ok = w0.dx >= MIN_REGION_SIZE && w0.dy >= MIN_REGION_SIZE &&
                               w1.dx >= MIN_REGION_SIZE && w1.dy >= MIN_REGION_SIZE;
         const bool gain_ok = static_cast<double>(w0.area() + w1.area()) <

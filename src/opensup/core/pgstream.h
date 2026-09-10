@@ -26,7 +26,7 @@ struct buffer_stats_t {
     uint32_t ts_avg = 0;      ///< 90 kHz tick of the peak 1s rate.
 };
 
-/// BD decoder buffer model (leaky bucket, 1 MiB) — ported from SUPer pgstream.py.
+/// BD decoder buffer model (leaky bucket, 1 MiB).
 class leaky_buffer_c {
 public:
     static constexpr int64_t SIZE = 1 << 20;           ///< Decoder buffer size in bytes.
