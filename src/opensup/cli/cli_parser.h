@@ -25,10 +25,10 @@ struct cli_options_t {
     bool allow_normal_case = false;
     bool prefer_normal_case = false;
     bool overlap = false;
-    bool alternate_oids = false;   // SUPer double_buffering[wid] per-window oid alternation
+    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
-    int threads = 1;         // 0 = auto (hardware concurrency)
+    int threads = 0;         // 0 = auto (hardware concurrency)
 
     // Drought / quality parameters (parity with the original)
     int compression = 80;    // quality_factor: 0-100 (def 80)
