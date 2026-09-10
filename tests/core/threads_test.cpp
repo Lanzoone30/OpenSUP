@@ -37,6 +37,7 @@ TEST(Threads, DeterministicAcrossWorkerCounts) {
     const std::string input = OPENDSUP_FIXTURES_DIR "/synth_bdn_multi.xml";
     const std::string out1 = OPENDSUP_TEST_OUTPUT_DIR "/threads_det_j1.sup";
     const std::string out4 = OPENDSUP_TEST_OUTPUT_DIR "/threads_det_j4.sup";
+    const std::string out0 = OPENDSUP_TEST_OUTPUT_DIR "/threads_det_auto.sup";
 
     encode_config_t cfg1;
     cfg1.input_path = input;
@@ -48,16 +49,27 @@ TEST(Threads, DeterministicAcrossWorkerCounts) {
     cfg4.output_path = out4;
     cfg4.threads = 4;
 
+    // 0 = auto (hardware concurrency): must stay deterministic too (T051).
+    encode_config_t cfg0 = cfg1;
+    cfg0.output_path = out0;
+    cfg0.threads = 0;
+
     bdn_render_c r1(cfg1);
     bdn_render_c r4(cfg4);
+    bdn_render_c r0(cfg0);
     const auto res1 = r1.execute();
     const auto res4 = r4.execute();
+    const auto res0 = r0.execute();
 
     ASSERT_TRUE(res1.success) << res1.error;
     ASSERT_TRUE(res4.success) << res4.error;
+    ASSERT_TRUE(res0.success) << res0.error;
     ASSERT_EQ(res4.segments, res1.segments);
+    ASSERT_EQ(res0.segments, res1.segments);
     EXPECT_EQ(stream_hash(r1.segments()), stream_hash(r4.segments()))
         << "parallel (-j4) output differs from sequential (-j1)";
+    EXPECT_EQ(stream_hash(r1.segments()), stream_hash(r0.segments()))
+        << "auto (0) output differs from sequential (-j1)";
 }
 
 TEST(Threads, AutoThreadsSameOutput) {
