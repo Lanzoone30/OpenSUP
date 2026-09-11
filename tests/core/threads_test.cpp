@@ -1,11 +1,16 @@
 #include <gtest/gtest.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "opensup/core/interface.h"
 
 namespace opensup {
 namespace core {
+
+// Defined in interface.cpp (non-static so this test can check it).
+int physical_core_count();
+
 namespace {
 
 /// Segment payload hashes (FNV-1a over raw bytes) — byte-exact equality
@@ -91,6 +96,13 @@ TEST(Threads, AutoThreadsSameOutput) {
     bdn_render_c ref(ref_cfg);
     ASSERT_TRUE(ref.execute().success);
     EXPECT_EQ(stream_hash(r.segments()), stream_hash(ref.segments()));
+}
+
+TEST(Threads, PhysicalCoreCountIsSane) {
+    const int cores = physical_core_count();
+    const int logical = static_cast<int>(std::thread::hardware_concurrency());
+    EXPECT_GE(cores, 1);
+    if (logical > 0) EXPECT_LE(cores, logical);
 }
 
 }  // namespace
