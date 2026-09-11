@@ -3,6 +3,7 @@
 import { $ } from "../../shared/dom.js";
 import { state } from "../../shared/state.js";
 import { go } from "../../shared/bridge.js";
+import { t } from "../../shared/i18n.js";
 import { updateReadyState } from "../btns-actions/btns-actions.js";
 
 export function applyBDNPath(path) {
@@ -87,4 +88,37 @@ export function wireCardToggles() {
   ["dd_params", "dd_engine", "dd_advanced"].forEach((id) => {
     $(id)?.addEventListener("toggle", () => updateControlsFade());
   });
+}
+
+// Fill the threads <select> with Auto plus 1..physical cores. Auto (value 0)
+// lets the engine pick the physical-core count; the rest are explicit workers.
+export async function populateThreads() {
+  const sel = $("combo_threads");
+  if (!sel) return;
+  let cores = 0;
+  const app = go();
+  if (app?.PhysicalCores) {
+    try {
+      cores = await app.PhysicalCores();
+    } catch (err) {
+      console.error("PhysicalCores:", err);
+    }
+  }
+  const max = cores > 0 ? cores : 1;
+  const current = sel.value;
+  const auto = document.createElement("option");
+  auto.value = "0";
+  auto.textContent = t("auto");
+  auto.dataset.i18n = "auto";
+  const options = [auto];
+  for (let n = 1; n <= max; n++) {
+    const opt = document.createElement("option");
+    opt.value = String(n);
+    opt.textContent = String(n);
+    options.push(opt);
+  }
+  sel.replaceChildren(...options);
+  // Keep the previous choice when still valid, otherwise fall back to auto.
+  const values = options.map((o) => o.value);
+  sel.value = values.includes(current) ? current : "0";
 }
