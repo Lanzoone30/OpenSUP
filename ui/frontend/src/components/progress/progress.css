@@ -11,8 +11,18 @@
 .led-standing {
   background: var(--led-blue);
   box-shadow: 0 0 8px var(--led-blue-glow);
+  /* Slow pulse while waiting for the user to start an encode. */
+  animation: led-pulse 2s ease-in-out infinite;
 }
-
+@keyframes led-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
 .led-working {
   background: var(--led-blue);
   box-shadow: 0 0 10px var(--led-blue-glow);
@@ -44,6 +54,12 @@
 
   50% {
     opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led-standing {
+    animation: none;
   }
 }
 
