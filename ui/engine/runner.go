@@ -3,7 +3,6 @@ package engine
 import (
 	"bufio"
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -13,9 +12,6 @@ import (
 	"runtime"
 	"sync"
 )
-
-//go:embed bin/*
-var embedded embed.FS
 
 // Events are the names emitted to the Wails frontend via
 // runtime.EventsEmit. Keep in sync with frontend listeners.
