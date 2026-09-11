@@ -14,6 +14,10 @@ export function LoadSettings() {
   return window['go']['main']['App']['LoadSettings']();
 }
 
+export function PhysicalCores() {
+  return window['go']['main']['App']['PhysicalCores']();
+}
+
 export function RevealOutput(arg1) {
   return window['go']['main']['App']['RevealOutput'](arg1);
 }
