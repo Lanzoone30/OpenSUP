@@ -28,7 +28,7 @@ struct cli_options_t {
     bool alternate_oids = false;   // Per-window oid alternation (double buffering)
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
-    int threads = 0;         // 0 = auto (hardware concurrency)
+    int threads = 0;         // 0 = auto (physical cores)
 
     // Drought / quality parameters (parity with the original)
     int compression = 80;    // quality_factor: 0-100 (def 80)
