@@ -30,7 +30,8 @@ const Table = {
   maxKbps:        { en: "Max bitrate",                              es: "Bitrate máximo" },
   maxKbpsTip:     { en: "Validate output against a max bitrate (Kbps). 0: disabled (recommended). To cap it: 10000-30000.", es: "Valida la salida contra un bitrate máximo (Kbps). 0: desactivado (recomendado). Para limitarlo: 10000-30000." },
   threads:        { en: "Threads",                              es: "Hilos" },
-  threadsTip:     { en: "Parallel epoch workers. 0: Auto (recommended, uses all cores). 1: sequential.", es: "Hilos de épocas en paralelo. 0: Automático (recomendado, usa todos los núcleos). 1: secuencial." },
+  threadsTip:     { en: "Parallel epoch workers. Auto: recommended, uses all physical cores. 1: sequential.", es: "Hilos de épocas en paralelo. Auto: recomendado, usa todos los núcleos físicos. 1: secuencial." },
+  auto:           { en: "Auto", es: "Auto" },
   compression:    { en: "Compression",                        es: "Compresión" },
   compressionTip: { en: "Quality factor. 80 recommended (default). 0 = no compression (max quality, larger file); 100 = max compression.", es: "Factor de calidad. Recomendado 80 (por defecto). 0 = sin compresión (máx. calidad, archivo mayor); 100 = compresión máxima." },
   acqrate:        { en: "Acq. Rate",                          es: "Tasa adq." },
@@ -85,7 +86,7 @@ const Table = {
   tipOverlapBuf:   { en: "Allow this encoder to generate overlapping objects in the output stream.\nThis method is more efficient but not well supported by some hardware decoders.", es: "Permitir que este codificador genere objetos superpuestos en el stream de salida.\nEste método es más eficiente pero no es bien soportado por algunos decodificadores de hardware." },
   alternateOids:   { en: "Alternate per-window object ids (multi-window).", es: "Alternate per-window object ids (multi-window)." },
   tipAlternateOids:{ en: "Alternate the object id per window on every acquisition (double buffering).\nAvoids tearing on hardware that reuses object buffers; identical visual output.", es: "Alternar el id de objeto por ventana en cada adquisición (doble buffer).\nEvita tearing en hardware que reutiliza buffers de objeto; salida visual idéntica." },
-  tipIgnoreRes:    { en: "Ignore the warning when the input video resolution does not match the expected BDN resolution.\nUsing this option improperly may produce streams that fail on some players.", es: "Ignorar la advertencia cuando la resolución del video de entrada no coincide con la resolución BDN esperada.\nUsar esta opción indebidamente puede producir streams que fallen en algunos reproductores." },
+  tipIgnoreRes:    { en: "Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.", es: "Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores." },
 };
 
 // Current language: 0 = EN, 1 = ES
