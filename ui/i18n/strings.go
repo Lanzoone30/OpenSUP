@@ -14,7 +14,7 @@ const (
 )
 
 // Version is injected into the windowTitle key. Set at build time.
-const Version = "1.1.0"
+const Version = "2.0.0"
 
 // Table maps each key to a pair (EN, ES). 53 entries matching
 // translations.h exactly. Keys prefixed with an emoji keep it.
