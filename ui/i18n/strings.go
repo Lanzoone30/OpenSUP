@@ -41,7 +41,8 @@ var Table = map[string][2]string{
 	"maxKbps":        {"Max bitrate", "Bitrate máximo"},
 	"maxKbpsTip":     {"Validate output against a max bitrate (Kbps). 0: disabled (recommended). To cap it: 10000-30000.", "Valida la salida contra un bitrate máximo (Kbps). 0: desactivado (recomendado). Para limitarlo: 10000-30000."},
 	"threads":        {"Threads", "Hilos"},
-	"threadsTip":     {"Parallel epoch workers. 0: Auto (recommended, uses all cores). 1: sequential.", "Hilos de épocas en paralelo. 0: Automático (recomendado, usa todos los núcleos). 1: secuencial."},
+	"threadsTip":     {"Parallel epoch workers. Auto: recommended, uses all physical cores. 1: sequential.", "Hilos de épocas en paralelo. Auto: recomendado, usa todos los núcleos físicos. 1: secuencial."},
+	"auto":           {"Auto", "Auto"},
 	"compression":    {"Compression", "Compresión"},
 	"compressionTip": {"Quality factor. 80 recommended (default). 0 = no compression (max quality, larger file); 100 = max compression.", "Factor de calidad. Recomendado 80 (por defecto). 0 = sin compresión (máx. calidad, archivo mayor); 100 = compresión máxima."},
 	"acqrate":        {"Acq. Rate", "Tasa adq."},
@@ -109,8 +110,8 @@ var Table = map[string][2]string{
 		"Permitir que este codificador genere objetos superpuestos en el stream de salida.\nEste método es más eficiente pero no es bien soportado por algunos decodificadores de hardware.",
 	},
 	"tipIgnoreRes": {
-		"Ignore the warning when the input video resolution does not match the expected BDN resolution.",
-		"Ignorar la advertencia cuando la resolución del video de entrada no coincide con la resolución BDN esperada.",
+		"Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.",
+		"Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores.",
 	},
 }
 
