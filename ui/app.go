@@ -191,6 +191,12 @@ func (a *App) Version() string {
 	return i18n.Version
 }
 
+// PhysicalCores returns the number of physical CPU cores for the threads
+// selector.
+func (a *App) PhysicalCores() int {
+	return config.PhysicalCores()
+}
+
 // wailsEmitter satisfies engine.Emitter by forwarding events to the
 // Wails runtime, which the frontend receives via EventsOn.
 type wailsEmitter struct {
