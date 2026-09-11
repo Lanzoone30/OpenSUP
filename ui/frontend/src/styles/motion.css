@@ -1,0 +1,63 @@
+/* ── Load entrance animation ── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.995);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card,
+.log-panel>.log-card,
+.log-panel>.card-progress,
+.log-panel>.encode-row {
+  animation: fade-in-up 0.45s var(--ease-out) both;
+}
+
+.card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.card:nth-child(2) {
+  animation-delay: 0.10s;
+}
+
+.card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.card:nth-child(4) {
+  animation-delay: 0.20s;
+}
+
+.log-panel>.log-card {
+  animation-delay: 0.10s;
+}
+
+.log-panel>.card-progress {
+  animation-delay: 0.15s;
+}
+
+.log-panel>.encode-row {
+  animation-delay: 0.20s;
+}
+
+/* ── Reduced motion: keep state changes, drop decorative animation ── */
+@media (prefers-reduced-motion: reduce) {
+
+  .progress-fill,
+  .progress-reveal,
+  .led-done,
+  .dd-list.open,
+  .card,
+  .log-panel>.log-card,
+  .log-panel>.card-progress,
+  .log-panel>.encode-row {
+    animation: none !important;
+    transition: none !important;
+  }
+}

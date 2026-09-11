@@ -1,0 +1,179 @@
+/* Ghost */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 4px 11px;
+  font-size: 11.5px;
+  border-radius: var(--r-btn);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-alt);
+}
+
+
+/* ── Right column: monitoring panel ── */
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Log card */
+.log-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.log-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.log-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+  line-height: 1.6;
+}
+
+.log-buttons {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.log-area {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  box-shadow: var(--shadow-sm), inset 0 1px 2px rgba(0, 0, 0, 0.03);
+  min-height: 0;
+}
+
+.log-area:empty::before {
+  content: attr(data-empty);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+/* Floating "jump to latest" button over the log (shown when scrolled up). */
+.log-follow-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.log-follow-btn[hidden] {
+  display: none;
+}
+
+.log-follow-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.log-follow-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Log entries ── */
+.log-entry {
+  display: block;
+  white-space: pre-wrap;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 -6px;
+  transition: background var(--dur) var(--ease);
+}
+
+.log-entry:hover {
+  background: var(--surface-alt);
+}
+
+.log-entry.debug {
+  color: var(--log-debug);
+}
+
+.log-entry.info {
+  color: var(--log-info);
+}
+
+.log-entry.warn {
+  color: var(--log-warn);
+  background: var(--log-warn-bg);
+  font-weight: 600;
+}
+
+.log-entry.pass {
+  color: var(--log-pass);
+  background: var(--log-pass-bg);
+  font-weight: 600;
+}
+
+.log-entry.error,
+.log-entry.fail {
+  color: var(--log-error);
+  background: var(--log-error-bg);
+  font-weight: 600;
+}
+
+.log-entry.fatal {
+  color: var(--log-fatal);
+  background: var(--log-fatal-bg);
+  font-weight: 500;
+}

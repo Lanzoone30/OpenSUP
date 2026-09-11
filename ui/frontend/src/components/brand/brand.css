@@ -1,0 +1,45 @@
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 24px;
+}
+
+/* Fade-out at both tips, matching the vlines */
+.brand-top-line,
+.brand-bottom-line {
+  width: 180px;
+  height: 1px;
+  background: linear-gradient(90deg,
+      transparent 0%, var(--border-strong) 30%,
+      var(--border-strong) 70%, transparent 100%);
+}
+
+.brand-top-line {
+  margin-bottom: 2px;
+}
+
+#logo {
+  height: var(--logo-h);
+  width: var(--logo-w);
+  object-fit: contain;
+}
+
+.subtitle {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.version {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-top: -2px;
+}

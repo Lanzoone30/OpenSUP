@@ -1,0 +1,106 @@
+.header-controls select {
+  min-width: 78px;
+  font-size: 12px;
+}
+
+/* ── Dropdown variants in header ── */
+.hdr-dd .dd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-width: 0;
+  padding: 7px 32px 7px 12px;
+  position: relative;
+  background-image: none;
+}
+
+/* Language button keeps a stable width: "English (US)" is wider than
+   "Spanish", so without a floor the control resizes on locale switch. */
+#dd_language .dd-btn {
+  min-width: 152px;
+}
+
+.hdr-dd .dd-flag {
+  width: 20px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.hdr-dd .dd-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+/* Rotating chevron on open/close */
+.hdr-dd .dd-btn::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.hdr-dd .dd-btn.open::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.hdr-dd .dd-list {
+  left: auto;
+  right: 0;
+  min-width: 140px;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-pop);
+  transform-origin: top right;
+}
+
+.hdr-dd .dd-list.open {
+  display: block;
+  animation: dd-pop var(--dur-slow) var(--ease-out);
+}
+
+.hdr-dd .dd-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hdr-dd .dd-list li.active {
+  background: var(--accent-soft);
+}
+
+.hdr-dd .dd-list li.active::before {
+  content: "✓";
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+@keyframes dd-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.header-controls {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
