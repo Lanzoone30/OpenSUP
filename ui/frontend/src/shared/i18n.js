@@ -1,10 +1,13 @@
 // i18n.js — Bilingual string table (EN/ES), ported from translations.h.
 // 63 keys (UI-side subset; the Go table also holds engine-side keys). No emojis.
 
+const VERSION = "2.0.0";
+
 const Table = {
   // -- Header --
   subtitle:       { en: "PGS Subtitle Encoder",           es: "PGS Subtitle Encoder" },
-  windowTitle:    { en: "OpenSUP v" + "1.1.0",            es: "OpenSUP v" + "1.1.0" },
+  version:        { en: "v" + VERSION,                    es: "v" + VERSION },
+  windowTitle:    { en: "OpenSUP v" + VERSION,            es: "OpenSUP v" + VERSION },
 
   // -- Project Scope --
   projectScope:   { en: "Project Scope",                  es: "Proyecto" },
