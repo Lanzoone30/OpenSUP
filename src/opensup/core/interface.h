@@ -49,7 +49,7 @@ struct encode_config_t {
     bool full_palette = false;
     double redraw_period = 0.0;
     int max_kbps = 0;        // >0: validate output against a max stream bitrate (no failure, only warn)
-    int threads = 1;         // 0: auto (hardware concurrency). Parallelizes epoch encoding.
+    int threads = 1;         // 0: auto (physical cores). Parallelizes epoch encoding.
 
     // Drought / quality parameters (parity with the original)
     int compression = 80;    // quality_factor: 0-100 (def 80). 0 = force all ACQUISITION
