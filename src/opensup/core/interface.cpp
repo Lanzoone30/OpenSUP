@@ -20,10 +20,44 @@
 #include <mutex>
 #include <thread>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX  // interface.cpp uses std::max/min; keep <windows.h> from redefining them
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace opensup {
 namespace core {
 
 using common::logger_c;
+
+// Physical cores, not logical. Mirrors SUPer's auto rule:
+// temp/SUPer-main/SUPer/interface.py:432 (psutil cpu_count(logical=False)).
+// Non-static so tests can check the count directly.
+int physical_core_count() {
+#if defined(_WIN32)
+    DWORD len = 0;
+    // First call is expected to fail with ERROR_INSUFFICIENT_BUFFER while filling
+    // in the required size; only len == 0 means the query is unusable.
+    if (GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &len) == FALSE && len == 0)
+        return static_cast<int>(std::thread::hardware_concurrency());
+    std::vector<char> buffer(len);
+    auto* entries = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data());
+    if (GetLogicalProcessorInformationEx(RelationProcessorCore, entries, &len) == FALSE)
+        return static_cast<int>(std::thread::hardware_concurrency());
+    int cores = 0;
+    DWORD offset = 0;
+    while (offset < len) {
+        auto* entry = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data() + offset);
+        if (entry->Relationship == RelationProcessorCore) ++cores;
+        offset += entry->Size;
+    }
+    return cores > 0 ? cores : static_cast<int>(std::thread::hardware_concurrency());
+#else
+    return static_cast<int>(std::thread::hardware_concurrency());
+#endif
+}
 
 static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int w, int h) {
     std::vector<uint8_t> alpha;
@@ -125,7 +159,7 @@ bdn_render_c::execute()
     auto fps_enum = xml.fps();
 
     int n_threads = m_config.threads <= 0
-                        ? static_cast<int>(std::thread::hardware_concurrency())
+                        ? physical_core_count()
                         : m_config.threads;
     if (n_threads < 1)
         n_threads = 1;
