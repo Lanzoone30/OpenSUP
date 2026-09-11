@@ -1,6 +1,5 @@
-// Package i18n provides bilingual string lookups (English / Spanish)
-// ported from translations.h so the web frontend shares the same keys
-// as the legacy Qt GUI.
+// Package i18n provides bilingual string lookups (English / Spanish).
+// Keys are ported from translations.h and shared with the frontend table.
 package i18n
 
 import "strings"
@@ -129,9 +128,8 @@ func Get(lang Lang, key string) string {
 	return e[0]
 }
 
-// Format replaces tokens like "%1" with the supplied value, mirroring
-// Qt's tr("%1").arg() in a minimal way (only positional %1..%9 is
-// supported; the app rarely uses more than one).
+// Format replaces positional tokens like "%1" with the supplied value
+// (only %1..%9 is supported; the app rarely uses more than one).
 func Format(s string, args ...string) string {
 	for i, a := range args {
 		s = strings.ReplaceAll(s, "%"+string(rune('0'+i+1)), a)

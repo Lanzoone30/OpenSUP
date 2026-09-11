@@ -14,7 +14,7 @@ import (
 	"runtime"
 )
 
-// Language mirrors the Qt cmb_language combo: 0 = EN, 1 = ES.
+// Language is persisted as an int: 0 = EN, 1 = ES.
 type Language int
 
 const (
@@ -22,7 +22,7 @@ const (
 	Spanish
 )
 
-// Theme mirrors the Qt cmb_theme combo: 0 = System, 1 = Light, 2 = Dark.
+// Theme is persisted as an int: 0 = System, 1 = Light, 2 = Dark.
 type Theme int
 
 const (
