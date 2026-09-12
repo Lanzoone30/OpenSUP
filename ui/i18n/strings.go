@@ -1,5 +1,5 @@
-// Package i18n provides bilingual string lookups (English / Spanish).
-// Keys are ported from translations.h and shared with the frontend table.
+// Package i18n provides bilingual string lookups (English / Spanish),
+// mirrored by the frontend table in ui/frontend/src/shared/i18n.js.
 package i18n
 
 import "strings"
@@ -12,14 +12,14 @@ const (
 	ES
 )
 
-// Version is injected into the windowTitle key. Set at build time.
+// Version is concatenated into the windowTitle and version keys.
 const Version = "2.0.0"
 
-// Table maps each key to a pair (EN, ES). 53 entries matching
-// translations.h exactly. Keys prefixed with an emoji keep it.
+// Table maps each key to a pair (EN, ES).
 var Table = map[string][2]string{
 	// -- Header --
 	"subtitle":       {"PGS Subtitle Encoder", "PGS Subtitle Encoder"},
+	"version":        {"v" + Version, "v" + Version},
 	"windowTitle":    {"OpenSUP v" + Version, "OpenSUP v" + Version},
 
 	// -- Project Scope --
@@ -28,10 +28,12 @@ var Table = map[string][2]string{
 	"noFile":          {"No file selected", "Ningún archivo seleccionado"},
 	"setOutput":      {"Set SUP Output", "Establecer destino SUP"},
 	"openOutputFolder": {"Open output folder", "Abrir carpeta de salida"},
+	"jumpToLive":      {"Jump to latest log entry", "Ir al final del registro"},
 	"destNotSet":     {"Destination not set", "Destino no establecido"},
 
 	// -- Parameters --
 	"parameters":      {"Parameters", "Parámetros"},
+	"advancedOptions": {"Advanced Options", "Opciones avanzadas"},
 	"colorSpace":      {"Color Space", "Espacio de color"},
 	"colorSpaceTip":  {"Color matrix for YCbCr conversion. Recommended: BT.709 (HD/SDR).", "Matriz de color para conversión YCbCr. Recomendado: BT.709 (HD/SDR)."},
 	"quantizer":       {"Quantizer", "Quantizer"},
@@ -60,6 +62,7 @@ var Table = map[string][2]string{
   "bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
   "bothFormats":     {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
   "overlapBuf":      {"Allow palette update buffering.", "Permitir buffering de paleta"},
+  "alternateOids":   {"Alternate per-window object ids (multi-window).", "Alternate per-window object ids (multi-window)."},
   "ignoreRes":       {"Ignore Resolution Validation (Experimental)", "Ignorar Validación de Resolución (Experimental)"},
 
 	// -- Activity Log --
@@ -82,6 +85,7 @@ var Table = map[string][2]string{
 	"failed":          {"Encoding FAILED – see log for details", "CODIFICACIÓN FALLIDA – ver el registro"},
 	"abortedShort":   {"Encoding Aborted", "Codificación Abortada"},
 	"aborted":         {"Aborted", "Abortado"},
+	"abortLogMsg":     {"Encoding aborted by user.", "Codificación abortada por el usuario."},
 
 	// -- Theme --
 	"themeSystem":    {"System", "Sistema"},
@@ -108,6 +112,10 @@ var Table = map[string][2]string{
 	"tipOverlapBuf": {
 		"Allow this encoder to generate overlapping objects in the output stream.\nThis method is more efficient but not well supported by some hardware decoders.",
 		"Permitir que este codificador genere objetos superpuestos en el stream de salida.\nEste método es más eficiente pero no es bien soportado por algunos decodificadores de hardware.",
+	},
+	"tipAlternateOids": {
+		"Alternate the object id per window on every acquisition (double buffering).\nAvoids tearing on hardware that reuses object buffers; identical visual output.",
+		"Alternar el id de objeto por ventana en cada adquisición (doble buffer).\nEvita tearing en hardware que reutiliza buffers de objeto; salida visual idéntica.",
 	},
 	"tipIgnoreRes": {
 		"Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.",

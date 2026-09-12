@@ -32,8 +32,7 @@ namespace core {
 
 using common::logger_c;
 
-// Physical cores, not logical. Mirrors SUPer's auto rule:
-// temp/SUPer-main/SUPer/interface.py:432 (psutil cpu_count(logical=False)).
+// Physical cores, not logical: auto mode must not count SMT siblings.
 // Non-static so tests can check the count directly.
 int physical_core_count() {
 #if defined(_WIN32)

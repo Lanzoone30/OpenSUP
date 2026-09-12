@@ -1,5 +1,4 @@
-// i18n.js — Bilingual string table (EN/ES), ported from translations.h.
-// 63 keys (UI-side subset; the Go table also holds engine-side keys). No emojis.
+// Bilingual string table, mirrored by the Go table in ui/i18n/strings.go.
 
 const VERSION = "2.0.0";
 

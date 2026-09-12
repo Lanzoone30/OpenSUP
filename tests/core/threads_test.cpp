@@ -8,7 +8,7 @@
 namespace opensup {
 namespace core {
 
-// Defined in interface.cpp (non-static so this test can check it).
+// Defined in interface.cpp.
 int physical_core_count();
 
 namespace {

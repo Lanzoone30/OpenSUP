@@ -11,8 +11,8 @@ import (
 )
 
 // relationProcessorCore asks for one entry per physical core; entry count is
-// the physical core count (matches SUPer's cpu_count(logical=False) rule).
-const relationProcessorCore = 0 // RelationProcessorCore
+// the physical core count (excludes SMT siblings).
+const relationProcessorCore = 0
 
 var (
 	physicalOnce   sync.Once

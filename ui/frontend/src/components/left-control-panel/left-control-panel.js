@@ -90,8 +90,8 @@ export function wireCardToggles() {
   });
 }
 
-// Fill the threads <select> with Auto plus 1..physical cores. Auto (value 0)
-// lets the engine pick the physical-core count; the rest are explicit workers.
+// Auto (value 0) lets the engine pick the physical-core count; the rest are
+// explicit worker counts.
 export async function populateThreads() {
   const sel = $("combo_threads");
   if (!sel) return;
