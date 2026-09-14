@@ -58,6 +58,7 @@ CHANGELOG.md
 /temp
 /specs
 .specify/
+.impeccable/
 
 # Wails
 ui/build/
