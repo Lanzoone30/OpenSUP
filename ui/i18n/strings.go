@@ -57,8 +57,7 @@ var Table = map[string][2]string{
 	// -- Engine Options --
 	"engineOpts":      {"Engine Options", "Opciones del Motor"},
 	"allowNormal":     {"Allow normal case object redefinition.", "Permitir redefinición normal case"},
-	"preferNormal":    {"Prefer normal case object redefinition.", "Preferir redefinición normal case"},
-"fullPalette":     {"Write full palette.", "Paleta Completa"},
+	"fullPalette":     {"Write full palette.", "Paleta Completa"},
   "bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
   "bothFormats":     {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
   "overlapBuf":      {"Allow palette update buffering.", "Permitir buffering de paleta"},
@@ -96,10 +95,6 @@ var Table = map[string][2]string{
 	"tipAllowNormal": {
 		"Update only one composition out of the two, whenever updating both is not possible due to time constraints.\nThis exploits the PG object buffer capabilities as intended by the format designers.\nStream shall NOT be Built or Rebuilt at the authoring stage.",
 		"Actualiza solo una composición de las dos, cuando no es posible actualizar ambas por restricciones de tiempo.\nEsto aprovecha las capacidades del buffer de objetos PG según lo diseñado por el formato.\nEl stream NO debe ser Construido ni Reconstruido en la etapa de authoring.",
-	},
-	"tipPreferNormal": {
-		"Update only one composition out of the two, even when decoding time is sufficient to refresh both (default).\nIt can reduce the bitrate, but the palette is not shared across composition objects whenever it occurs.",
-		"Actualiza solo una composición de las dos, incluso cuando hay tiempo suficiente para refrescar ambas (predeterminado).\nPuede reducir el bitrate, pero la paleta no se comparte entre objetos de composición cuando esto ocurre.",
 	},
 	"tipFullPalette": {
 		"Don't optimize palette reduction when there are too many colors.\nInstead, just use the full palette.\nMay improve quality in some rare cases at the cost of bigger output size.",
