@@ -39,7 +39,6 @@ export namespace engine {
 	    BothFormats: boolean;
 	    FullPalette: boolean;
 	    AllowNormalCase: boolean;
-	    PreferNormalCase: boolean;
 	    Overlap: boolean;
 	    AlternateOids: boolean;
 	    RedrawPeriod: number;
@@ -65,7 +64,6 @@ export namespace engine {
 	        this.BothFormats = source["BothFormats"];
 	        this.FullPalette = source["FullPalette"];
 	        this.AllowNormalCase = source["AllowNormalCase"];
-	        this.PreferNormalCase = source["PreferNormalCase"];
 	        this.Overlap = source["Overlap"];
 	        this.AlternateOids = source["AlternateOids"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
