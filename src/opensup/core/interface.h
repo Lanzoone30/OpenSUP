@@ -42,6 +42,8 @@ struct encode_config_t {
     bool ignore_resolution = false;
     bool both_formats = false;
     bool allow_normal_case = false;
+    // Reserved for the faithful prefer_normal_case implementation
+    // (specs/013-prefer-normal-case). No CLI/UI surface exposes it yet.
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Per-window oid alternation (double buffering)
