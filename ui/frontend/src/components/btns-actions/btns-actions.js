@@ -37,7 +37,6 @@ export function startEncode() {
     IgnoreRes:       $("chk_ignore_res").checked,
     BothFormats:     $("chk_both_formats").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
-    PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
     AlternateOids:   $("chk_alternate_oids").checked,
@@ -110,20 +109,8 @@ export function wireOptions() {
     updateReadyState();
   });
 
-  // Prefer normal case forces Allow Normal Case ON and disables it; unchecking
-  // only re-enables Allow preserving its own value.
-  $("chk_prefer_normal").addEventListener("change", (e) => {
-    if (e.target.checked) {
-      $("chk_allow_normal").checked = true;
-      $("chk_allow_normal").disabled = true;
-    } else {
-      $("chk_allow_normal").disabled = false;
-    }
-    updateReadyState();
-  });
-
   // Re-evaluate encode readiness if options change (button gate: paths only).
-  ["chk_allow_normal", "chk_prefer_normal", "chk_full_palette",
+  ["chk_allow_normal", "chk_full_palette",
    "chk_both_formats", "chk_overlap", "chk_alternate_oids", "chk_ignore_res"]
     .forEach((id) => {
       $(id).addEventListener("change", updateReadyState);
