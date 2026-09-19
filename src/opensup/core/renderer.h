@@ -179,7 +179,11 @@ private:
     // The normal case requires two windows: it redefines one while keeping the
     // other's object on screen.
     bool m_allow_normal_case = false;
-    bool m_prefer_normal_case = false;
+    // Reserved for the faithful prefer_normal_case implementation
+    // (specs/013-prefer-normal-case). Stored but not yet read: without the
+    // SUPer j/j_nc decode-node chain there is no tie for prefer to break, so
+    // allow alone already behaves as prefer-always for the modelled cases.
+    [[maybe_unused]] bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
     bool m_alternate_oids = false;       // Per-window oid alternation (double buffering)
