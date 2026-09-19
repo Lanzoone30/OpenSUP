@@ -23,7 +23,6 @@ struct cli_options_t {
     bool both_formats = false;
     bool full_palette = false;
     bool allow_normal_case = false;
-    bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Per-window oid alternation (double buffering)
     double redraw_period = 0.0;
