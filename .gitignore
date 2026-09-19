@@ -59,6 +59,7 @@ CHANGELOG.md
 /specs
 .specify/
 .impeccable/
+my-project/
 
 # Wails
 ui/build/
