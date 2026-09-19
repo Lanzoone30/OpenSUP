@@ -41,7 +41,6 @@ type EncodeConfig struct {
 	BothFormats      bool
 	FullPalette      bool
 	AllowNormalCase  bool
-	PreferNormalCase bool
 	Overlap          bool
 	AlternateOids    bool
 	RedrawPeriod     float64
@@ -311,9 +310,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.AllowNormalCase {
 		args = append(args, "--allow-normal")
-	}
-	if cfg.PreferNormalCase {
-		args = append(args, "--prefer-normal")
 	}
 	if cfg.Overlap {
 		args = append(args, "--overlap")
