@@ -35,7 +35,6 @@ function applyI18n() {
   // Tooltips for checkboxes
   const tips = {
     chk_allow_normal: "tipAllowNormal",
-    chk_prefer_normal: "tipPreferNormal",
     chk_full_palette: "tipFullPalette",
     chk_both_formats: "tipBothFormats",
     chk_overlap: "tipOverlapBuf",
