@@ -3,9 +3,9 @@
 //
 // OpenSUP - PGS Encoder
 //
-// CLI flag semantics (feature 010 F4): --prefer-normal refuerza allow,
-// igual que la UI (app.js:661-668) y SUPer (supercli.py:148-150). Sin el
-// flag, los defaults siguen off (Constitution II).
+// CLI flag semantics: --allow-normal is the only normal-case flag exposed.
+// --prefer-normal was retired (feature 013); the engine wiring stays reserved
+// for a future faithful implementation (specs/013-prefer-normal-case).
 #include <gtest/gtest.h>
 
 #include "opensup/cli/cli_parser.h"
@@ -14,19 +14,17 @@ namespace opensup {
 namespace cli {
 namespace {
 
-TEST(CliParser, PreferNormalImpliesAllow) {
-    cli_options_t opts;  // --prefer-normal only, no --allow-normal
-    opts.prefer_normal_case = true;
+TEST(CliParser, AllowNormalPassesThrough) {
+    cli_options_t opts;
+    opts.allow_normal_case = true;
     const auto cfg = options_to_config(opts);
     EXPECT_TRUE(cfg.allow_normal_case);
-    EXPECT_TRUE(cfg.prefer_normal_case);
 }
 
 TEST(CliParser, DefaultFlagsStayOff) {
     cli_options_t opts;  // no flags
     const auto cfg = options_to_config(opts);
     EXPECT_FALSE(cfg.allow_normal_case);
-    EXPECT_FALSE(cfg.prefer_normal_case);
 }
 
 TEST(CliParser, ThreadsDefaultAuto) {
