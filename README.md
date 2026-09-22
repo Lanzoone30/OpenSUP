@@ -62,9 +62,9 @@ embedded engine.
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/images-preview/GUI-Preview_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/images-preview/GUI-Preview_light.png">
-    <img src="assets/images-preview/GUI-Preview_light.png" alt="OpenSUP GUI" width="700"/>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/images-preview/GUI-Preview_light.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/images-preview/GUI-Preview_dark.png">
+    <img src="assets/images-preview/GUI-Preview_dark.png" alt="OpenSUP GUI" width="700"/>
   </picture>
   <p><em>OpenSUP GUI</em></p>
 </div>
