@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BDN Version="0.9"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">
+  <Description>
+    <Name Title="opensup-synth-multiwindow-readquisition"/>
+    <Language Code="eng"/>
+    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>
+    <Events Count="3"/>
+  </Description>
+  <Events>
+    <Event InTC="00:00:01:00" OutTC="00:00:03:00" Forced="False">
+      <Graphic Width="200" Height="60" X="100" Y="100">00001.png</Graphic>
+    </Event>
+    <Event InTC="00:00:03:12" OutTC="00:00:05:12" Forced="False">
+      <Graphic Width="200" Height="60" X="1000" Y="400">00002.png</Graphic>
+    </Event>
+    <Event InTC="00:00:05:12" OutTC="00:00:07:12" Forced="False">
+      <Graphic Width="200" Height="60" X="100" Y="100">00003.png</Graphic>
+    </Event>
+  </Events>
+</BDN>

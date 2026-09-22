@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(OpenSUP
-  VERSION 1.1.0
+  VERSION 2.0.0
   DESCRIPTION "PGS subtitle encoder for Blu-ray"
   LANGUAGES CXX C
 )
@@ -130,6 +130,10 @@ FetchContent_Declare(
 )
 FetchContent_GetProperties(pugixml)
 if(NOT pugixml_POPULATED)
+    # ponytail: FetchContent_Populate legacy — MakeAvailable no soporta EXCLUDE_FROM_ALL
+    if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+    endif()
     FetchContent_Populate(pugixml)
     # ponytail: EXCLUDE_FROM_ALL evita que pugixml instale sus .hpp/.a/cmake en el package
     add_subdirectory(${pugixml_SOURCE_DIR} ${pugixml_BINARY_DIR} EXCLUDE_FROM_ALL)
@@ -150,41 +154,20 @@ add_subdirectory(src/opensup/media)
 add_subdirectory(src/opensup/core)
 add_subdirectory(src/opensup/cli)
 
-option(BUILD_GUI "Build Qt6 GUI" ON)
-if(BUILD_GUI)
-  add_subdirectory(src/opensup/gui)
-endif()
-
 if(BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
 
-# ── Windows: install + CPack ──
+# ── Windows: install + CPack (CLI engine only; Wails packages the GUI) ──
 if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    # GUI .exe
-    install(TARGETS OpenSUP
-        RUNTIME DESTINATION .
-    )
-
-    # CLI .exe
+    # CLI .exe — used as the embedded engine in the Wails app
     install(TARGETS opensup_cli
         RUNTIME DESTINATION .
     )
 
-    # ── DLLs (Qt6 + MinGW runtime + transitive deps) ──
+    # MinGW runtime (needed by the CLI standalone)
     set(MINGW_BIN "/usr/x86_64-w64-mingw32/sys-root/mingw/bin")
-    set(MINGW_PLUGINS "/usr/x86_64-w64-mingw32/sys-root/mingw/lib/qt6/plugins")
-
-    # Qt6
-    install(FILES
-        ${MINGW_BIN}/Qt6Core.dll
-        ${MINGW_BIN}/Qt6Gui.dll
-        ${MINGW_BIN}/Qt6Widgets.dll
-        DESTINATION .
-    )
-
-    # MinGW runtime
     install(FILES
         ${MINGW_BIN}/libgcc_s_seh-1.dll
         ${MINGW_BIN}/libstdc++-6.dll
@@ -192,56 +175,11 @@ if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
         DESTINATION .
     )
 
-    # Qt6Core transitive deps
-    install(FILES
-        ${MINGW_BIN}/libpcre2-16-0.dll
-        ${MINGW_BIN}/zlib1.dll
-        ${MINGW_BIN}/icui18n76.dll
-        ${MINGW_BIN}/icuuc76.dll
-        ${MINGW_BIN}/icudata76.dll
-        DESTINATION .
-    )
-
-    # Qt6Gui transitive deps
-    install(FILES
-        ${MINGW_BIN}/libfontconfig-1.dll
-        ${MINGW_BIN}/libfreetype-6.dll
-        ${MINGW_BIN}/libharfbuzz-0.dll
-        ${MINGW_BIN}/libpng16-16.dll
-        ${MINGW_BIN}/libbz2-1.dll
-        ${MINGW_BIN}/libexpat-1.dll
-        ${MINGW_BIN}/libglib-2.0-0.dll
-        ${MINGW_BIN}/libintl-8.dll
-        ${MINGW_BIN}/iconv.dll
-        ${MINGW_BIN}/libpcre2-8-0.dll
-        DESTINATION .
-    )
-
-    # Platform plugin (required for Qt GUI on Windows)
-    install(FILES
-        ${MINGW_PLUGINS}/platforms/qwindows.dll
-        DESTINATION platforms/
-    )
-
-    # ── CPack: NSIS installer + ZIP fallback ──
-    set(CPACK_GENERATOR "NSIS;ZIP")
+    # CPack: ZIP only (Wails builds the GUI installer)
+    set(CPACK_GENERATOR "ZIP")
     set(CPACK_PACKAGE_NAME "OpenSUP")
     set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
     set(CPACK_PACKAGE_VENDOR "OpenSUP")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "PGS subtitle encoder for Blu-ray")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "OpenSUP")
-    set(CPACK_NSIS_DISPLAY_NAME "OpenSUP ${PROJECT_VERSION}")
-    set(CPACK_NSIS_HELP_LINK "https://github.com/lanzoone30/OpenSUP")
-    set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/lanzoone30/OpenSUP")
-    set(CPACK_NSIS_MODIFY_PATH OFF)
-
-    # Start Menu shortcut
-    set(CPACK_NSIS_CREATE_ICONS_EXTRA
-        "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\OpenSUP.lnk' '$INSTDIR\\\\OpenSUP.exe'"
-    )
-    set(CPACK_NSIS_DELETE_ICONS_EXTRA
-        "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\OpenSUP.lnk'"
-    )
-
     include(CPack)
 endif()

@@ -1,0 +1,167 @@
+/* ── Status LED (base + states) ── */
+.led {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-led);
+}
+
+.led-standing {
+  background: var(--led-blue);
+  box-shadow: 0 0 8px var(--led-blue-glow);
+  /* Slow pulse while waiting for the user to start an encode. */
+  animation: led-pulse 2s ease-in-out infinite;
+}
+@keyframes led-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.led-working {
+  background: var(--led-blue);
+  box-shadow: 0 0 10px var(--led-blue-glow);
+}
+
+/* Green flash when an epoch completes (2 cycles); updateProgress() clears it. */
+.led-done {
+  background: var(--led-green);
+  box-shadow: 0 0 10px var(--led-green-glow);
+  animation: led-blink var(--beat, 0.3s) ease-in-out 2 both;
+}
+
+.led-finished {
+  background: var(--led-green);
+  box-shadow: 0 0 8px var(--led-green-glow);
+}
+
+.led-failed {
+  background: var(--led-red);
+  box-shadow: 0 0 8px var(--led-red-glow);
+}
+
+@keyframes led-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led-standing {
+    animation: none;
+  }
+}
+
+/* ── Progress card ── */
+.card-progress {
+  gap: 10px;
+}
+
+.card-progress .card-title {
+  margin-bottom: 2px;
+}
+
+.progress-track {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  background: var(--bar-track-bg, var(--bar-track-slot, var(--surface-alt)));
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--bar-track-border);
+  /* Diffuse inner shadow (no inner frame): the dark bar reads the same
+     size as the light one, with the fill flush to the track border. */
+  box-shadow: var(--shadow-inset), var(--bar-track-groove, none);
+}
+
+/* Clipped with clip-path: the gradient is not distorted by progress and
+   the glass only covers the loaded area. */
+.progress-reveal {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+  transition: clip-path 0.35s var(--ease);
+}
+
+/* Tile = half the track (background-size: 50%): the left→right cycle
+   travels exactly one tile, so the animation never visibly "cuts". */
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg,
+      var(--bar-fill-1) 30%, var(--bar-fill-2) 80%, var(--bar-fill-3) 100%);
+  background-size: 50% 100%;
+  background-repeat: repeat-x;
+  animation: moving-gradient 3s linear infinite;
+}
+
+@keyframes moving-gradient {
+  0% {
+    background-position: left bottom;
+  }
+
+  100% {
+    background-position: right bottom;
+  }
+}
+
+/* Glass reflection overlay: sits above the fill, clipped with the
+   reveal so it only appears over the loaded portion of the track */
+.progress-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+      var(--bar-glass-top) 0%,
+      var(--bar-glass-mid) 50%,
+      var(--bar-glass-transparent) 50%,
+      var(--bar-glass-bottom) 100%);
+  pointer-events: none;
+}
+
+.progress-fill.failed {
+  background: linear-gradient(90deg,
+      var(--bar-fail-1) 30%, var(--bar-fail-2) 80%, var(--bar-fail-1) 100%);
+  background-size: 50% 100%;
+  background-repeat: repeat-x;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.eta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.pct {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  margin-left: auto;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}

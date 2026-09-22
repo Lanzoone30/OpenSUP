@@ -61,7 +61,7 @@ bdn_xml_event_c::load_image() const
 }
 
 void
-bdn_xml_event_c::unload() noexcept
+bdn_xml_event_c::unload() const noexcept
 {
     m_cached_image.clear();
     m_cached_image.shrink_to_fit();
@@ -97,17 +97,22 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
     auto fps_str = header.attribute("FrameRate").as_string();
     m_dropframe = std::string(header.attribute("DropFrame").as_string()) == "true";
     // Parse FrameRate: may be "24", "24000/1001", "25/1", etc.
+    // Untrusted attribute: reject the file when it does not parse cleanly.
     double fps_val;
     auto fps_s = std::string(fps_str);
     auto slash = fps_s.find('/');
-    if (slash != std::string::npos) {
-        double num = std::stod(fps_s.substr(0, slash));
-        double den = std::stod(fps_s.substr(slash + 1));
-        fps_val = num / den;
-    } else {
-        fps_val = std::stod(fps_s);
+    try {
+        if (slash != std::string::npos) {
+            double num = std::stod(fps_s.substr(0, slash));
+            double den = std::stod(fps_s.substr(slash + 1));
+            fps_val = num / den;
+        } else {
+            fps_val = std::stod(fps_s);
+        }
+        m_fps = common::fps_e::from_double(fps_val);
+    } catch (const std::exception&) {
+        return false;  // malformed FrameRate: cannot encode without a valid rate
     }
-    m_fps = common::fps_e::from_double(fps_val);
 
     // Parse video format (WIDTHxHEIGHT or just HEIGHT)
     auto vf_str = header.attribute("VideoFormat").as_string();
@@ -204,7 +209,10 @@ bdn_xml_c::groups(double dt_split) const
             continue;
         }
         double td = ev.tc_in() - current.back().tc_out();
-        if (td >= 0 && td < dt_split) {
+        // A new event joins the current epoch while the previous one is still
+        // on screen (overlap, td < 0) or starts within the split threshold.
+        // Only a td >= dt_split opens a new epoch.
+        if (td < dt_split) {
             current.push_back(ev);
         } else {
             result.push_back(std::move(current));

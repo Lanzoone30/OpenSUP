@@ -48,7 +48,9 @@ public:
     tc_t operator+(const tc_t& other) const;
     /// Shift this timecode by a frame delta.
     tc_t operator+(int64_t delta_frames) const;
+    /// In-place shift by another (same-rate) timecode.
     tc_t& operator+=(const tc_t& other);
+    /// In-place shift by a frame delta.
     tc_t& operator+=(int64_t delta_frames);
 
     /// True when both timecodes reference the same instant (frame count).

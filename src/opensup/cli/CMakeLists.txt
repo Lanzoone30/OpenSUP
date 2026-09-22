@@ -1,6 +1,7 @@
 add_executable(opensup_cli
   main.cpp
   cli_parser.cpp
+  json_emitter.cpp
 )
 
 target_link_libraries(opensup_cli

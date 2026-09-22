@@ -26,8 +26,6 @@ public:
     static memory_cptr clone(const uint8_t* data, size_t size);
     /// Allocate and copy a vector into a new buffer.
     static memory_cptr clone(const std::vector<uint8_t>& data);
-    /// Wrap existing memory without taking ownership.
-    static memory_cptr borrow(uint8_t* data, size_t size);
 
     memory_c(const memory_c&) = delete;
     memory_c& operator=(const memory_c&) = delete;

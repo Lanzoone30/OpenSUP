@@ -16,19 +16,27 @@ namespace cli {
 struct cli_options_t {
     std::string input_path;
     std::string output_path;
-    double compression = 80.0;
-    double acqrate = 100.0;
-    int quantizer = 3;
+    int quantizer = 0;
     std::string bt_matrix = "bt709";
     bool overwrite = false;
-    int threads = 0;
-    double ssim_tol = 0.0;
     bool ignore_resolution = false;
     bool both_formats = false;
     bool full_palette = false;
     bool allow_normal_case = false;
     bool overlap = false;
+    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
     double redraw_period = 0.0;
+    int max_kbps = 0;        // 0 = bitrate validation off
+    int threads = 0;         // 0 = auto (physical cores)
+
+    // Drought / quality parameters (parity with the original)
+    int compression = 80;    // quality_factor: 0-100 (def 80)
+    int acqrate = 100;       // refresh_rate: 0-100 (def 100)
+    int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0)
+    int extra_acq = 2;       // insert_acquisitions: min palette updates (def 2)
+
+    bool json_mode = false;
+    bool debug = false;
 };
 
 /**

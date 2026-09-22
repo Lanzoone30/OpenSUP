@@ -1,0 +1,297 @@
+
+/* ── Design tokens (light) ── */
+:root {
+  /* Ground */
+  --bg: #F5F4F1;
+  --surface: #FFFFFF;
+  --surface-alt: #F0EEE9;
+  --surface-hover: #E8E5DF;
+  --surface-raised: #FAFAF8;
+
+  /* Borders */
+  --border: #E0DDD7;
+  --border-strong: #C4C0B8;
+  --border-focus: #00AB8B;
+
+  /* Text */
+  --text: #18171A;
+  --text-secondary: #47454C;
+  --text-muted: #6B6B72;
+  --text-inverse: #FFFFFF;
+
+  /* Accent — teal */
+  --accent: #00AB8B;
+  --accent-hover: #009278;
+  --accent-active: #007A66;
+  --accent-soft: #E6F7F4;
+  --accent-ring: rgba(0, 171, 139, 0.2);
+  --accent-btn: #007A63;
+  /* primary button bg (AA with white text) */
+
+  /* Semantic */
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-active: #991B1B;
+  --danger-bg: #FEE2E2;
+  --danger-ring: rgba(220, 38, 38, 0.18);
+  --success: #15803D;
+  --warn: #B45309;
+
+  /* Progress bar + LED (light) — aero Windows 7 blue */
+  --bar-fill-1: #0193CD;
+  --bar-fill-2: #66D4E5;
+  --bar-fill-3: #0193CD;
+  --bar-fail-1: #C0392B;
+  --bar-fail-2: #F1948A;
+  --bar-glass-top: rgba(255, 255, 255, 0.8);
+  --bar-glass-mid: rgba(255, 255, 255, 0.4);
+  --bar-glass-bottom: rgba(255, 255, 255, 0.2);
+  --bar-border-overlay: rgba(255, 255, 255, 0.15);
+  --bar-track-bg: var(--surface-alt);
+  --bar-track-border: var(--border);
+  --bar-track-groove: none;
+  --bar-track-slot: var(--surface-alt);
+  --led-blue: #0193CD;
+  --led-blue-glow: rgba(1, 147, 205, 0.6);
+  --led-green: #2ECC71;
+  --led-green-glow: rgba(46, 204, 113, 0.8);
+  --led-red: #C0392B;
+  --led-red-glow: rgba(192, 57, 43, 0.6);
+
+  /* Layout offset: align left column with the log box */
+  --col-offset: 36px;
+
+  /* Log level colors */
+  --log-debug: #8A8884;
+  --log-debug-bg: transparent;
+  --log-info: #47454C;
+  --log-info-bg: transparent;
+  --log-warn: #92400E;
+  --log-warn-bg: #FFFBEB;
+  --log-pass: #14532D;
+  --log-pass-bg: #F0FDF4;
+  --log-error: #991B1B;
+  --log-error-bg: #FEF2F2;
+  --log-fatal: #7F1D1D;
+  --log-fatal-bg: #FEE2E2;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.04);
+
+  /* Colored glows — buttons (semantic, same value per theme for now) */
+  --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+  --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --bar-glass-transparent: rgba(255, 255, 255, 0);
+
+  /* Radii */
+  --r-card: 12px;
+  --r-btn: 8px;
+  --r-input: 8px;
+  --r-bar: 6px;
+  --r-pill: 99px;
+
+  /* Scale */
+  --logo-h: 48px;
+  --logo-w: 180px;
+  --gap: 20px;
+  --bar-track-bg: var(--surface-alt);
+  --bar-track-border: var(--border);
+
+  /* Type */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", "Cascadia Code", "Courier New", monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --dur: 160ms;
+  --dur-slow: 280ms;
+
+  /* Chevron for select (light) */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23928F8B' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ── Dark palette ── */
+[data-theme="dark"] {
+  --bg: #131316;
+  --surface: #1C1C21;
+  --surface-alt: #26262D;
+  --surface-hover: #30303A;
+  --surface-raised: #202026;
+
+  --border: #2A2A33;
+  --border-strong: #43434F;
+  --border-focus: #2DD4BF;
+
+  --text: #EEEEF0;
+  --text-secondary: #B0B0BA;
+  --text-muted: #8A8A93;
+  --text-inverse: #0F0F12;
+
+  --accent: #2DD4BF;
+  --accent-hover: #5EEAD4;
+  --accent-active: #99F6E4;
+  --accent-soft: #0F3D3C;
+  --accent-ring: rgba(45, 212, 191, 0.25);
+  --accent-btn: #2DD4BF;
+  /* primary button bg (dark text on it, AA) */
+
+  --danger: #F87171;
+  --danger-hover: #FCA5A5;
+  --danger-active: #EF4444;
+  --danger-bg: #450A0A;
+  --danger-ring: rgba(248, 113, 113, 0.22);
+  --success: #4ADE80;
+  --warn: #FCD34D;
+
+  /* Progress bar + LED (dark) — aero blue + clear glass. */
+  --bar-fill-1: #0193CD;
+  --bar-fill-2: #66D4E5;
+  --bar-fill-3: #0193CD;
+  --bar-fail-1: #EF4444;
+  --bar-fail-2: #F87171;
+  --bar-glass-top: rgba(255, 255, 255, 0.45);
+  --bar-glass-mid: rgba(255, 255, 255, 0.20);
+  --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+  --bar-border-overlay: rgba(255, 255, 255, 0.10);
+  --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+  --bar-track-border: var(--border);
+  --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  --bar-track-slot: rgba(25, 26, 32, 1);
+  --led-blue: #0E7490;
+  --led-blue-glow: rgba(14, 116, 144, 0.7);
+  --led-green: #10B981;
+  --led-green-glow: rgba(16, 185, 129, 0.7);
+  --led-red: #EF4444;
+  --led-red-glow: rgba(239, 68, 68, 0.7);
+
+  --log-debug: #5A5A62;
+  --log-debug-bg: transparent;
+  --log-info: #B0B0BA;
+  --log-info-bg: transparent;
+  --log-warn: #FCD34D;
+  --log-warn-bg: rgba(251, 191, 36, 0.08);
+  --log-pass: #4ADE80;
+  --log-pass-bg: rgba(74, 222, 128, 0.08);
+  --log-error: #F87171;
+  --log-error-bg: rgba(248, 113, 113, 0.08);
+  --log-fatal: #FCA5A5;
+  --log-fatal-bg: rgba(252, 165, 165, 0.12);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.56), 0 4px 8px rgba(0, 0, 0, 0.24);
+
+  /* Colored glows — buttons (semantic, same value per theme for now) */
+  --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+  --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --bar-glass-transparent: rgba(255, 255, 255, 0);
+
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368686F' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ── System: follow OS ── */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --bg: #131316;
+    --surface: #1C1C21;
+    --surface-alt: #26262D;
+    --surface-hover: #30303A;
+    --surface-raised: #202026;
+
+    --border: #2A2A33;
+    --border-strong: #43434F;
+    --border-focus: #2DD4BF;
+
+    --text: #EEEEF0;
+    --text-secondary: #B0B0BA;
+    --text-muted: #8A8A93;
+    --text-inverse: #0F0F12;
+
+    --accent: #2DD4BF;
+    --accent-hover: #5EEAD4;
+    --accent-active: #99F6E4;
+    --accent-soft: #0F3D3C;
+    --accent-ring: rgba(45, 212, 191, 0.25);
+    --accent-btn: #2DD4BF;
+
+    --danger: #F87171;
+    --danger-hover: #FCA5A5;
+    --danger-active: #EF4444;
+    --danger-bg: #450A0A;
+    --danger-ring: rgba(248, 113, 113, 0.22);
+    --success: #4ADE80;
+    --warn: #FCD34D;
+
+    /* Progress bar + LED (system-dark) — same track structure as light */
+    --bar-fill-1: #0193CD;
+    --bar-fill-2: #66D4E5;
+    --bar-fill-3: #0193CD;
+    --bar-fail-1: #EF4444;
+    --bar-fail-2: #F87171;
+    --bar-glass-top: rgba(255, 255, 255, 0.45);
+    --bar-glass-mid: rgba(255, 255, 255, 0.20);
+    --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+    --bar-border-overlay: rgba(255, 255, 255, 0.10);
+    --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+    --bar-track-border: var(--border);
+    --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+    --bar-track-slot: rgba(25, 26, 32, 1);
+    --led-blue: #0E7490;
+    --led-blue-glow: rgba(14, 116, 144, 0.7);
+    --led-green: #10B981;
+    --led-green-glow: rgba(16, 185, 129, 0.7);
+    --led-red: #EF4444;
+    --led-red-glow: rgba(239, 68, 68, 0.7);
+
+    --log-debug: #5A5A62;
+    --log-debug-bg: transparent;
+    --log-info: #B0B0BA;
+    --log-info-bg: transparent;
+    --log-warn: #FCD34D;
+    --log-warn-bg: rgba(251, 191, 36, 0.08);
+    --log-pass: #4ADE80;
+    --log-pass-bg: rgba(74, 222, 128, 0.08);
+    --log-error: #F87171;
+    --log-error-bg: rgba(248, 113, 113, 0.08);
+    --log-fatal: #FCA5A5;
+    --log-fatal-bg: rgba(252, 165, 165, 0.12);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40), 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.48), 0 2px 4px rgba(0, 0, 0, 0.24);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.56), 0 4px 8px rgba(0, 0, 0, 0.24);
+
+    /* Colored glows — buttons (semantic, same value per theme for now) */
+    --shadow-accent-xs: 0 2px 6px rgba(0, 171, 139, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-accent-md: 0 6px 18px rgba(0, 171, 139, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+    --shadow-accent-active: 0 1px 3px rgba(0, 171, 139, 0.2);
+    --shadow-danger-xs: 0 2px 6px rgba(220, 38, 38, 0.32), 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-danger-md: 0 6px 18px rgba(220, 38, 38, 0.38), 0 2px 4px rgba(0, 0, 0, 0.08);
+    --shadow-danger-active: 0 1px 3px rgba(220, 38, 38, 0.2);
+    --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-led: 0 0 6px rgba(0, 0, 0, 0.25);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    --bar-glass-transparent: rgba(255, 255, 255, 0);
+
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368686F' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}

@@ -15,11 +15,8 @@ namespace common {
 tc_t
 tc_t::from_seconds(double seconds, fps_e fps)
 {
-    double adj_seconds = seconds;
-    if (fps.denominator() != 1001) {
-        // integer fps: no adjustment needed
-    }
-    int64_t f = static_cast<int64_t>(std::round(adj_seconds * fps.to_double()));
+    // Integer and drop-frame fps both round seconds * fps directly.
+    int64_t f = static_cast<int64_t>(std::round(seconds * fps.to_double()));
     return tc_t(f + 1, fps); // +1 for offset like Python version
 }
 

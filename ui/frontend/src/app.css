@@ -1,0 +1,20 @@
+/* ═══════════════════════════════════════════════════════════════════
+   OpenSUP — Frontend stylesheet (manifest)
+   Wails/Go desktop app. Light editorial palette, light/dark/system themes.
+   Each section lives in its own file; import order defines the cascade:
+   tokens → base → layout → primitives → components → motion.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/layout.css';
+@import './styles/primitives.css';
+@import './components/brand/brand.css';
+@import './components/ui-actions/ui-actions.css';
+@import './components/left-control-panel/left-control-panel.css';
+@import './components/log-panel/log-panel.css';
+@import './components/progress/progress.css';
+@import './components/btns-actions/btns-actions.css';
+@import './styles/motion.css';

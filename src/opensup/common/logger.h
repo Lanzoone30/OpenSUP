@@ -75,6 +75,7 @@ private:
     log_callback_t m_callback;
 };
 
+/// Convenience shortcuts for the common log levels.
 inline void log_info(const std::string& msg)    { logger_c::instance().info(msg); }
 inline void log_warn(const std::string& msg)    { logger_c::instance().warn(msg); }
 inline void log_error(const std::string& msg)   { logger_c::instance().error(msg); }

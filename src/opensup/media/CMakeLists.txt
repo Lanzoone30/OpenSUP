@@ -1,7 +1,6 @@
 add_library(opensup_media
   palette.cpp
   pgraphics.cpp
-  pgstream.cpp
   optimizer.cpp
   hextree_impl.cpp
 )

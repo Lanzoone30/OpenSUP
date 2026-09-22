@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>OpenSUP</title>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header: vLines + brand stack + control combos ── -->
+  <header class="header">
+    <div class="vline"></div>
+    <load src="src/components/brand/brand.html" />
+    <div class="vline"></div>
+    <load src="src/components/ui-actions/ui-actions.html" />
+  </header>
+
+  <!-- ── Content splitter: config left, monitoring right ── -->
+  <div class="main-grid">
+    <load src="src/components/left-control-panel/left-control-panel.html" />
+    <section class="log-panel">
+      <load src="src/components/log-panel/log-panel.html" />
+      <load src="src/components/progress/progress.html" />
+      <load src="src/components/btns-actions/btns-actions.html" />
+    </section>
+  </div>
+</div>
+<script src="./src/app.js" type="module"></script>
+</body>
+</html>

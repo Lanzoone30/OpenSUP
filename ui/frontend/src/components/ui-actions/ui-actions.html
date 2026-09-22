@@ -1,0 +1,32 @@
+    <div class="header-controls">
+      <div class="dropdown hdr-dd" id="dd_language" title="Interface Language / Idioma de interfaz">
+        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
+          <img class="dd-flag dd-flag-current" alt="" src="/src/components/ui-actions/assets/flags/us.svg"/>
+          <span class="dd-label">English (US)</span>
+        </button>
+        <ul class="dd-list" role="listbox">
+          <li role="option" data-val="0"><img class="dd-flag" alt="" src="/src/components/ui-actions/assets/flags/us.svg"/><span>English (US)</span></li>
+          <li role="option" data-val="1"><img class="dd-flag" alt="" src="/src/components/ui-actions/assets/flags/es.svg"/><span>Spanish</span></li>
+        </ul>
+        <select id="cmb_language" class="seg-source" aria-hidden="true" tabindex="-1">
+          <option value="0">English (US)</option>
+          <option value="1">Spanish</option>
+        </select>
+      </div>
+
+      <div class="dropdown hdr-dd" id="dd_theme" title="Theme / Tema">
+        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dd-label">System</span>
+        </button>
+        <ul class="dd-list" role="listbox">
+          <li role="option" data-val="0"><span data-i18n="themeSystem">System</span></li>
+          <li role="option" data-val="1"><span data-i18n="themeLight">Light</span></li>
+          <li role="option" data-val="2"><span data-i18n="themeDark">Dark</span></li>
+        </ul>
+        <select id="cmb_theme" class="seg-source" aria-hidden="true" tabindex="-1">
+          <option value="0">System</option>
+          <option value="1">Light</option>
+          <option value="2">Dark</option>
+        </select>
+      </div>
+    </div>

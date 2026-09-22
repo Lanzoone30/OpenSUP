@@ -1,0 +1,16 @@
+      <div class="log-card">
+        <div class="log-header">
+          <span class="log-title" data-i18n="activityLog">ACTIVITY LOG</span>
+          <span id="lbl_log_lines" class="log-count">[0 lines]</span>
+          <div class="log-buttons">
+            <button id="btn_copy_log" class="btn btn-ghost" data-i18n="copy">Copy</button>
+            <button id="btn_clear_log" class="btn btn-ghost" data-i18n="clear">Clear</button>
+          </div>
+        </div>
+        <div id="txt_log" class="log-area" data-empty="No activity yet. Select a file and press ENCODE to begin.">
+        </div>
+        <button id="btn_log_follow" class="log-follow-btn" type="button" hidden
+          title="Jump to latest log entry" aria-label="Jump to latest log entry">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>
+        </button>
+      </div>
