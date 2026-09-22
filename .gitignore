@@ -54,12 +54,12 @@ docs/
 .github/
 extern/
 build/
-CHANGELOG.md
 /temp
 /specs
 .specify/
 .impeccable/
 my-project/
+packaging/icons/
 
 # Wails
 ui/build/
