@@ -59,7 +59,7 @@ build/
 .specify/
 .impeccable/
 my-project/
-packaging/icons/
+packaging/
 
 # Wails
 ui/build/
