@@ -1,0 +1,45 @@
+name: opensup
+arch: amd64
+platform: linux
+version: 2.0.0
+section: graphics
+priority: optional
+maintainer: lanzoone30
+vendor: OpenSUP
+homepage: https://github.com/Lanzoone30/OpenSUP
+license: GPL-3.0-or-later
+description: |
+  OpenSUP converts BDN XML subtitle files, images included, into PGS
+  (Presentation Graphic Stream) subtitles for Blu-ray. It produces
+  compliant .sup streams, and .pes/.mui when needed.
+
+  The desktop app bundles the encoder engine; a full CLI is also included
+  in the same binary.
+
+contents:
+  - src: builds/linux/OpenSUP
+    dst: /usr/bin/OpenSUP
+    file_info:
+      mode: 0755
+  - src: ./packaging/opensup.desktop
+    dst: /usr/share/applications/opensup.desktop
+  - src: ./packaging/icons/opensup-32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/opensup.png
+  - src: ./packaging/icons/opensup-64.png
+    dst: /usr/share/icons/hicolor/64x64/apps/opensup.png
+  - src: ./packaging/icons/opensup-128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/opensup.png
+  - src: ./packaging/icons/opensup-256.png
+    dst: /usr/share/icons/hicolor/256x256/apps/opensup.png
+  - src: ./packaging/icons/opensup-512.png
+    dst: /usr/share/icons/hicolor/512x512/apps/opensup.png
+
+overrides:
+  deb:
+    depends:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+  rpm:
+    depends:
+      - webkit2gtk4.1
+      - gtk3
