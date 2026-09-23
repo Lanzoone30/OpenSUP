@@ -20,7 +20,6 @@
 namespace opensup {
 namespace core {
 
-// ── BDN XML Event ──
 /// One subtitle event from the BDN XML (timing, geometry, image path).
 class bdn_xml_event_c {
 public:
@@ -55,7 +54,6 @@ private:
     mutable std::vector<uint8_t> m_cached_image;
 };
 
-// ── BDN XML ──
 /**
  * @brief Parsed BDN XML: events, fps, canvas size and image folder.
  */
@@ -82,7 +80,6 @@ private:
     bool m_dropframe = false;
 };
 
-// ── SUP File ──
 /// Reader/writer for .sup and .pes subtitle streams.
 class sup_file_c {
 public:
@@ -110,7 +107,6 @@ private:
     std::string m_filepath;
 };
 
-// ── Event helpers ──
 std::vector<bdn_xml_event_c> remove_dupes(std::vector<bdn_xml_event_c>& events);
 std::pair<std::vector<bdn_xml_event_c>, std::vector<bool>>
 add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, double period);

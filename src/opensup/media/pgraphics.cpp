@@ -13,7 +13,6 @@
 namespace opensup {
 namespace media {
 
-// ── RLE Codec ──
 std::vector<uint8_t>
 encode_rle(const std::vector<uint8_t>& bitmap, int width, int height)
 {

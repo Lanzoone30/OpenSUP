@@ -32,7 +32,6 @@ namespace core {
 
 using common::logger_c;
 
-// ── BDN XML Event ──
 bdn_xml_event_c::bdn_xml_event_c(double tc_in_sec, double tc_out_sec,
                                    int x_, int y_, int width_, int height_,
                                    std::string image_path_,
@@ -67,7 +66,6 @@ bdn_xml_event_c::unload() const noexcept
     m_cached_image.shrink_to_fit();
 }
 
-// ── BDN XML ──
 static bool
 is_standard_resolution(int w, int h)
 {
@@ -96,7 +94,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
     auto fps_str = header.attribute("FrameRate").as_string();
     m_dropframe = std::string(header.attribute("DropFrame").as_string()) == "true";
-    // Parse FrameRate: may be "24", "24000/1001", "25/1", etc.
+    // FrameRate may be "24", "24000/1001", "25/1", etc.
     // Untrusted attribute: reject the file when it does not parse cleanly.
     double fps_val;
     auto fps_s = std::string(fps_str);
@@ -149,7 +147,6 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
     auto path = std::filesystem::path(filepath);
     m_folder = path.parent_path().string();
 
-    // Parse events
     auto events_node = root.child("Events");
     if (!events_node) return false;
 
@@ -171,7 +168,6 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
         auto img_path = std::filesystem::path(m_folder) / gfx_file;
 
-        // Parse TC strings → seconds
         auto tc_to_sec = [this](const std::string& tc) -> double {
             // HH:MM:SS:FF format
             int h = 0, m = 0, s = 0, f = 0;
@@ -225,7 +221,6 @@ bdn_xml_c::groups(double dt_split) const
     return result;
 }
 
-// ── SUP File ──
 sup_file_c::sup_file_c(const std::string& filepath)
     : m_filepath(filepath)
 {
@@ -295,7 +290,6 @@ sup_file_c::write_sup(const std::string& path,
     }
 }
 
-// ── PES/MUI Writer ──
 // PES strips 13-byte PG header, MUI stores timestamps in 54MHz custom format
 static constexpr uint64_t MUI_TS_OFFSET = 54'000'000;
 
@@ -359,7 +353,6 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
     fmui.write(reinterpret_cast<const char*>(mui_tail), 14);
 }
 
-// ── Event helpers ──
 std::vector<bdn_xml_event_c>
 remove_dupes(std::vector<bdn_xml_event_c>& events)
 {

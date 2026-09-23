@@ -28,7 +28,6 @@ namespace media {
 
 using common::logger_c;
 
-// ── libimagequant backend ──
 quantize_result_t
 libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
                          int width, int height, int max_colors, bool dither)
@@ -90,7 +89,7 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
                                 std::to_string(pal_count) + " colors");
     return result;
 }
-// ── HexTree backend (ported from cubicibo/brule, see hextree_impl.cpp) ──
+// HexTree backend, ported from cubicibo/brule (see hextree_impl.cpp).
 
 quantize_result_t
 hextree_t::quantize(const std::vector<uint8_t>& rgba,
@@ -132,8 +131,6 @@ optimiser_c::get_available()
     backends.push_back(std::make_unique<hextree_t>());
     return backends;
 }
-
-// ── Group co-quantization ──
 
 namespace {
 /// Squared L2 distance between two F*4-byte YCrCbA sequences.

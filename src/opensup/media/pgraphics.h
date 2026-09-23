@@ -14,7 +14,6 @@
 namespace opensup {
 namespace media {
 
-// ── RLE Codec ──
 /// RLE-compress an indexed-color bitmap (PGS ODS payload format).
 /// @param bitmap flat indexed pixels, width*height bytes
 /// @param width  image width in pixels
@@ -22,7 +21,6 @@ namespace media {
 /// @return compressed byte stream ready for the ODS segment
 std::vector<uint8_t> encode_rle(const std::vector<uint8_t>& bitmap, int width, int height);
 
-// ── PGDecoder Timing Constants ──
 /**
  * @brief Timing constants of a nominal PGS decoder.
  * Used by the renderer to predict whether a display set can be decoded in time.

@@ -15,7 +15,7 @@
 #include <functional>
 
 #include "opensup/core/filestreams.h"
-#include "opensup/core/renderer.h"
+#include "opensup/core/render/epoch_encoder.h"
 
 namespace opensup {
 namespace core {

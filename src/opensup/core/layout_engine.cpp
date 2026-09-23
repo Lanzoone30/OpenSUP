@@ -69,7 +69,6 @@ void layout_engine_c::brute_force_windows() {
     common::box_t current_container = m_container;
     bool found = false;
 
-    // Find top
     for (int y = 0; y < m_shape.h; ++y) {
         bool row_has_pixel = false;
         for (int x = 0; x < m_shape.w; ++x) {
@@ -93,7 +92,6 @@ void layout_engine_c::brute_force_windows() {
         return;
     }
 
-    // Find bottom
     for (int y = m_shape.h - 1; y >= current_container.y; --y) {
         bool row_has_pixel = false;
         for (int x = 0; x < m_shape.w; ++x) {
@@ -108,7 +106,6 @@ void layout_engine_c::brute_force_windows() {
         }
     }
 
-    // Find left/right within y-range
     int min_x = m_shape.w, max_x = 0;
     for (int y = current_container.y; y < current_container.y + current_container.dy; ++y) {
         for (int x = 0; x < m_shape.w; ++x) {
@@ -127,7 +124,6 @@ void layout_engine_c::brute_force_windows() {
     // solid single blob look "worth splitting" (it saves the 8px margin).
     const uint32_t exact_area = static_cast<uint32_t>(current_container.area());
 
-    // Ensure minimum margin
     const int margin = MARGIN;
     if (current_container.x > margin) current_container.x -= margin;
     else current_container.x = 0;

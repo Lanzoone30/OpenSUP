@@ -31,7 +31,6 @@ enum class segment_type_e : uint8_t {
     end  = 0x80,
 };
 
-// ── Window Definition ──
 /// A window on the video plane (WDS payload); position + size.
 struct window_definition_t {
     uint8_t window_id = 0;
@@ -46,7 +45,6 @@ struct window_definition_t {
     static window_definition_t from_bytes(const uint8_t* data);
 };
 
-// ── Composition Object (CObject) ──
 /// A composition object: image reference + placement/cropping on the plane.
 struct c_object_t {
     enum flags_e : uint8_t {
@@ -79,7 +77,6 @@ struct c_object_t {
     static c_object_t from_bytes(const uint8_t* data, bool cropped);
 };
 
-// ── Base PGS Segment ──
 /**
  * @brief A single PGS segment (header + payload) from a subtitle stream.
  * Subclasses specialize per segment type; to_bytes() re-serializes with the
@@ -126,7 +123,6 @@ protected:
     std::vector<uint8_t> m_data;
 };
 
-// ── PCS: Presentation Composition Segment ──
 /**
  * @brief PCS segment: the "scene graph" of a display set.
  * Declares which composition objects are shown, in which windows, and how they
@@ -175,7 +171,6 @@ public:
                                double pts = 0.0, double dts = 0.0);
 };
 
-// ── WDS: Window Definition Segment ──
 /**
  * @brief WDS segment: defines the rectangular windows on the video plane.
  * Objects (ODS) are composited inside these windows; a window may be reused
@@ -197,7 +192,6 @@ public:
                                double pts = 0.0, double dts = 0.0);
 };
 
-// ── PDS: Palette Definition Segment ──
 /**
  * @brief PDS segment: maps palette indices to YCbCr+alpha colors.
  * Palettes are versioned (p_vn); bumping the version marks the palette as
@@ -224,7 +218,6 @@ public:
                                int offset = 0);
 };
 
-// ── ODS: Object Definition Segment ──
 /**
  * @brief ODS segment: carries the run-length encoded bitmap of an object.
  * A bitmap larger than the PGS payload limit is split into a sequence of ODS
@@ -265,7 +258,6 @@ public:
                                              double pts = 0.0, double dts = 0.0);
 };
 
-// ── ENDS: End of Display Set Segment ──
 /**
  * @brief ENDS segment: marks the end of a display set.
  * Every display set must close with ENDS; the decoder flushes its buffers
@@ -278,7 +270,6 @@ public:
     static ends_c from_scratch(double pts = 0.0, double dts = 0.0);
 };
 
-// ── Display Set ──
 /**
  * @brief A display set: all segments shown at one composition time.
  * The unit of PGS encoding. The encoder/optimizer work on collections of display
@@ -314,7 +305,6 @@ public:
     static display_set_t from_bytes(const std::vector<uint8_t>& data);
 };
 
-// ── Helper functions ──
 [[nodiscard]] segment_type_e segment_type_from_byte(uint8_t b);
 [[nodiscard]] uint16_t read_u16_be(const uint8_t* data) noexcept;
 [[nodiscard]] uint32_t read_u24_be(const uint8_t* data) noexcept;

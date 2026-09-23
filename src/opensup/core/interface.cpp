@@ -7,7 +7,7 @@
 
 #include "opensup/pch.h"
 #include "opensup/core/interface.h"
-#include "opensup/core/renderer.h"
+#include "opensup/core/render/epoch_encoder.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/core/pgstream.h"
 #include "opensup/core/layout_engine.h"
@@ -109,7 +109,6 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     return windows;
 }
 
-// ── BDN Render ──
 bdn_render_c::bdn_render_c(const encode_config_t& config)
     : m_config(config) {}
 
@@ -119,7 +118,6 @@ bdn_render_c::execute()
     encode_result_t result;
     auto start_time = std::chrono::steady_clock::now();
 
-    // Parse BDN XML
     bdn_xml_c xml;
     if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
         result.error = "Failed to parse BDN XML: " + m_config.input_path;

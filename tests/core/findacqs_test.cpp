@@ -9,7 +9,7 @@
 // :1133). The stream-level no-regression is gated by the full suite plus
 // byte-identical fixture hashes (specs/006 tasks T001/T013).
 #include <gtest/gtest.h>
-#include "opensup/core/renderer.h"
+#include "opensup/core/render/epoch_encoder.h"
 namespace opensup {
 namespace core {
 namespace {
