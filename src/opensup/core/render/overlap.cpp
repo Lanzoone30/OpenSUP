@@ -27,7 +27,7 @@ void epoch_encoder_c::shift_forward_overlay(
     const std::vector<bool>& forced_acq) const
 {
     (void)forced_acq;
-    // shift_forward_overlay: backtracks from an acquisition node with exactly
+    // Backtracks from an acquisition node with exactly
     // one new object (sum(new_mask)==1) and merges it into the best previous
     // node of the other window, so the object decodes earlier and the
     // intermediate range stays NORMAL.
@@ -93,7 +93,6 @@ void epoch_encoder_c::shift_forward_overlay(
             if (jk == 0 || (nodes[jk - 1].dts_end < pnode.timings.base_dts &&
                             nodes[jk - 1].timings.base_pts + 1.0 / m_fps < pnode.timings.base_pts)) {
                 candidates.push_back({pk, jk, drop_pal_ups});
-                // Quick exit: first candidate in overlap mode.
                 if (drop_pal_ups == 0 || m_overlap)
                     break;
             }
@@ -150,7 +149,7 @@ void epoch_encoder_c::shift_forward_overlay(
 void epoch_encoder_c::set_extended_visibilities(
     std::vector<epoch_node_t>& nodes) const
 {
-    // set_pgobjects_extended_visibilities: an object stays on screen across
+    // An object stays on screen across
     // contiguous events until a wipe/gap. This pass marks nc_refresh for
     // events that keep the same window object.
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
@@ -179,7 +178,6 @@ epoch_encoder_c::encode_epoch_overlap(
     if (events.empty()) return result;
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
     (void)nwin;
-    // Per-window oid alternation (double buffering).
     std::vector<int> overlap_db(nwin, static_cast<int>(nwin));
     std::vector<epoch_node_t> nodes;
     nodes.reserve(events.size());
@@ -201,6 +199,7 @@ epoch_encoder_c::encode_epoch_overlap(
         node.timings = compute_timings(ev.tc_in(),
             static_cast<uint64_t>(ev.width()) * static_cast<uint64_t>(ev.height()));
         node.dts_end = node.timings.base_dts + node.timings.wipe_dur;
+        node.tc_out = ev.tc_out();
         node.has_object = true;
         node.ev_x = ev.x();
         node.ev_y = ev.y();
@@ -323,6 +322,18 @@ epoch_encoder_c::encode_epoch_overlap(
     }
     shift_forward_overlay(nodes, redraw_flags);
     set_extended_visibilities(nodes);
+    // PGS allows exactly one EpochStart per epoch: it is
+    // the first displayed object; any later start candidate becomes acquisition.
+    bool epoch_start_seen = false;
+    for (auto& node : nodes) {
+        if (!node.has_object) continue;
+        if (!epoch_start_seen) {
+            node.state = pcs_c::composition_state_e::epoch_start;
+            epoch_start_seen = true;
+        } else if (node.state == pcs_c::composition_state_e::epoch_start) {
+            node.state = pcs_c::composition_state_e::acquisition;
+        }
+    }
     return emit_epoch_from_nodes(nodes, fps_enum, palette_id_counter);
 }
 
@@ -343,29 +354,34 @@ epoch_encoder_c::emit_epoch_from_nodes(
             continue;
         if (node.has_clear && (!m_overlap || node.clear_pts < node.timings.base_pts)) {
             // Clear display set — inline analog of the emit_clear_ds lambda
-            // in encode_epoch (US1 gap rule).
+            // in encode_epoch.
             const double wipe_dur = std::ceil(static_cast<double>(node.clear_w) *
                 static_cast<double>(node.clear_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
                 pg_decoder_t::FREQ;
             double dts = node.clear_pts - wipe_dur;
             if (dts < 0) dts = 0;
-            auto clear_pcs = pcs_c::from_scratch(
-                static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
-                static_cast<uint8_t>(fps_enum.to_pcsfps()),
-                static_cast<uint16_t>(m_composition_n++),
-                pcs_c::composition_state_e::normal, false, palette_id,
-                {}, node.clear_pts, dts);
-            result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
-            window_definition_t clear_wd;
-            clear_wd.window_id = 0;
-            clear_wd.h_pos = static_cast<uint16_t>(node.clear_x);
-            clear_wd.v_pos = static_cast<uint16_t>(node.clear_y);
-            clear_wd.width = static_cast<uint16_t>(node.clear_w);
-            clear_wd.height = static_cast<uint16_t>(node.clear_h);
-            auto clear_wds = wds_c::from_scratch({clear_wd}, node.clear_pts, dts);
-            result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
-            auto clear_end = ends_c::from_scratch(node.clear_pts, dts);
-            result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+            if ((wipe_dur + 3.0 / pg_decoder_t::FREQ) >= 1.0 / m_fps) {
+                emit_palette_wipe(result, static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                                  node.clear_pts, dts, palette_id);
+            } else {
+                auto clear_pcs = pcs_c::from_scratch(
+                    static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+                    static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                    static_cast<uint16_t>(m_composition_n++),
+                    pcs_c::composition_state_e::normal, false, palette_id,
+                    {}, node.clear_pts, dts);
+                result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+                window_definition_t clear_wd;
+                clear_wd.window_id = 0;
+                clear_wd.h_pos = static_cast<uint16_t>(node.clear_x);
+                clear_wd.v_pos = static_cast<uint16_t>(node.clear_y);
+                clear_wd.width = static_cast<uint16_t>(node.clear_w);
+                clear_wd.height = static_cast<uint16_t>(node.clear_h);
+                auto clear_wds = wds_c::from_scratch({clear_wd}, node.clear_pts, dts);
+                result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
+                auto clear_end = ends_c::from_scratch(node.clear_pts, dts);
+                result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+            }
         }
         event_emit_input_t in{
             node.w, node.h, node.crop_x, node.crop_y,
@@ -386,11 +402,12 @@ epoch_encoder_c::emit_epoch_from_nodes(
     // End-of-epoch clear (final wipe) — parity with the single-pass path
     // (encode_epoch: emit_clear_ds after the last event).
     if (!nodes.empty()) {
-        double last_pts = 0.0;
+        double last_pts = 0.0, last_base_pts = 0.0;
         int last_w = 0, last_h = 0, last_x = 0, last_y = 0;
         for (const auto& node : nodes) {
             if (!node.has_object) continue;
-            last_pts = node.timings.base_pts;
+            last_pts = node.tc_out;
+            last_base_pts = node.timings.base_pts;
             last_w = node.w;
             last_h = node.h;
             last_x = node.ev_x;
@@ -402,26 +419,47 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 pg_decoder_t::FREQ;
             double dts = last_pts - wipe_dur;
             if (dts < 0) dts = 0;
-            auto clear_pcs = pcs_c::from_scratch(
-                static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
-                static_cast<uint8_t>(fps_enum.to_pcsfps()),
-                static_cast<uint16_t>(m_composition_n++),
-                pcs_c::composition_state_e::normal, false, palette_id,
-                {}, last_pts, dts);
-            result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
-            window_definition_t clear_wd;
-            clear_wd.window_id = 0;
-            clear_wd.h_pos = static_cast<uint16_t>(last_x);
-            clear_wd.v_pos = static_cast<uint16_t>(last_y);
-            clear_wd.width = static_cast<uint16_t>(last_w);
-            clear_wd.height = static_cast<uint16_t>(last_h);
-            auto clear_wds = wds_c::from_scratch({clear_wd}, last_pts, dts);
-            result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
-            auto clear_end = ends_c::from_scratch(last_pts, dts);
-            result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+            const double write_ticks = std::ceil(static_cast<double>(last_w) *
+                static_cast<double>(last_h) * pg_decoder_t::FREQ / pg_decoder_t::RC);
+            const double last_frames = (last_pts - last_base_pts) * m_fps;
+            const bool perform_wds_end = last_frames >=
+                std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
+            auto emit_wds_clear = [&](double pts) {
+                double ddts = pts - wipe_dur;
+                if (ddts < 0) ddts = 0;
+                auto clear_pcs = pcs_c::from_scratch(
+                    static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+                    static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                    static_cast<uint16_t>(m_composition_n++),
+                    pcs_c::composition_state_e::normal, false, palette_id,
+                    {}, pts, ddts);
+                result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+                window_definition_t clear_wd;
+                clear_wd.window_id = 0;
+                clear_wd.h_pos = static_cast<uint16_t>(last_x);
+                clear_wd.v_pos = static_cast<uint16_t>(last_y);
+                clear_wd.width = static_cast<uint16_t>(last_w);
+                clear_wd.height = static_cast<uint16_t>(last_h);
+                auto clear_wds = wds_c::from_scratch({clear_wd}, pts, ddts);
+                result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
+                auto clear_end = ends_c::from_scratch(pts, ddts);
+                result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+            };
+            if (!perform_wds_end) {
+                emit_palette_wipe(result, static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                                  last_pts, dts, palette_id);
+                // Last epoch only: no successor bounds the trailing wipe.
+                if (m_is_last_epoch) {
+                    const double nf_shift = std::max(1.0, std::ceil(
+                        (write_ticks + 10.0) * m_fps / pg_decoder_t::FREQ));
+                    emit_wds_clear(last_pts + nf_shift / m_fps);
+                }
+            } else {
+                emit_wds_clear(last_pts);
+            }
         }
     }
-    // align_palette_updates — parity with the single-pass path (US3):
+    // align_palette_updates — parity with the single-pass path:
     // strictly monotonic DTS over the emitted stream.
     if (m_overlap) {
         double last_dts = -1.0;
@@ -451,5 +489,5 @@ epoch_encoder_c::emit_epoch_from_nodes(
     return result;
 }
 
-} // namespace core
-} // namespace opensup
+}
+}
