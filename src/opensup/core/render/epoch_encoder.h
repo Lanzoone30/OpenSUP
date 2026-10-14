@@ -15,6 +15,7 @@
 
 #include "opensup/core/segments.h"
 #include "opensup/core/filestreams.h"
+#include "opensup/core/render/sequence_quality_policy.h"
 #include "opensup/media/optimizer.h"
 #include "opensup/media/palette.h"
 
@@ -108,20 +109,29 @@ struct event_emit_input_t {
     int ref_x = 0, ref_y = 0;
 };
 
+/// Encoder options for one epoch. Defaults here are the single source of truth.
+struct epoch_render_options_t {
+    double fps = 24.0;
+    int width = 1920;
+    int height = 1080;
+    int quantizer_id = 0;
+    bool allow_normal_case = false;
+    bool overlap = false;
+    bool full_palette = false;
+    bool prefer_normal_case = false;
+    double quality_factor = 0.8;   // compression/100 (0 = force all ACQUISITION)
+    double refresh_rate = 1.0;     // acqrate/100 (scales drought)
+    double ssim_tol = 0.0;         // ssim_tol/100 (per-resolution threshold adjust)
+    int insert_acquisitions = 2;   // extra_acq (min palette updates to force acq)
+    bool alternate_oids = false;
+    std::string bt_matrix = "bt709";
+    bool is_last_epoch = false;
+};
+
 /// Renders one epoch (a run of consecutive events) into PGS segments.
 class epoch_encoder_c {
 public:
-    epoch_encoder_c(double fps, int width, int height, int quantizer_id = 0,
-                     bool allow_normal_case = false, bool overlap = false,
-                     bool full_palette = false,
-                     bool prefer_normal_case = false,
-                     double quality_factor = 0.8,
-                     double refresh_rate = 1.0,
-                     double ssim_tol = 0.0,
-                     int insert_acquisitions = 2,
-                     bool alternate_oids = false,
-                     bool is_last_epoch = false,
-                     std::string bt_matrix = "bt709");
+    explicit epoch_encoder_c(const epoch_render_options_t& opts);
 
     /// An empty `windows` defaults to a single full-screen window.
     std::vector<std::shared_ptr<pg_segment_c>>
@@ -172,12 +182,7 @@ private:
     bool m_overlap = false;
     bool m_full_palette = false;
     bool m_alternate_oids = false;
-    double m_quality_factor = 0.8;   // compression/100 (0 = force all ACQUISITION)
-    double m_dquality_factor = 0.035; // drought decay factor
-    double m_refresh_rate = 1.0;     // acqrate/100 (scales drought)
-    double m_ssim_tol = 0.0;         // ssim_tol/100 (per-resolution threshold adjust)
-    int m_insert_acquisitions = 2;   // extra_acq (min palette updates to force acq)
-    double m_drought = 0.0;
+    sequence_quality_policy_c m_quality;
     int m_composition_n = 1;
     int m_palette_vn = 0;
     std::vector<uint8_t> m_ods_vn;   // per-oid ODS version counter
