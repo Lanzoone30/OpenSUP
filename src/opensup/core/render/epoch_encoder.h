@@ -49,6 +49,7 @@ struct epoch_node_t {
     pcs_c::composition_state_e state = pcs_c::composition_state_e::epoch_start;
     epoch_timings_t timings;
     double dts_end = 0.0;     // dts + wipe_dur
+    double tc_out = 0.0;      // event display end; end-of-epoch clear PTS
     bool forced = false;
 
     // Normal-case takeover: conserve the other window's still-displayed object
@@ -66,7 +67,7 @@ struct epoch_node_t {
     media::palette_t palette;  // quantized, transparent offset applied
     std::vector<uint8_t> indexed;
     bool reusable = false;
-    bool has_clear = false;    // previous-event clear DS params (US1)
+    bool has_clear = false;    // previous-event clear DS params
     int clear_x = 0, clear_y = 0, clear_w = 0, clear_h = 0;
     double clear_pts = 0.0;
 
@@ -117,7 +118,8 @@ public:
                      double refresh_rate = 1.0,
                      double ssim_tol = 0.0,
                      int insert_acquisitions = 2,
-                     bool alternate_oids = false);
+                     bool alternate_oids = false,
+                     bool is_last_epoch = false);
 
     /// An empty `windows` defaults to a single full-screen window.
     std::vector<std::shared_ptr<pg_segment_c>>
@@ -146,15 +148,23 @@ private:
 
     uint8_t next_ods_vn(uint16_t o_id);
 
+    /// Palette-wipe clear: PCS NORMAL with palette_update_flag, an
+    /// all-transparent PDS and END, instead of a WDS wipe. Emitted when the
+    /// cleared window's redraw cannot fit the frame budget (large window or
+    /// short last event); the screen blanks via a palette swap with no WDS.
+    void emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& out,
+                           uint8_t pcsfps, double pts, double dts,
+                           uint8_t palette_id);
+
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
     // Normal case needs two windows: it redefines one, keeps the other's object up.
     bool m_allow_normal_case = false;
-    // Reserved for the faithful prefer_normal_case implementation
-    // (specs/013-prefer-normal-case). Stored but not yet read: without the SUPer
-    // j/j_nc decode-node chain there is no tie to break, so allow alone already
-    // behaves as prefer-always for the modelled cases.
+    // Reserved for the faithful prefer_normal_case implementation.
+    // Stored but not yet read: without the decode-node chain there is no tie
+    // to break, so allow alone already behaves as prefer-always for the
+    // modelled cases.
     [[maybe_unused]] bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;
@@ -170,6 +180,12 @@ private:
     std::vector<uint8_t> m_ods_vn;   // per-oid ODS version counter
     int m_reuse_candidates = 0;
     std::vector<window_definition_t> m_windows;
+    // The last epoch has no successor to bound it, so its end-of-epoch palette
+    // swap may be followed by a WDS wipe a few frames later.
+    bool m_is_last_epoch = false;
+    // Objects of the last emitted display set; a palette-wipe re-references
+    // them while its palette turns every entry transparent.
+    std::vector<c_object_t> m_last_cobjs;
 
     /// Window owning the point (ev_x+crop_x, ev_y+crop_y); 0 when no layout
     /// windows are provided (single-window mode).
@@ -192,5 +208,5 @@ private:
                           int& palette_id_counter);
 };
 
-} // namespace core
-} // namespace opensup
+}
+}
