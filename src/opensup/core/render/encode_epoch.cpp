@@ -99,17 +99,6 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
     }
 }
 
-// Identical regions earn the full discount; non-overlapping ones lower the
-// threshold toward the base. The 0.008333 term (~0.5/60) biases against
-// fusing near the threshold.
-static double ctu_fuse_threshold(double base_threshold, double cross_percentage,
-                                 double ssim_offset) noexcept
-{
-    return std::min(1.0, base_threshold +
-        (1.0 - base_threshold) * (1.0 - cross_percentage) -
-        0.008333 * (1.0 - ssim_offset));
-}
-
 acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
                                 double pts, double prev_pts,
                                 double write_duration, double margin)
@@ -124,29 +113,19 @@ acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
     return sig;
 }
 
-epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantizer_id,
-                                 bool allow_normal_case, bool overlap,
-                                 bool full_palette,
-                                 bool prefer_normal_case,
-                                 double quality_factor,
-                                 double refresh_rate,
-                                 double ssim_tol,
-                                 int insert_acquisitions,
-                                 bool alternate_oids,
-                                 bool is_last_epoch,
-                                 std::string bt_matrix)
-    : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
-    , m_bt_matrix(std::move(bt_matrix))
-    , m_allow_normal_case(allow_normal_case), m_prefer_normal_case(prefer_normal_case)
-    , m_overlap(overlap)
-    , m_full_palette(full_palette)
-    , m_alternate_oids(alternate_oids)
-    , m_quality_factor(quality_factor)
-    , m_refresh_rate(refresh_rate)
-    , m_ssim_tol(ssim_tol)
-    , m_insert_acquisitions(insert_acquisitions)
-    , m_windows{}
-    , m_is_last_epoch(is_last_epoch) {}
+epoch_encoder_c::epoch_encoder_c(const epoch_render_options_t& opts)
+    : m_fps(opts.fps), m_width(opts.width), m_height(opts.height)
+    , m_quantizer_id(opts.quantizer_id)
+    , m_bt_matrix(opts.bt_matrix)
+    , m_allow_normal_case(opts.allow_normal_case)
+    , m_prefer_normal_case(opts.prefer_normal_case)
+    , m_overlap(opts.overlap)
+    , m_full_palette(opts.full_palette)
+    , m_alternate_oids(opts.alternate_oids)
+    , m_quality(sequence_quality_policy_c::options_t{
+          opts.quality_factor, opts.refresh_rate, opts.ssim_tol,
+          opts.insert_acquisitions, opts.height})
+    , m_is_last_epoch(opts.is_last_epoch) {}
 
 bool
 epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
@@ -459,27 +438,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
 
-    // m_quality_factor = compression/100 (0 = force all ACQUISITION)
-    // m_dquality_factor = 0.035 (drought decay factor)
-    // m_refresh_rate = acqrate/100 (scales drought increment)
-    // m_ssim_tol = ssim_tol/100 (adjusts threshold per resolution)
-    // m_insert_acquisitions = extra_acq (min palette updates to force acq)
-    const double thresh = m_quality_factor;
-    const double refresh_rate = m_refresh_rate;
-    const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);
-    const int insert_acqs = m_insert_acquisitions;
-
-    // Resolution-dependent base SSIM threshold:
-    // min(0.9999, 0.9608 + height*(0.986-0.972)/(1080-480)) — height maps
-    // 480->0.972 and 1080->0.986; no offset subtraction.
-    const double base_ssim_threshold = std::min(0.9999, 0.9608 +
-        static_cast<double>(m_height) * (0.986 - 0.972) / (1080.0 - 480.0));
-
-    m_drought = 0.0;
-
-    // Track palette updates since last acquisition for extra_acq logic
-    int palette_updates_since_acq = 0;
-
     // Group buffering (P4b): a run of SSIM-fused / byte-identical events sharing one composition is
     // buffered and co-quantized at group end: 1 union ODS + per-event palette
     // diffs. Before P4b, fused events emitted no bitmap at all, so fades were
@@ -611,12 +569,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     };
 
     for (size_t k = 0; k < events.size(); k++) {
-        // Fixed SSIM bar: similarity decides reusable vs force_acquisition only.
-        // The drought effect belongs to the decode-margin check, and ssim_offset
-        // applies ONLY inside thr_score (-0.008333*(1-ssim_offset)), never to
-        // the base threshold.
-        const double effective_ssim_threshold = base_ssim_threshold;
-
         auto& ev = events[k];
         bool forced = (k < forced_acq.size() && forced_acq[k]);
 
@@ -664,8 +616,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
             // Similarity threshold: identical regions get the full discount,
             // non-overlapping ones lower it toward the base threshold.
-            double thr_score = ctu_fuse_threshold(effective_ssim_threshold,
-                                                  cross_percentage, ssim_offset);
+            double thr_score = m_quality.fuse_threshold(cross_percentage);
 
             if (ssim_score >= thr_score) {
                 // FUSE: similar enough — add to composite (alpha_over)
@@ -776,54 +727,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         m_allow_normal_case && m_windows.size() == 2 && have_prev &&
         ev.tc_in() < prev_tc_out && cur_window != prev_window_id &&
         nc_margin;
-    comp_state = (normal_case || reusable)
-        ? pcs_c::composition_state_e::normal
-        : pcs_c::composition_state_e::epoch_start;
-    // Drought logic:
-    // if (forced or (acq and margin > max(thresh - dthresh*drought, 0))) and
-    //    NOT nc_refresh -> ACQUISITION
-    // else -> drought += refresh_rate
-    // Reusable palette-update nodes NEVER become ACQUISITION; with enough
-    // decode margin they only re-emit the ODS (stay NORMAL).
-    if (thresh == 0.0 && !reusable && !normal_case) {
-        // compression=0 -> force all ACQUISITION
-        comp_state = pcs_c::composition_state_e::acquisition;
-        m_drought = 0.0;
-    } else if (comp_state != pcs_c::composition_state_e::acquisition) {
-        if (normal_case) {
-            // A NORMAL-case winner is never downgraded to ACQUISITION.
-        } else if (forced || force_acquisition) {
-            // force_acquisition (SSIM break) consolidates the absolute marker:
-            // a new object popped in a window — both force ACQUISITION and
-            // reset the drought.
-            comp_state = pcs_c::composition_state_e::acquisition;
-            m_drought = 0.0;
-        } else if (reusable && acq_valid &&
-                   dtl > std::max(thresh - m_dquality_factor * m_drought, 0.0)) {
-            // Refresh: same object but enough decode margin — re-send the ODS
-            // so late-starting decoders can re-sync, yet stay NORMAL (a
-            // palette-update node, not a group restart).
-            emit_reusable = false;
-            m_drought = 0.0;
-        } else {
-            // Prevent excessive acquisitions, as we want to compress the stream
-            m_drought += 1.0 * refresh_rate;
-            if (comp_state == pcs_c::composition_state_e::normal) {
-                // NC-refresh candidate: kept NORMAL; only logged for now.
-            }
-        }
-    }
-
-    // Extra acquisition counter. Counts NORMAL events (palette updates) since
-    // the last acquisition; EPOCH_START and ACQUISITION both start a new group
-    // (reset). The mid-event acquisition itself is inserted after the display
-    // set below.
-    if (comp_state == pcs_c::composition_state_e::acquisition ||
-        comp_state == pcs_c::composition_state_e::epoch_start) {
-        palette_updates_since_acq = 0;
-    } else if (comp_state == pcs_c::composition_state_e::normal && insert_acqs > 0) {
-        palette_updates_since_acq++;
-    }
+    const auto decision = m_quality.decide(normal_case, reusable, forced,
+                                           force_acquisition, acq_valid, dtl);
+    comp_state = decision.comp_state;
+    if (decision.reusable_refresh) emit_reusable = false;
 
         // Object ID double buffering (alternates 0/1 for single window).
         // Reused events keep the previous object id (already decoded).
@@ -870,7 +777,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // on the buffered record (flushed together with the group).
     bool acq_ok = false;
     epoch_timings_t acq_timings;
-    if (insert_acqs > 0 && palette_updates_since_acq > insert_acqs && !forced) {
+    if (m_quality.acquisition_due(forced)) {
         const double t_diff = ev.tc_out() - ev.tc_in();
         // Temporal margin: the event must be long enough to fit the
         // acquisition with decode room (t_diff > 4.5*write_dur/FREQ).
@@ -924,8 +831,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                     naw == compo_w && nah == compo_h) {
                     // CTU for P4b lookahead
                     const auto [nctu_score, nctu_cross] = core::ctu_c::evaluate(compo_rgba, ntrim, naw, nah);
-                    const double nthr = ctu_fuse_threshold(effective_ssim_threshold,
-                                                           nctu_cross, ssim_offset);
+                    const double nthr = m_quality.fuse_threshold(nctu_cross);
                     next_fuses = nctu_score >= nthr;
                 }
             }
@@ -961,8 +867,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         rec.own_palette = palette;
         rec.own_indexed = indexed;
         if (acq_ok) {
-            palette_updates_since_acq = 0;
-            m_drought = 0.0;
+            m_quality.note_acquisition();
         }
         chain.push_back(std::move(rec));
         chain_active = true;
@@ -999,8 +904,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             auto acq_segs = emit_event_segments(acq_in, result);
             for (auto& seg : acq_segs)
                 result.push_back(std::move(seg));
-            palette_updates_since_acq = 0;
-            m_drought = 0.0;
+            m_quality.note_acquisition();
         }
     }
 
