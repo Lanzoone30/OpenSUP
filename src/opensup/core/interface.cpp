@@ -149,9 +149,9 @@ bdn_render_c::execute()
         return result;
     }
 
-    // Encode epochs in parallel. Each epoch is independent (parity with the original:
-    // palette ids restart at 0 per epoch) so results are deterministically
-    // assembled by epoch index after all workers finish.
+    // Encode epochs in parallel. Each epoch is independent (palette ids restart
+    // at 0 per epoch) so results are deterministically assembled by epoch index
+    // after all workers finish.
     const int total_epochs = static_cast<int>(event_groups.size());
     auto fps_enum = xml.fps();
 
@@ -185,7 +185,6 @@ bdn_render_c::execute()
         // Determine window layout for this epoch (before encoding)
         auto windows = determine_windows(group, m_config.width, m_config.height);
 
-        // Encode (palette ids restart at 0 per epoch, threaded parity with the original)
         epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
                                 m_config.quantizer_id,
                                 m_config.allow_normal_case, m_config.overlap,
@@ -195,7 +194,8 @@ bdn_render_c::execute()
                                 m_config.acqrate / 100.0,
                                 m_config.ssim_tol / 100.0,
                                 m_config.extra_acq,
-                                m_config.alternate_oids);
+                                m_config.alternate_oids,
+                                epoch_index == total_epochs - 1);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
@@ -257,7 +257,7 @@ bdn_render_c::execute()
     if (m_config.max_kbps > 0) {
         logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +
                                   std::to_string(m_config.max_kbps) + " Kbps...");
-        // Result intentionally unused: underflow only warns, never fails (parity with the original).
+        // Result intentionally unused: underflow only warns, never fails.
         (void)test_rx_bitrate(m_segments,
                               static_cast<int64_t>(m_config.max_kbps) * 1000 / 8);
     }
@@ -293,5 +293,5 @@ bdn_render_c::execute()
     return result;
 }
 
-} // namespace core
-} // namespace opensup
+}
+}
