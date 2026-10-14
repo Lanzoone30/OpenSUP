@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a synthetic BDN XML + PNG pair for OpenSUP integration checks.
+"""Generate the synthetic BDN XML + PNG fixtures for OpenSUP integration checks.
 
 Run from tests/fixtures/:  python3 gen_fixture.py
-Produces synth_bdn.xml and 00001.png..00003.png in this directory.
+Produces synth_bdn.xml, synth_similar.xml, 00001..00003.png, sim00001..sim00003.png
+and large_wipe.png in this directory. (large_wipe.xml and the other fixture XMLs
+are versioned; only the gitignored PNGs are emitted here.)
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -114,6 +116,27 @@ def generate_similar_series():
     print(f"wrote {out}")
 
 
+def generate_large_wipe():
+    """740x740 window for the FR-006 palette-wipe path.
+
+    At 60fps the frame budget is ~531K px, so this window is too large to redraw
+    within a frame; a clear therefore swaps to a palette wipe. The pixels only
+    need to be a real opaque graphic (the clear type is driven by the window
+    size, not the content). large_wipe.xml (versioned) references this file.
+    """
+    size, half = 740, 370
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    quads = [(0, 0, (220, 60, 60)), (half, 0, (220, 220, 60)),
+             (0, half, (220, 60, 220)), (half, half, (230, 230, 230))]
+    for x, y, rgb in quads:
+        d.rectangle([x, y, x + half - 1, y + half - 1], fill=rgb + (255,))
+    d.rectangle([0, 0, size - 1, size - 1], outline=(40, 40, 40, 255), width=40)
+    img.save(os.path.join(HERE, "large_wipe.png"))
+    print("wrote large_wipe.png (740x740)")
+
+
 if __name__ == "__main__":
     main()
     generate_similar_series()
+    generate_large_wipe()
