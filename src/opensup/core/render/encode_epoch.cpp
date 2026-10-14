@@ -78,12 +78,12 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
     for (size_t i = 0; i < np; ++i) {
         const size_t idx = i * 4;
         const uint8_t sa = src[idx + 3];
-        if (sa == 0) continue;                    // fully transparent src → no change
+        if (sa == 0) continue;
         const uint8_t da = dst[idx + 3];
         const int sa_i = static_cast<int>(sa);
         const int da_i = static_cast<int>(da);
         const uint16_t oa = static_cast<uint16_t>(sa_i + da_i * (255 - sa_i) / 255);
-        if (oa == 0) {                            // both transparent
+        if (oa == 0) {
             dst[idx + 3] = 0;
             continue;
         }
@@ -132,7 +132,8 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
                                  double refresh_rate,
                                  double ssim_tol,
                                  int insert_acquisitions,
-                                 bool alternate_oids)
+                                 bool alternate_oids,
+                                 bool is_last_epoch)
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
     , m_allow_normal_case(allow_normal_case), m_prefer_normal_case(prefer_normal_case)
     , m_overlap(overlap)
@@ -142,7 +143,8 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
     , m_refresh_rate(refresh_rate)
     , m_ssim_tol(ssim_tol)
     , m_insert_acquisitions(insert_acquisitions)
-    , m_windows{} {}
+    , m_windows{}
+    , m_is_last_epoch(is_last_epoch) {}
 
 bool
 epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
@@ -190,6 +192,32 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
                  / pg_decoder_t::FREQ;
     t.decode_duration = decode_duration;
     return t;
+}
+
+void
+epoch_encoder_c::emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& out,
+                                   uint8_t pcsfps, double pts, double dts,
+                                   uint8_t palette_id)
+{
+    // PCS keeps the current composition and flags a palette update; the PDS
+    // sets every slot transparent (Y=16, C=128, alpha=0), blanking the screen
+    // without a WDS.
+    auto clear_pcs = pcs_c::from_scratch(
+        static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height), pcsfps,
+        static_cast<uint16_t>(m_composition_n++),
+        pcs_c::composition_state_e::normal, true, palette_id, m_last_cobjs,
+        pts, dts);
+    out.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+
+    media::palette_t clear_pal;
+    for (uint16_t k = 0; k < 255; ++k)
+        clear_pal.set(static_cast<uint8_t>(k), media::palette_entry_t(16, 128, 128, 0));
+    auto clear_pds = pds_c::from_scratch(clear_pal, static_cast<uint8_t>(m_palette_vn++),
+                                         palette_id, dts, dts);
+    out.push_back(std::make_shared<pds_c>(std::move(clear_pds)));
+
+    auto clear_end = ends_c::from_scratch(pts, dts);
+    out.push_back(std::make_shared<ends_c>(std::move(clear_end)));
 }
 
 uint8_t
@@ -242,11 +270,11 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
         ref.flags = c_object_t::standard;
         // The kept (id_skipped) CObject must be listed FIRST in the
-        // composition: "the refreshed object has to come first". Always, with
-        // or without alternate_oids. The reference never alternates (it uses
-        // the on-screen oid).
+        // composition: the refreshed object has to come first — always, with
+        // or without alternate_oids; the on-screen oid is reused.
         cobjects.insert(cobjects.begin(), ref);
     }
+    m_last_cobjs = cobjects;
 
     // Per-segment timestamps (set_pts_dts_sc model)
     const auto& timings = in.timings;
@@ -330,14 +358,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     if (events.empty()) return result;
 
     m_ods_vn.clear();
-    // Use provided windows or default to single full-screen window
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
     // Overlap + two windows: acquisitions merge into the previous window's
     // nodes, so the whole epoch must be planned before emission (two-phase).
     // Default and single-window overlap keep the single-pass path below
-    // (byte-frozen by FR-6).
+    // (byte-frozen).
     if (m_overlap && m_windows.size() == 2)
         return encode_epoch_overlap(events, redraw_flags, fps_enum,
                                     palette_id_counter);
@@ -388,12 +415,26 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // Helper to emit a clear display set at a given PTS using a window
     // geometry (previous event's window for inline emits, recorded geometry
     // when flushing a buffered group).
-    auto emit_clear_ds = [&](double pts, int w, int h, int x, int y) -> void {
+    // Mid-stream clears pick WDS-vs-palette by fit; end-of-epoch clears by
+    // the last-event duration (the caller passes that decision explicitly).
+    enum class clear_mode_e { auto_fit, force_wds, force_palette };
+    auto emit_clear_ds = [&](double pts, int w, int h, int x, int y,
+                             clear_mode_e mode = clear_mode_e::auto_fit) -> void {
         double wipe_dur = std::ceil(static_cast<double>(w) *
             static_cast<double>(h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
             pg_decoder_t::FREQ;
         double dts = pts - wipe_dur;
         if (dts < 0) dts = 0;
+        // A full-window WDS wipe fits only when it leaves a margin inside one
+        // frame; otherwise clear via a palette swap.
+        const bool wds_fits = (wipe_dur + 3.0 / pg_decoder_t::FREQ) < 1.0 / m_fps;
+        const bool use_palette = (mode == clear_mode_e::force_palette) ||
+                                 (mode == clear_mode_e::auto_fit && !wds_fits);
+        if (use_palette) {
+            emit_palette_wipe(result, static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                              pts, dts, palette_id);
+            return;
+        }
         // PCS: NORMAL state, empty cobjects, no palette flag
         auto clear_pcs = pcs_c::from_scratch(
             static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
@@ -411,7 +452,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         clear_wd.height = static_cast<uint16_t>(h);
         auto clear_wds = wds_c::from_scratch({clear_wd}, pts, dts);
         result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
-        // ENDS
         auto clear_end = ends_c::from_scratch(pts, dts);
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
@@ -421,10 +461,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // m_refresh_rate = acqrate/100 (scales drought increment)
     // m_ssim_tol = ssim_tol/100 (adjusts threshold per resolution)
     // m_insert_acquisitions = extra_acq (min palette updates to force acq)
-    const double thresh = m_quality_factor;              // quality_factor
-    const double refresh_rate = m_refresh_rate;          // acqrate/100
-    const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);  // ssim_tol adjustment
-    const int insert_acqs = m_insert_acquisitions;       // extra_acq
+    const double thresh = m_quality_factor;
+    const double refresh_rate = m_refresh_rate;
+    const double ssim_offset = 0.014 * std::clamp(m_ssim_tol, -1.0, 1.0);
+    const int insert_acqs = m_insert_acquisitions;
 
     // Resolution-dependent base SSIM threshold:
     // min(0.9999, 0.9608 + height*(0.986-0.972)/(1080-480)) — height maps
@@ -481,7 +521,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 "Group co-quantization failed; falling back to per-event emission");
             for (const auto& e : chain) {
                 // Same gap-only clear rule as the main path.
-                if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
+                if (e.has_clear && e.clear_pts < e.timings.base_pts)
                     emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
                                       e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
@@ -500,10 +540,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             // The undisplay clear is emitted only for gap (wipe) nodes —
             // "zero unless there are no PG objects shown at some point in the
             // epoch". Contiguous updates replace/refresh the composition with
-            // no clear (no blinking). In overlap mode the chain follows that
-            // rule: the clear is emitted only when a real gap precedes the
-            // event.
-            if (e.has_clear && (!m_overlap || e.clear_pts < e.timings.base_pts))
+            // no clear (no blinking): the clear is emitted only when a real
+            // gap precedes the event.
+            if (e.has_clear && e.clear_pts < e.timings.base_pts)
                 emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
             if (i == 0) {
                 // Group start: union bitmap + full palette.
@@ -588,7 +627,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             continue;
         }
 
-        // Trim transparent padding (like legacy's getbbox())
+        // Trim transparent padding to the opaque bounding box
         int trim_w, trim_h, trim_x, trim_y;
         std::vector<uint8_t> trimmed_rgba;
         trim_transparent_padding(rgba, ev.width(), ev.height(),
@@ -602,7 +641,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         bool reusable = (obj_w == prev_trim_w && obj_h == prev_trim_h &&
                          trimmed_rgba == prev_trimmed);
 
-        // SSIM comparison vs accumulated composite
         double ssim_score = 1.0;
         double cross_percentage = 1.0;
         bool force_acquisition = false;
@@ -639,7 +677,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             force_acquisition = true;
         }
 
-        // Forced/redraw events always break the group
         // Forced/redraw events always break the group
         if (k < forced_acq.size() && forced_acq[k]) {
             force_acquisition = true;
@@ -991,7 +1028,24 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         chain_active = false;
     }
     if (have_prev) {
-        emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y);
+        // The end-of-epoch wipe fits only if the last event is long enough to
+        // redraw the window; a short last event clears via a palette swap.
+        const double write_ticks = std::ceil(static_cast<double>(prev_obj_w) *
+            static_cast<double>(prev_obj_h) * pg_decoder_t::FREQ / pg_decoder_t::RC);
+        const double last_frames = (prev_tc_out - prev_tc_in) * m_fps;
+        const bool perform_wds_end = last_frames >=
+            std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
+        emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y,
+                      perform_wds_end ? clear_mode_e::force_wds
+                                      : clear_mode_e::force_palette);
+        // The last epoch has no successor bounding it: after a palette swap,
+        // follow it with a WDS wipe a few frames later.
+        if (!perform_wds_end && m_is_last_epoch) {
+            const double nf_shift = std::max(1.0, std::ceil(
+                (write_ticks + 10.0) * m_fps / pg_decoder_t::FREQ));
+            emit_clear_ds(prev_tc_out + nf_shift / m_fps, prev_obj_w, prev_obj_h,
+                          prev_pos_x, prev_pos_y, clear_mode_e::force_wds);
+        }
         logger_c::instance().log(common::log_level_e::hdebug, "Final clear DS at " + std::to_string(prev_tc_out));
     }
     // align_palette_updates (overlap mode): buffered palette updates must
@@ -1015,7 +1069,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         }
     }
     // Slot sizes accumulated over the epoch (find_acqs min_boxes) — diagnostic
-    // parity aid for F2 (specs/007) slot-based decode timing.
+    // parity aid for F2 slot-based decode timing.
     for (size_t w = 0; w < min_boxes.size(); ++w) {
         logger_c::instance().log(common::log_level_e::hdebug,
             "min_boxes w" + std::to_string(w) + " dy=" + std::to_string(min_boxes[w].first) +
@@ -1025,5 +1079,5 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                 " events, " + std::to_string(result.size()) + " segments.");
     return result;
 }
-} // namespace core
-} // namespace opensup
+}
+}
