@@ -8,6 +8,7 @@
 // rule (clear only on gap nodes, render2.py:859) and the emitted stream
 // keeps a strictly monotonic DTS (align_palette_updates, render2.py:286-313).
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -90,17 +91,14 @@ TEST(Ahead, MonotonicDtsWithOverlap) {
         last_dts = seg->dts();
     }
 }
-TEST(Ahead, ContiguousChainEmitsNoClearWithOverlap) {
-    // US1 (render2.py:859): the undisplay clear exists only for gap (wipe)
-    // nodes. synth_similar.xml events are contiguous, so with overlap only
-    // the end-of-epoch clear remains; without overlap the legacy clear
-    // pattern emits one clear per chain event boundary.
+TEST(Ahead, ContiguousChainEmitsNoClear) {
+    // The undisplay clear exists only for gap (wipe) nodes: synth_similar.xml
+    // events are contiguous, so only the end-of-epoch clear remains — the
+    // overlap pipeline and the default path both follow the same rule.
     auto on = encode_similar(OPENDSUP_TEST_OUTPUT_DIR "/ahead_on.sup", true);
     auto off = encode_similar(OPENDSUP_TEST_OUTPUT_DIR "/ahead_off.sup", false);
-    // Contiguous fused events: exactly one clear left (the final wipe).
     EXPECT_EQ(count_clear_ds(on.segments()), 1);
-    // Legacy pattern: clears between every contiguous event pair + final.
-    EXPECT_GT(count_clear_ds(off.segments()), count_clear_ds(on.segments()));
+    EXPECT_EQ(count_clear_ds(off.segments()), 1);
 }
 TEST(Ahead, OverlapChangesStreamButNotDefault) {
     // FR-6: default output is untouched by the overlap pipeline; the flag
@@ -125,8 +123,8 @@ TEST(Ahead, ShiftForwardOverlayMergesAcq) {
                                  OPENDSUP_TEST_OUTPUT_DIR "/ahead_merge_on.sup", true);
     const auto st_on = pcs_states(on.segments());
     ASSERT_EQ(st_on.size(), 2u);
-    EXPECT_EQ(st_on[0], pcs_c::composition_state_e::acquisition)
-        << "acquisition should move to the earlier (promoted) node";
+    EXPECT_EQ(st_on[0], pcs_c::composition_state_e::epoch_start)
+        << "first display set is the epoch start (SUPer render2.py:228)";
     EXPECT_EQ(st_on[1], pcs_c::composition_state_e::normal)
         << "the absorbed node must become NORMAL";
     // Without overlap the same events keep independent acquisitions
@@ -147,9 +145,44 @@ TEST(Ahead, ShiftForwardOverlayBlocked) {
                                  OPENDSUP_TEST_OUTPUT_DIR "/ahead_blocked.sup", true);
     const auto st = pcs_states(on.segments());
     ASSERT_EQ(st.size(), 2u);
-    EXPECT_EQ(st[0], pcs_c::composition_state_e::acquisition);
+    EXPECT_EQ(st[0], pcs_c::composition_state_e::epoch_start);
     EXPECT_EQ(st[1], pcs_c::composition_state_e::acquisition)
         << "acquisition that fits must not be shifted";
+}
+TEST(Ahead, OverlapEpochStartAndClearInvariants) {
+    // US1/US2 parity with SUPer (render2.py:228,588,1064):
+    //  - exactly one EpochStart, on the first display set;
+    //  - no two PCS share a PTS (pgstream.py:221);
+    //  - the end-of-epoch clear lands after the last show, not on its PTS.
+    auto on = encode_multiwindow("opensup_multiwindow.xml",
+                                 OPENDSUP_TEST_OUTPUT_DIR "/ahead_invariants.sup", true);
+    std::vector<uint32_t> pts;
+    int epoch_starts = 0;
+    bool first_show_checked = false;
+    double last_show_pts = 0.0, clear_pts = -1.0;
+    for (const auto& seg : on.segments()) {
+        auto pcs = std::dynamic_pointer_cast<pcs_c>(seg);
+        if (!pcs) continue;
+        pts.push_back(pcs->tpts());
+        if (pcs->composition_state() == pcs_c::composition_state_e::epoch_start)
+            epoch_starts++;
+        if (pcs->cobjects.empty()) {
+            clear_pts = pcs->pts();
+        } else {
+            if (!first_show_checked) {
+                EXPECT_EQ(pcs->composition_state(),
+                          pcs_c::composition_state_e::epoch_start);
+                first_show_checked = true;
+            }
+            last_show_pts = pcs->pts();
+        }
+    }
+    EXPECT_EQ(epoch_starts, 1);
+    std::sort(pts.begin(), pts.end());
+    EXPECT_EQ(std::adjacent_find(pts.begin(), pts.end()), pts.end())
+        << "two display sets share a PTS";
+    EXPECT_GT(clear_pts, last_show_pts)
+        << "end-of-epoch clear must be after the last show";
 }
 
 } // namespace core
