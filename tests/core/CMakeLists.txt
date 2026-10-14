@@ -12,6 +12,7 @@ add_executable(opensup_test_core
   params_test.cpp
   findacqs_test.cpp
   ahead_test.cpp
+  palette_wipe_test.cpp
   double_buffer_test.cpp
   ods_vn_test.cpp
   cli_parser_test.cpp
