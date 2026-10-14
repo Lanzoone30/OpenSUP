@@ -185,18 +185,23 @@ bdn_render_c::execute()
         // Determine window layout for this epoch (before encoding)
         auto windows = determine_windows(group, m_config.width, m_config.height);
 
-        epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
-                                m_config.quantizer_id,
-                                m_config.allow_normal_case, m_config.overlap,
-                                m_config.full_palette,
-                                m_config.prefer_normal_case,
-                                m_config.compression / 100.0,
-                                m_config.acqrate / 100.0,
-                                m_config.ssim_tol / 100.0,
-                                m_config.extra_acq,
-                                m_config.alternate_oids,
-                                epoch_index == total_epochs - 1,
-                                m_config.bt_matrix);
+        epoch_render_options_t opts;
+        opts.fps = m_config.fps;
+        opts.width = m_config.width;
+        opts.height = m_config.height;
+        opts.quantizer_id = m_config.quantizer_id;
+        opts.allow_normal_case = m_config.allow_normal_case;
+        opts.overlap = m_config.overlap;
+        opts.full_palette = m_config.full_palette;
+        opts.prefer_normal_case = m_config.prefer_normal_case;
+        opts.quality_factor = m_config.compression / 100.0;
+        opts.refresh_rate = m_config.acqrate / 100.0;
+        opts.ssim_tol = m_config.ssim_tol / 100.0;
+        opts.insert_acquisitions = m_config.extra_acq;
+        opts.alternate_oids = m_config.alternate_oids;
+        opts.bt_matrix = m_config.bt_matrix;
+        opts.is_last_epoch = epoch_index == total_epochs - 1;
+        epoch_encoder_c encoder(opts);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
