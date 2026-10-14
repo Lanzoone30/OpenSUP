@@ -11,6 +11,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <string>
 
 #include "opensup/core/segments.h"
 #include "opensup/core/filestreams.h"
@@ -119,7 +120,8 @@ public:
                      double ssim_tol = 0.0,
                      int insert_acquisitions = 2,
                      bool alternate_oids = false,
-                     bool is_last_epoch = false);
+                     bool is_last_epoch = false,
+                     std::string bt_matrix = "bt709");
 
     /// An empty `windows` defaults to a single full-screen window.
     std::vector<std::shared_ptr<pg_segment_c>>
@@ -159,6 +161,7 @@ private:
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
+    std::string m_bt_matrix = "bt709";
     // Normal case needs two windows: it redefines one, keeps the other's object up.
     bool m_allow_normal_case = false;
     // Reserved for the faithful prefer_normal_case implementation.
