@@ -25,5 +25,5 @@ void emit_progress_event(int percent, int epoch, int total);
 /// Emit a done event with full encode result.
 void emit_done_event(const core::encode_result_t& result);
 
-} // namespace cli
-} // namespace opensup
+}
+}

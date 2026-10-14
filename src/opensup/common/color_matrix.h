@@ -34,5 +34,5 @@ struct color_matrices_t {
 /// Canonical name of a matrix standard.
 [[nodiscard]] std::string_view matrix_name(color_matrix_e mat) noexcept;
 
-} // namespace common
-} // namespace opensup
+}
+}

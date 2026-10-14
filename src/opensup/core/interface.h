@@ -42,8 +42,8 @@ struct encode_config_t {
     bool ignore_resolution = false;
     bool both_formats = false;
     bool allow_normal_case = false;
-    // Reserved for the faithful prefer_normal_case implementation
-    // (specs/013-prefer-normal-case). No CLI/UI surface exposes it yet.
+    // Reserved for the faithful prefer_normal_case implementation.
+    // No CLI/UI surface exposes it yet.
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Per-window oid alternation (double buffering)
@@ -55,7 +55,7 @@ struct encode_config_t {
                              // runs sequential and deterministic. The CLI always
                              // passes -j (0 = auto), so production defaults to auto.
 
-    // Drought / quality parameters (parity with the original)
+    // Drought / quality parameters
     int compression = 80;    // quality_factor: 0-100 (def 80). 0 = force all ACQUISITION
     int acqrate = 100;       // refresh_rate: 0-100 (def 100). Scales drought increment.
     int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0). Adjusts threshold per resolution.
@@ -93,5 +93,5 @@ private:
     int m_reuse_candidates = 0;
 };
 
-} // namespace core
-} // namespace opensup
+}
+}

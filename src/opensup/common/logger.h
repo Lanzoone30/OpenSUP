@@ -81,5 +81,5 @@ inline void log_warn(const std::string& msg)    { logger_c::instance().warn(msg)
 inline void log_error(const std::string& msg)   { logger_c::instance().error(msg); }
 inline void log_fatal(const std::string& msg)   { logger_c::instance().log(log_level_e::fatal, msg); }
 
-} // namespace common
-} // namespace opensup
+}
+}

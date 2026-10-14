@@ -313,5 +313,5 @@ void write_u16_be(uint8_t* data, uint16_t val) noexcept;
 void write_u24_be(uint8_t* data, uint32_t val) noexcept;
 void write_u32_be(uint8_t* data, uint32_t val) noexcept;
 
-} // namespace core
-} // namespace opensup
+}
+}

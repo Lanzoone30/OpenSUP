@@ -647,5 +647,5 @@ display_set_t display_set_t::from_bytes(const std::vector<uint8_t>& data) {
     return display_set_t(segs);
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

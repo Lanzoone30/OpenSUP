@@ -34,5 +34,5 @@ struct pg_decoder_t {
     static constexpr size_t CODED_BUF_SIZE   = 1 * 1024 * 1024;
 };
 
-} // namespace media
-} // namespace opensup
+}
+}

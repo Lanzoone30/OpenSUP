@@ -540,5 +540,5 @@ bool hextree_quantize_core(const uint8_t* rgba, size_t len, uint32_t width,
     return true;
 }
 
-} // namespace media
-} // namespace opensup
+}
+}

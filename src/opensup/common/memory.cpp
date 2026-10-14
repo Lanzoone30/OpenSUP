@@ -66,5 +66,5 @@ memory_c::to_vector() const
     return std::vector<uint8_t>(m_data.get(), m_data.get() + m_size);
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

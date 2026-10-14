@@ -92,5 +92,5 @@ private:
 [[nodiscard]] uint8_t clip_y(uint32_t v) noexcept;
 [[nodiscard]] uint8_t clip_cbcr(uint32_t v) noexcept;
 
-} // namespace media
-} // namespace opensup
+}
+}

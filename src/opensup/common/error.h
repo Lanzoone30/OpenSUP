@@ -46,5 +46,5 @@ public:
         : opensup_error_x(msg) {}
 };
 
-} // namespace common
-} // namespace opensup
+}
+}

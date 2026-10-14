@@ -185,7 +185,6 @@ void layout_engine_c::brute_force_windows() {
     }
 
     if (best_score >= exact_area) {
-        // No split worthwhile
         m_window0 = m_container;
         m_window1 = m_container;
         m_is_vertical = false;
@@ -223,12 +222,12 @@ common::box_t tighten_to_content(const common::box_t& window,
         }
     }
     if (x0 > x1 || y0 > y1) {
-        // No content in this window — keep it unchanged (matches the reference fallback).
+        // No content in this window — keep it unchanged.
         return window;
     }
     return common::box_t{y0, y1 - y0 + 1, x0, x1 - x0 + 1};
 }
-}  // namespace
+}
 
 common::box_t layout_engine_c::cut_vertical(const common::box_t& window,
                                              const std::vector<uint8_t>& screen,
@@ -244,5 +243,5 @@ common::box_t layout_engine_c::cut_horizontal(const common::box_t& window,
     return tighten_to_content(window, screen, screen_w, screen_h);
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

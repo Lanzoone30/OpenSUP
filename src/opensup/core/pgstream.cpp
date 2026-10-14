@@ -22,7 +22,7 @@ namespace {
 
 using common::logger_c;
 
-/// Python round() semantics (banker's rounding, half-to-even) as used by the original.
+/// Round half to even (banker's rounding).
 int64_t round_banker(double x) noexcept {
     double fl = std::floor(x);
     int64_t r = static_cast<int64_t>(fl);
@@ -43,7 +43,7 @@ struct ds_group_t {
     uint32_t pts = 0; ///< PCS presentation time in 90 kHz ticks.
 };
 
-} // namespace
+}
 
 leaky_buffer_c::leaky_buffer_c(uint32_t first_ts, int64_t bitrate) noexcept
     : m_bitrate(bitrate), m_last_ts(first_ts) {}
@@ -179,5 +179,5 @@ bool test_rx_bitrate(const std::vector<std::shared_ptr<pg_segment_c>>& segments,
     return is_ok;
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

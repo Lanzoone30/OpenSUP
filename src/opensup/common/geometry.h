@@ -67,5 +67,5 @@ bool operator!=(const shape_t& a, const shape_t& b) noexcept;
 bool operator==(const box_t& a, const box_t& b) noexcept;
 bool operator!=(const box_t& a, const box_t& b) noexcept;
 
-} // namespace common
-} // namespace opensup
+}
+}

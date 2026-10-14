@@ -17,7 +17,7 @@ tc_t::from_seconds(double seconds, fps_e fps)
 {
     // Integer and drop-frame fps both round seconds * fps directly.
     int64_t f = static_cast<int64_t>(std::round(seconds * fps.to_double()));
-    return tc_t(f + 1, fps); // +1 for offset like Python version
+    return tc_t(f + 1, fps); // frames are 1-based
 }
 
 tc_t
@@ -79,5 +79,5 @@ tc_t::operator==(const tc_t& other) const noexcept
     return m_frames == other.m_frames && m_fps == other.m_fps;
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

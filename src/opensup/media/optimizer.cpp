@@ -143,7 +143,7 @@ uint64_t seq_l2(const uint8_t* a, const uint8_t* b, size_t n) noexcept
     }
     return d;
 }
-} // namespace
+}
 
 bool
 solve_group(const std::vector<group_frame_t>& frames, int max_colors,
@@ -321,5 +321,5 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     return true;
 }
 
-} // namespace media
-} // namespace opensup
+}
+}

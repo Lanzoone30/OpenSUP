@@ -111,5 +111,5 @@ std::vector<bdn_xml_event_c> remove_dupes(std::vector<bdn_xml_event_c>& events);
 std::pair<std::vector<bdn_xml_event_c>, std::vector<bool>>
 add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, double period);
 
-} // namespace core
-} // namespace opensup
+}
+}

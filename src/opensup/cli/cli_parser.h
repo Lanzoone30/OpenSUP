@@ -29,7 +29,7 @@ struct cli_options_t {
     int max_kbps = 0;        // 0 = bitrate validation off
     int threads = 0;         // 0 = auto (physical cores)
 
-    // Drought / quality parameters (parity with the original)
+    // Drought / quality parameters
     int compression = 80;    // quality_factor: 0-100 (def 80)
     int acqrate = 100;       // refresh_rate: 0-100 (def 100)
     int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0)
@@ -49,5 +49,5 @@ cli_options_t parse_args(int argc, char** argv);
 /// Translate CLI options into the core encoding configuration.
 core::encode_config_t options_to_config(const cli_options_t& opts);
 
-} // namespace cli
-} // namespace opensup
+}
+}

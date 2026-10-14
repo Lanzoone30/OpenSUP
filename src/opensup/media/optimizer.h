@@ -98,5 +98,5 @@ public:
     static std::vector<std::unique_ptr<quantizer_base_c>> get_available();
 };
 
-} // namespace media
-} // namespace opensup
+}
+}

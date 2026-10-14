@@ -143,7 +143,6 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
             std::to_string(m_height) + ", continuing anyway.");
     }
 
-    // Determine folder
     auto path = std::filesystem::path(filepath);
     m_folder = path.parent_path().string();
 
@@ -433,5 +432,5 @@ add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, d
     return {new_events, redraw_flags};
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

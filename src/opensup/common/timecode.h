@@ -64,5 +64,5 @@ private:
     fps_e m_fps;
 };
 
-} // namespace common
-} // namespace opensup
+}
+}

@@ -84,5 +84,5 @@ logger_c::set_file_output(const std::string& path)
     m_file = std::make_unique<std::ofstream>(path, std::ios::out);
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

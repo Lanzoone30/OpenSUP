@@ -50,7 +50,7 @@ void emit_line(const std::string& json) {
     std::cout.flush();
 }
 
-} // namespace
+}
 
 void emit_log_event(int level, const std::string& msg) {
     const char* level_name = "info";
@@ -80,5 +80,5 @@ void emit_done_event(const core::encode_result_t& result) {
     }
 }
 
-} // namespace cli
-} // namespace opensup
+}
+}

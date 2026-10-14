@@ -25,5 +25,5 @@ public:
                           int width, int height, int channels = 4);
 };
 
-} // namespace common
-} // namespace opensup
+}
+}

@@ -70,5 +70,5 @@ private:
     static constexpr int MARGIN = 8;
 };
 
-} // namespace core
-} // namespace opensup
+}
+}

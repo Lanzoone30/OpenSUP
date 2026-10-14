@@ -180,7 +180,7 @@ std::vector<uint8_t> sobel_mixed_derivative(const std::vector<uint8_t>& src, int
     return dst;
 }
 
-} // namespace
+}
 
 double
 ssim_c::compare_with_alpha(const uint8_t* img1, const uint8_t* img2,
@@ -327,5 +327,5 @@ ssim_c::compare(const uint8_t* img1, const uint8_t* img2,
     return ssim_sum * pixel_len / total_pixels;
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

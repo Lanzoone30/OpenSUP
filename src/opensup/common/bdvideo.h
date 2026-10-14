@@ -52,7 +52,7 @@ public:
     [[nodiscard]] constexpr value_t value() const noexcept { return m_val; }
     [[nodiscard]] constexpr int numerator() const noexcept { return m_numer; }
     [[nodiscard]] constexpr int denominator() const noexcept { return m_denom; }
-    /// Frame rate as a double (for display / legacy code).
+    /// Frame rate as a double (for display).
     [[nodiscard]] double to_double() const noexcept;
     /// PCS frame rate code as stored in the PCS segment header.
     [[nodiscard]] int32_t to_pcsfps() const noexcept;
@@ -129,5 +129,5 @@ private:
     std::optional<video_format_e> m_format;
 };
 
-} // namespace common
-} // namespace opensup
+}
+}
