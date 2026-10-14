@@ -133,8 +133,10 @@ epoch_encoder_c::epoch_encoder_c(double fps, int width, int height, int quantize
                                  double ssim_tol,
                                  int insert_acquisitions,
                                  bool alternate_oids,
-                                 bool is_last_epoch)
+                                 bool is_last_epoch,
+                                 std::string bt_matrix)
     : m_fps(fps), m_width(width), m_height(height), m_quantizer_id(quantizer_id)
+    , m_bt_matrix(std::move(bt_matrix))
     , m_allow_normal_case(allow_normal_case), m_prefer_normal_case(prefer_normal_case)
     , m_overlap(overlap)
     , m_full_palette(full_palette)
@@ -157,7 +159,8 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
     auto try_quantize = [&](size_t id) -> bool {
         if (id >= opt.size()) return false;
         int max_colors = m_full_palette ? 255 : 254;
-        auto result = opt[id]->quantize(rgba, width, height, max_colors);
+        auto result = opt[id]->quantize(rgba, width, height, max_colors, true,
+                                        m_bt_matrix);
         if (result.palette.empty() || result.indexed.empty()) return false;
         out_palette = std::move(result.palette);
         out_indexed = std::move(result.indexed);
@@ -514,7 +517,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         }
         media::group_solution_t sol;
         const bool solved = media::solve_group(
-            frames, m_full_palette ? 255 : 254, sol);
+            frames, m_full_palette ? 255 : 254, sol, m_bt_matrix);
         if (!solved || sol.palettes.size() != chain.size()) {
             // Fallback: emit each event standalone (fresh ODS each).
             logger_c::instance().warn(
@@ -712,7 +715,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             if (!m_full_palette) {
                 // PGS fix: shift palette to make index 0 = fully transparent
                 palette.offset(1);
-                palette.set(0, palette_entry_t::from_rgba(0, 0, 0, 0));
+                palette.set(0, palette_entry_t::from_rgba(0, 0, 0, 0, m_bt_matrix));
                 // Remap indexed image: transparent pixels → 0, others → old_idx + 1
                 for (size_t i = 0; i < indexed.size(); i++) {
                     indexed[i] = trans_mask[i] ? 0 : static_cast<uint8_t>(indexed[i] + 1);
