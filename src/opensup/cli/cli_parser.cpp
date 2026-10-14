@@ -6,8 +6,10 @@
 #include "opensup/pch.h"
 #include "opensup/cli/cli_parser.h"
 #include "opensup/version.h"
+#include "opensup/common/logger.h"
 
 #include <CLI/CLI.hpp>
+#include <cctype>
 #include <iostream>
 
 namespace opensup {
@@ -97,6 +99,24 @@ parse_args(int argc, char** argv)
     return opts;
 }
 
+namespace {
+
+/// Canonicalize a color-space name (bt601|601|BT.709|bt-2020...); empty on error.
+std::string
+canonical_bt_matrix(const std::string& raw)
+{
+    std::string k;
+    for (char c : raw) {
+        if (c == '.' || c == ' ' || c == '-' || c == '_') continue;
+        k += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    if (k.rfind("bt", 0) == 0) k.erase(0, 2);
+    if (k == "601" || k == "709" || k == "2020") return "bt" + k;
+    return {};
+}
+
+} // namespace
+
 core::encode_config_t
 options_to_config(const cli_options_t& opts)
 {
@@ -110,7 +130,12 @@ options_to_config(const cli_options_t& opts)
     cfg.allow_normal_case = opts.allow_normal_case;
     cfg.overlap = opts.overlap;
     cfg.alternate_oids = opts.alternate_oids;
-    cfg.bt_matrix = opts.bt_matrix;
+    cfg.bt_matrix = canonical_bt_matrix(opts.bt_matrix);
+    if (cfg.bt_matrix.empty()) {
+        common::logger_c::instance().warn(
+            "Unknown color space '" + opts.bt_matrix + "', using BT.709.");
+        cfg.bt_matrix = "bt709";
+    }
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
     cfg.max_kbps = opts.max_kbps;
