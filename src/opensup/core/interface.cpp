@@ -195,7 +195,8 @@ bdn_render_c::execute()
                                 m_config.ssim_tol / 100.0,
                                 m_config.extra_acq,
                                 m_config.alternate_oids,
-                                epoch_index == total_epochs - 1);
+                                epoch_index == total_epochs - 1,
+                                m_config.bt_matrix);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
