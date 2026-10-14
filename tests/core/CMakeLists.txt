@@ -15,6 +15,7 @@ add_executable(opensup_test_core
   palette_wipe_test.cpp
   double_buffer_test.cpp
   ods_vn_test.cpp
+  sequence_quality_policy_test.cpp
   cli_parser_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
