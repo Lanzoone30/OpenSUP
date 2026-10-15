@@ -767,6 +767,16 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                            force_acquisition, acq_valid, dtl);
     comp_state = decision.comp_state;
     if (decision.reusable_refresh) emit_reusable = false;
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "[decide] k=" + std::to_string(k) +
+        " nc=" + std::to_string(normal_case) +
+        " reuse=" + std::to_string(reusable) +
+        " forced=" + std::to_string(forced) +
+        " force_acq=" + std::to_string(force_acquisition) +
+        " acq_valid=" + std::to_string(acq_valid) +
+        " dtl=" + std::to_string(dtl) +
+        " state=" + std::to_string(static_cast<int>(decision.comp_state)) +
+        " refresh=" + std::to_string(decision.reusable_refresh));
     // A periodic refresh re-sends the object even when its bitmap is unchanged.
     if (k < forced_acq.size() && forced_acq[k]) emit_reusable = false;
 
