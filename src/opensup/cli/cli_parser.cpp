@@ -62,8 +62,7 @@ parse_args(int argc, char** argv)
                     "Anchor interval in seconds (0 = disable, minimum: 1)");
 
     app.add_option("-m,--max-kbps", opts.max_kbps,
-                    "Validate output against a max bitrate in Kbps [10-48000, 0 = off] (def: 0)")
-        ->check(CLI::Range(0, 48000));
+                    "Validate output against a max bitrate in Kbps [0 = off, 1-9 rejected, >48000 warns] (def: 0)");
 
     app.add_option("-j,--threads", opts.threads,
                     "Parallel epoch encoding workers [0 = auto, 1 = sequential, max 10] (def: 0 = auto)")
@@ -98,6 +97,11 @@ parse_args(int argc, char** argv)
 
     if (opts.redraw_period < 0.0) {
         common::logger_c::instance().error("Negative anchor interval, aborting.");
+        std::exit(1);
+    }
+
+    if (opts.max_kbps < 10 && opts.max_kbps != 0) {
+        common::logger_c::instance().error("Meaningless max bitrate, aborting.");
         std::exit(1);
     }
 
@@ -148,6 +152,12 @@ options_to_config(const cli_options_t& opts)
         cfg.redraw_period = 0.0;
     }
     cfg.max_kbps = opts.max_kbps;
+    if (cfg.max_kbps > 48000) {
+        common::logger_c::instance().warn("Max bitrate is beyond BDAV limit.");
+    } else if (cfg.max_kbps > 10 && cfg.max_kbps < 500) {
+        common::logger_c::instance().warn(
+            "Max bitrate is low. Buffer underflow errors will be spammed.");
+    }
     cfg.threads = opts.threads;
     cfg.compression = opts.compression;
     cfg.acqrate = opts.acqrate;
