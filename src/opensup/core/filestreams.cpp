@@ -32,11 +32,11 @@ namespace core {
 
 using common::logger_c;
 
-bdn_xml_event_c::bdn_xml_event_c(double tc_in_sec, double tc_out_sec,
+bdn_xml_event_c::bdn_xml_event_c(common::tc_t tc_in, common::tc_t tc_out,
                                    int x_, int y_, int width_, int height_,
                                    std::string image_path_,
-                                   bool forced_, double /*fps*/)
-    : m_tc_in(tc_in_sec), m_tc_out(tc_out_sec)
+                                   bool forced_)
+    : m_tc_in(tc_in), m_tc_out(tc_out)
     , m_x(x_), m_y(y_), m_width(width_), m_height(height_)
     , m_forced(forced_), m_image_path(std::move(image_path_))
 {}
@@ -167,21 +167,19 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
         auto img_path = std::filesystem::path(m_folder) / gfx_file;
 
-        auto tc_to_sec = [this](const std::string& tc) -> double {
-            // HH:MM:SS:FF format
+        auto tc_from_string = [this](const std::string& tc) -> common::tc_t {
             int h = 0, m = 0, s = 0, f = 0;
             std::sscanf(tc.c_str(), "%d:%d:%d:%d", &h, &m, &s, &f);
-            return static_cast<double>(h * 3600 + m * 60 + s) +
-                   static_cast<double>(f) / m_fps.to_double();
+            return common::tc_t::from_hmsf(h, m, s, f, m_fps);
         };
 
-        double tc_in = tc_to_sec(in_tc);
-        double tc_out = tc_to_sec(out_tc);
+        common::tc_t tc_in = tc_from_string(in_tc);
+        common::tc_t tc_out = tc_from_string(out_tc);
 
-        if (tc_in >= tc_out) continue;
+        if (tc_in.frames() >= tc_out.frames()) continue;
 
         bdn_xml_event_c ev(tc_in, tc_out, gx, gy, gw, gh,
-                            img_path.string(), forced, m_fps.to_double());
+                            img_path.string(), forced);
         m_events.push_back(std::move(ev));
     }
 
@@ -193,7 +191,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 }
 
 std::vector<std::vector<bdn_xml_event_c>>
-bdn_xml_c::groups(double dt_split) const
+bdn_xml_c::groups(double join_tol) const
 {
     std::vector<std::vector<bdn_xml_event_c>> result;
     std::vector<bdn_xml_event_c> current;
@@ -204,10 +202,9 @@ bdn_xml_c::groups(double dt_split) const
             continue;
         }
         double td = ev.tc_in() - current.back().tc_out();
-        // A new event joins the current epoch while the previous one is still
-        // on screen (overlap, td < 0) or starts within the split threshold.
-        // Only a td >= dt_split opens a new epoch.
-        if (td < dt_split) {
+        // Events join the current epoch while their gap is shorter than the split
+        // threshold (proportional to the full-screen decode cost).
+        if (td < join_tol) {
             current.push_back(ev);
         } else {
             result.push_back(std::move(current));
@@ -355,47 +352,37 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
 std::vector<bdn_xml_event_c>
 remove_dupes(std::vector<bdn_xml_event_c>& events)
 {
+    if (events.empty()) return {};
+
     std::vector<bdn_xml_event_c> result;
-    if (events.empty()) return result;
-
     result.push_back(events[0]);
-    for (size_t i = 1; i < events.size() - 1; i++) {
-        auto& prev = events[i];
-        auto& next = events[i + 1];
-        bool same_pos = (next.x() == prev.x() && next.y() == prev.y());
-        bool same_shape = (next.width() == prev.width() && next.height() == prev.height());
-
-        if (same_pos && same_shape) {
-            // simple dupe check without full pixel comparison
-            result.back().set_tc_out(next.tc_out());
-        } else {
+    for (size_t i = 0; i + 1 < events.size(); i++) {
+        const auto& cur = events[i];
+        const auto& next = events[i + 1];
+        const bool same_geom =
+            next.x() == cur.x() && next.y() == cur.y() &&
+            next.width() == cur.width() && next.height() == cur.height();
+        const bool same_image = same_geom && next.load_image() == cur.load_image();
+        // Only a contiguous, identical successor is folded into the previous span.
+        const bool contiguous = result.back().out_tc().frames() == next.in_tc().frames();
+        if (!same_image || !contiguous)
             result.push_back(next);
-        }
-    }
-    if (events.size() >= 2)
-        result.push_back(events.back());
-
-    auto& first = events.front();
-    auto& last = events.back();
-    auto& rfirst = result.front();
-    auto& rlast = result.back();
-    if (std::abs(rfirst.tc_in() - first.tc_in()) > 0.001 ||
-        std::abs(rlast.tc_out() - last.tc_out()) > 0.001) {
-        logger_c::instance().log(common::log_level_e::hdebug, "Deduplication range mismatch");
+        else
+            result.back().set_tc_out(next.out_tc());
     }
 
-    logger_c::instance().log(common::log_level_e::hdebug, "Removed " + std::to_string(events.size() - result.size()) +
-                               " duplicate event(s).");
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "Removed " + std::to_string(events.size() - result.size()) + " duplicate event(s).");
     return result;
 }
 
 std::pair<std::vector<bdn_xml_event_c>, std::vector<bool>>
-add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, double period)
+add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, common::fps_e fps, double period)
 {
     std::vector<bdn_xml_event_c> new_events;
     std::vector<bool> redraw_flags;
 
-    int frame_period = static_cast<int>(std::round(period * fps));
+    int frame_period = static_cast<int>(std::round(period * fps.to_double()));
     if (frame_period < 1) {
         for (auto& ev : events) {
             new_events.push_back(ev);
@@ -408,21 +395,21 @@ add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, d
         new_events.push_back(ev);
         redraw_flags.push_back(false);
 
-        double frames_dur = (ev.tc_out() - ev.tc_in()) * fps;
+        // Integer frame arithmetic: the duration must not round through seconds.
+        int64_t frames_dur = ev.frame_out() - ev.frame_in();
         int count = static_cast<int>(frames_dur / frame_period) - 1;
 
         if (count >= 1) {
-            auto final_tc_out = ev.tc_out();
-            double frame_dur = 1.0 / fps;
-            double prev_tc_out = ev.tc_in() + frame_dur * frame_period;
+            common::tc_t final_tc_out = ev.out_tc();
+            int64_t prev_frame = ev.frame_in() + frame_period;
 
-            new_events.back().set_tc_out(prev_tc_out);
+            new_events.back().set_tc_out(common::tc_t::from_frames(prev_frame, fps));
 
             for (int k = 0; k < count; k++) {
                 bdn_xml_event_c copy = ev;
-                copy.set_tc_in(prev_tc_out);
-                prev_tc_out += frame_dur * frame_period;
-                copy.set_tc_out(prev_tc_out);
+                copy.set_tc_in(common::tc_t::from_frames(prev_frame, fps));
+                prev_frame += frame_period;
+                copy.set_tc_out(common::tc_t::from_frames(prev_frame, fps));
                 new_events.push_back(std::move(copy));
                 redraw_flags.push_back(true);
             }
