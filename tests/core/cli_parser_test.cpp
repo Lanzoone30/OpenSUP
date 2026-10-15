@@ -35,6 +35,18 @@ TEST(CliParser, ThreadsDefaultAuto) {
     EXPECT_EQ(cfg.threads, 0);
 }
 
+TEST(CliParser, RedrawPeriodBelowOneSecondDisabled) {
+    cli_options_t opts;
+    opts.redraw_period = 0.5;
+    EXPECT_DOUBLE_EQ(options_to_config(opts).redraw_period, 0.0);
+}
+
+TEST(CliParser, RedrawPeriodAtLeastOneSecondPassesThrough) {
+    cli_options_t opts;
+    opts.redraw_period = 1.5;
+    EXPECT_DOUBLE_EQ(options_to_config(opts).redraw_period, 1.5);
+}
+
 }  // namespace
 }  // namespace cli
 }  // namespace opensup
