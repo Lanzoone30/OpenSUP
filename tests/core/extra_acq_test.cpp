@@ -38,9 +38,11 @@ static size_t stream_hash(const std::vector<std::shared_ptr<pg_segment_c>>& segs
     return h;
 }
 
-TEST(ExtraAcq, OffVsOnInsertsMidEventAcquisitions) {
-    // Same input; extra_acq=1 must insert mid-event ACQUISITION display sets.
-    // synth_similar.xml: 3 different-width events (non-reusable, NORMAL chain).
+TEST(ExtraAcq, NoSpuriousInsertOnAcquiredReusableRun) {
+    // synth_similar.xml events are reusable with enough decode margin, so the
+    // cadence resolves them to ACQUISITION (matches the reference oracle at
+    // compression 80). Each real acquisition resets the extra_acq counter, so
+    // extra_acq must not add a mid-event display set on this run.
     encode_config_t cfg_off;
     cfg_off.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
     cfg_off.output_path = OPENDSUP_TEST_OUTPUT_DIR "/extra_acq_off.sup";
@@ -58,11 +60,9 @@ TEST(ExtraAcq, OffVsOnInsertsMidEventAcquisitions) {
 
     ASSERT_TRUE(res_off.success) << res_off.error;
     ASSERT_TRUE(res_on.success) << res_on.error;
-    EXPECT_GT(res_on.segments, res_off.segments)
-        << "extra_acq=1 must add mid-event acquisition display sets";
-    // Each inserted acquisition is a full display set: PCS+WDS+PDS+ODS+ENDS.
-    EXPECT_EQ((res_on.segments - res_off.segments) % 5, 0);
-    EXPECT_NE(stream_hash(off.segments()), stream_hash(on.segments()));
+    EXPECT_EQ(res_on.segments, res_off.segments)
+        << "extra_acq must not insert after a real acquisition";
+    EXPECT_EQ(stream_hash(off.segments()), stream_hash(on.segments()));
 }
 
 TEST(ExtraAcq, Deterministic) {
