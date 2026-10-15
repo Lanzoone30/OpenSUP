@@ -96,6 +96,40 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	assert.Empty(t, want, "missing args: %v", want)
 }
 
+func argValue(args []string, flag string) (string, bool) {
+	for i, a := range args {
+		if a == flag && i+1 < len(args) {
+			return args[i+1], true
+		}
+	}
+	return "", false
+}
+
+func TestBuildArgs_ZeroQualityFlagsForwarded(t *testing.T) {
+	args := buildArgs(EncodeConfig{InputPath: "in.xml", OutputPath: "out.sup"})
+	// 0 is meaningful for these flags (force acquisitions / min refreshes / off),
+	// so it must reach the engine instead of falling back to a CLI default.
+	for _, flag := range []string{"-c", "-a", "-e"} {
+		v, ok := argValue(args, flag)
+		require.True(t, ok, "%s must be present", flag)
+		assert.Equal(t, "0", v)
+	}
+	// ssim-tol keeps its neutral-zero guard.
+	assert.NotContains(t, args, "-t")
+}
+
+func TestBuildArgs_QualityValuesForwarded(t *testing.T) {
+	args := buildArgs(EncodeConfig{
+		InputPath: "in.xml", OutputPath: "out.sup",
+		Compression: 80, Acqrate: 100, ExtraAcq: 2,
+	})
+	for flag, want := range map[string]string{"-c": "80", "-a": "100", "-e": "2"} {
+		v, ok := argValue(args, flag)
+		require.True(t, ok, "%s must be present", flag)
+		assert.Equal(t, want, v)
+	}
+}
+
 func TestPickBinary_FindsEmbedded(t *testing.T) {
 	// Now that we ship a real engine binary in bin/, pickBinary should
 	// find it for the current platform and return a non-empty path.
