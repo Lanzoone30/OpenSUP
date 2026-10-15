@@ -8,17 +8,23 @@
 #include "opensup/pch.h"
 #include "opensup/core/interface.h"
 #include "opensup/core/render/epoch_encoder.h"
+#include "opensup/core/render/ds_timings.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/core/pgstream.h"
 #include "opensup/core/layout_engine.h"
+#include "opensup/media/pgraphics.h"
 #include "opensup/common/logger.h"
 
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <chrono>
 #include <future>
 #include <mutex>
+#include <set>
+#include <cstdlib>
 #include <thread>
+#include <utility>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX  // interface.cpp uses std::max/min; keep <windows.h> from redefining them
@@ -54,7 +60,23 @@ int physical_core_count() {
     }
     return cores > 0 ? cores : static_cast<int>(std::thread::hardware_concurrency());
 #else
-    return static_cast<int>(std::thread::hardware_concurrency());
+    // /proc/cpuinfo: one entry per unique (physical id, core id) pair.
+    std::ifstream cpuinfo("/proc/cpuinfo");
+    if (cpuinfo) {
+        std::set<std::pair<int, int>> cores;
+        int phys = 0;
+        std::string line;
+        while (std::getline(cpuinfo, line)) {
+            if (line.rfind("physical id", 0) == 0)
+                phys = std::atoi(line.c_str() + line.find(':') + 1);
+            else if (line.rfind("core id", 0) == 0)
+                cores.emplace(phys, std::atoi(line.c_str() + line.find(':') + 1));
+        }
+        if (!cores.empty()) return static_cast<int>(cores.size());
+    }
+    // Topology fields absent (e.g. ARM): assume SMT doubles the core count.
+    const int logical = static_cast<int>(std::thread::hardware_concurrency());
+    return logical > 1 ? logical / 2 : 1;
 #endif
 }
 
@@ -69,24 +91,7 @@ static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int 
 }
 
 static std::vector<window_definition_t>
-determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
-    layout_engine_c layout_engine(width, height);
-    
-    for (const auto& event : events) {
-        auto rgba = event.load_image();
-        if (rgba.empty()) continue;
-        
-        int ew = event.width();
-        int eh = event.height();
-        if (ew <= 0 || eh <= 0) continue;
-        
-        auto alpha = extract_alpha(rgba, ew, eh);
-        layout_engine.add(event.x(), event.y(), alpha, ew, eh);
-        event.unload();  // free memory after use
-    }
-    
-    auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
-    
+windows_from_boxes(const common::box_t& w0, const common::box_t& w1) {
     std::vector<window_definition_t> windows;
     window_definition_t wd0;
     wd0.window_id = 0;
@@ -95,7 +100,7 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     wd0.width = static_cast<uint16_t>(w0.dx);
     wd0.height = static_cast<uint16_t>(w0.dy);
     windows.push_back(wd0);
-    
+
     if (w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) {
         window_definition_t wd1;
         wd1.window_id = 1;
@@ -105,8 +110,58 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
         wd1.height = static_cast<uint16_t>(w1.dy);
         windows.push_back(wd1);
     }
-    
+
     return windows;
+}
+
+static std::vector<window_definition_t>
+determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
+    layout_engine_c layout_engine(width, height);
+
+    for (const auto& event : events) {
+        auto rgba = event.load_image();
+        if (rgba.empty()) continue;
+
+        int ew = event.width();
+        int eh = event.height();
+        if (ew <= 0 || eh <= 0) continue;
+
+        auto alpha = extract_alpha(rgba, ew, eh);
+        layout_engine.add(event.x(), event.y(), alpha, ew, eh);
+        event.unload();  // free memory after use
+    }
+
+    auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
+    (void)container;
+    (void)is_vertical;
+    return windows_from_boxes(w0, w1);
+}
+
+// Split a coarse epoch while the gap between consecutive events exceeds the
+// decode base of the epoch being closed; events accumulate from the end so the
+// closing layout is known before the boundary is decided.
+static std::vector<std::vector<bdn_xml_event_c>>
+split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width, int height) {
+    const uint64_t container_area = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
+    std::vector<std::vector<bdn_xml_event_c>> epochs;
+    std::vector<bdn_xml_event_c> running;
+
+    for (size_t i = group.size(); i-- > 0; ) {
+        const auto& event = group[i];
+        if (!running.empty() && event.tc_out() != running.front().tc_in()) {
+            const double base = decode_base(determine_windows(running, width, height), container_area);
+            if (event.tc_out() + base + 1e-8 < running.front().tc_in()) {
+                epochs.push_back(std::move(running));
+                running.clear();
+            }
+        }
+        running.insert(running.begin(), event);
+    }
+    if (!running.empty())
+        epochs.push_back(std::move(running));
+
+    std::reverse(epochs.begin(), epochs.end());
+    return epochs;
 }
 
 bdn_render_c::bdn_render_c(const encode_config_t& config)
@@ -134,8 +189,22 @@ bdn_render_c::execute()
                                std::to_string(m_config.height) +
                                " @" + std::to_string(m_config.fps) + " fps");
 
-    // Split events into epochs (group by proximity: 1s gap threshold)
-    auto event_groups = xml.groups(1.0);
+    // Split events into epochs: a gap shorter than a full-screen epoch start
+    // (write + decode + write) keeps the events in one epoch, so back-to-back or
+    // tightly-gapped displays share a layout instead of paying a re-acquisition.
+    const double screen_area = static_cast<double>(m_config.width) *
+                               static_cast<double>(m_config.height);
+    const double copy_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RC) / media::pg_decoder_t::FREQ;
+    const double decode_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RD) / media::pg_decoder_t::FREQ;
+    const double dt_split = std::max(copy_dur, decode_dur) + copy_dur;
+    auto coarse_groups = xml.groups(dt_split);
+    // Each coarse group is split further by the layout-driven decode-base check.
+    std::vector<std::vector<bdn_xml_event_c>> event_groups;
+    for (const auto& group : coarse_groups) {
+        auto sub = split_group_by_decode_base(group, m_config.width, m_config.height);
+        for (auto& epoch : sub)
+            event_groups.push_back(std::move(epoch));
+    }
     result.events = static_cast<int>(xml.events().size());
     result.epochs = static_cast<int>(event_groups.size());
 
@@ -174,10 +243,11 @@ bdn_render_c::execute()
 
     auto encode_one = [&](int epoch_index) {
         auto& group = event_groups[static_cast<size_t>(epoch_index)];
+        group = remove_dupes(group);
         std::vector<bool> no_redraw;
 
         if (m_config.redraw_period > 0.0) {
-            auto [expanded, flags] = add_periodic_refreshes(group, m_config.fps, m_config.redraw_period);
+            auto [expanded, flags] = add_periodic_refreshes(group, fps_enum, m_config.redraw_period);
             group = std::move(expanded);
             no_redraw = std::move(flags);
         }
