@@ -53,7 +53,7 @@ docs/
 *.rej
 .github/
 extern/
-build/
+build*/
 /temp
 /specs
 .specify/
