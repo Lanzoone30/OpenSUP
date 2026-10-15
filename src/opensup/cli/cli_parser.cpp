@@ -66,8 +66,8 @@ parse_args(int argc, char** argv)
         ->check(CLI::Range(0, 48000));
 
     app.add_option("-j,--threads", opts.threads,
-                    "Parallel epoch encoding workers [0 = auto, 1 = sequential] (def: 0 = auto)")
-        ->check(CLI::Range(0, 1024));
+                    "Parallel epoch encoding workers [0 = auto, 1 = sequential, max 10] (def: 0 = auto)")
+        ->check(CLI::Range(0, 10));
 
     // Drought / quality parameters
     app.add_option("-c,--compression", opts.compression,
@@ -94,6 +94,11 @@ parse_args(int argc, char** argv)
         app.parse(argc, argv);
     } catch (const CLI::ParseError& e) {
         std::exit(app.exit(e));
+    }
+
+    if (opts.redraw_period < 0.0) {
+        common::logger_c::instance().error("Negative anchor interval, aborting.");
+        std::exit(1);
     }
 
     return opts;
@@ -138,6 +143,10 @@ options_to_config(const cli_options_t& opts)
     }
     cfg.full_palette = opts.full_palette;
     cfg.redraw_period = opts.redraw_period;
+    if (cfg.redraw_period > 0.0 && cfg.redraw_period < 1.0) {
+        common::logger_c::instance().warn("Anchor interval below 1s, disabling.");
+        cfg.redraw_period = 0.0;
+    }
     cfg.max_kbps = opts.max_kbps;
     cfg.threads = opts.threads;
     cfg.compression = opts.compression;
