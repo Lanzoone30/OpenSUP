@@ -8,12 +8,24 @@
 
 #include "opensup/core/layout_engine.h"
 #include "opensup/common/logger.h"
+#include "opensup/media/pgraphics.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <initializer_list>
+#include <limits>
+#include <utility>
 
 namespace opensup {
 namespace core {
+
+using media::pg_decoder_t;
+
+namespace {
+double decode_base(std::initializer_list<int> areas, int container_area);
+common::box_t pad_min8(const common::box_t& b, int cw, int ch);
+}
 
 layout_engine_c::layout_engine_c(int width, int height)
     : m_screen(static_cast<size_t>(std::max(0, width)) * static_cast<size_t>(std::max(0, height)), 0)
@@ -115,78 +127,106 @@ void layout_engine_c::brute_force_windows() {
             }
         }
     }
-    current_container.x = min_x;
-    current_container.dx = (max_x + 1) - current_container.x;
+    const int cmin = min_x;
+    const int cmax = max_x + 1;
+    const int rmin = current_container.y;
+    const int rmax = current_container.y + current_container.dy;
 
-    // brule parity (brute_force_windows @ _layouteng.cc:228/267): a split only
-    // pays if the tightened window pair is smaller than the EXACT content
-    // bounding box. Comparing against the margin-inflated container makes any
-    // solid single blob look "worth splitting" (it saves the 8px margin).
-    const uint32_t exact_area = static_cast<uint32_t>(current_container.area());
+    // Raw container (brule LayoutEngine.find -> ocbox): content bounding box, grown so
+    // each axis spans at least 8px. This is the single-window fallback SUPer uses when
+    // a split is rejected.
+    common::box_t ocbox;
+    ocbox.x = cmin; ocbox.y = rmin; ocbox.dx = cmax - cmin; ocbox.dy = rmax - rmin;
+    const int diffx = std::max(0, 8 - ocbox.dx);
+    if (ocbox.x > diffx) ocbox.x = cmin - diffx;
+    else if (diffx > 0) ocbox.dx = cmax + diffx - ocbox.x;
+    const int diffy = std::max(0, 8 - ocbox.dy);
+    if (ocbox.y > diffy) ocbox.y = rmin - diffy;
+    else if (diffy > 0) ocbox.dy = rmax + diffy - ocbox.y;
+    m_container = ocbox;
+
+    // Split search region: content bbox padded by up to 7px, clamped to the screen.
+    const int s_x0 = cmin - std::min(7, cmin);
+    const int s_y0 = rmin - std::min(7, rmin);
+    const int s_x1 = cmax + std::min(7, m_shape.w - cmax);
+    const int s_y1 = rmax + std::min(7, m_shape.h - rmax);
+    const common::box_t region{s_y0, s_y1 - s_y0, s_x0, s_x1 - s_x0};
 
     const int margin = MARGIN;
-    if (current_container.x > margin) current_container.x -= margin;
-    else current_container.x = 0;
-    if (current_container.x + current_container.dx + margin < m_shape.w) current_container.dx += margin;
-    else current_container.dx = m_shape.w - current_container.x;
-    if (current_container.y > margin) current_container.y -= margin;
-    else current_container.y = 0;
-    if (current_container.y + current_container.dy + margin < m_shape.h) current_container.dy += margin;
-    else current_container.dy = m_shape.h - current_container.y;
-
-    m_container = current_container;
-
-    // Now brute-force all possible splits
-    uint32_t best_score = exact_area;
-    common::box_t best0 = m_container;
-    common::box_t best1 = m_container;
+    uint32_t best_score = static_cast<uint32_t>(ocbox.area());
+    common::box_t best0 = ocbox;
+    common::box_t best1 = ocbox;
+    bool has_split = false;
     bool best_is_vertical = false;
 
-    // Try horizontal splits (cut along y - top/bottom windows)
-    for (int yk = current_container.y + margin; yk <= current_container.y + current_container.dy - margin; ++yk) {
-        common::box_t eval0 = current_container;
-        common::box_t eval1 = current_container;
-        eval0.dy = yk - eval0.y;
-        eval1.y = yk;
-        eval1.dy = current_container.y + current_container.dy - yk;
+    // Cut along x -> left/right windows (brule scans this axis first, so ties favour it).
+    for (int xk = s_x0 + margin; xk < s_x1 - margin; ++xk) {
+        common::box_t b0 = region;
+        common::box_t b1 = region;
+        b0.dx = xk - s_x0;
+        b1.x = xk;
+        b1.dx = s_x1 - xk;
 
-        // Cut vertical edges (left/right) for each window
-        eval0 = cut_vertical(eval0, m_screen, m_shape.w, m_shape.h);
-        eval1 = cut_vertical(eval1, m_screen, m_shape.w, m_shape.h);
+        b0 = cut_horizontal(b0, m_screen, m_shape.w, m_shape.h);
+        b1 = cut_horizontal(b1, m_screen, m_shape.w, m_shape.h);
 
-        uint32_t surface = static_cast<uint32_t>(eval0.area() + eval1.area());
+        const uint32_t surface = static_cast<uint32_t>(b0.area() + b1.area());
         if (surface < best_score) {
             best_score = surface;
-            best0 = eval0;
-            best1 = eval1;
-            best_is_vertical = true;
-        }
-    }
-
-    // Try vertical splits (cut along x - left/right windows)
-    for (int xk = current_container.x + margin; xk <= current_container.x + current_container.dx - margin; ++xk) {
-        common::box_t eval0 = current_container;
-        common::box_t eval1 = current_container;
-        eval0.dx = xk - eval0.x;
-        eval1.x = xk;
-        eval1.dx = current_container.x + current_container.dx - xk;
-
-        // Cut horizontal edges (top/bottom) for each window
-        eval0 = cut_horizontal(eval0, m_screen, m_shape.w, m_shape.h);
-        eval1 = cut_horizontal(eval1, m_screen, m_shape.w, m_shape.h);
-
-        uint32_t surface = static_cast<uint32_t>(eval0.area() + eval1.area());
-        if (surface < best_score) {
-            best_score = surface;
-            best0 = eval0;
-            best1 = eval1;
+            best0 = b0;
+            best1 = b1;
+            has_split = true;
             best_is_vertical = false;
         }
     }
 
-    if (best_score >= exact_area) {
-        m_window0 = m_container;
-        m_window1 = m_container;
+    // Cut along y -> top/bottom windows.
+    for (int yk = s_y0 + margin; yk < s_y1 - margin; ++yk) {
+        common::box_t b0 = region;
+        common::box_t b1 = region;
+        b0.dy = yk - s_y0;
+        b1.y = yk;
+        b1.dy = s_y1 - yk;
+
+        b0 = cut_vertical(b0, m_screen, m_shape.w, m_shape.h);
+        b1 = cut_vertical(b1, m_screen, m_shape.w, m_shape.h);
+
+        const uint32_t surface = static_cast<uint32_t>(b0.area() + b1.area());
+        if (surface < best_score) {
+            best_score = surface;
+            best0 = b0;
+            best1 = b1;
+            has_split = true;
+            best_is_vertical = true;
+        }
+    }
+
+    if (!has_split) {
+        m_window0 = ocbox;
+        m_window1 = ocbox;
+        m_is_vertical = false;
+        m_has_layout_changed = false;
+        return;
+    }
+
+    // Pad each candidate window to at least 8x8 (PaddingEngine._pad_any_box).
+    best0 = pad_min8(best0, m_shape.w, m_shape.h);
+    best1 = pad_min8(best1, m_shape.w, m_shape.h);
+
+    // NORMAL preset orders the pair so the faster-to-decode window comes first.
+    const int screen_area = m_shape.w * m_shape.h;
+    const double score_ab = decode_base({best0.area(), best1.area()}, screen_area);
+    const double score_ba = decode_base({best1.area(), best0.area()}, screen_area);
+    const double score_split = std::min(score_ab, score_ba);
+    if (score_ba < score_ab) std::swap(best0, best1);
+
+    // Reject the split unless it saves more than ~10 ticks over the whole container: a
+    // marginal cut only shaves a rounded corner yet pays for a second window (SUPer
+    // _find_modify_layout is_bad_split).
+    const double score_container = decode_base({ocbox.area()}, screen_area);
+    if (score_split >= std::max(1.0 / pg_decoder_t::FREQ, score_container - 10.0 / pg_decoder_t::FREQ)) {
+        m_window0 = ocbox;
+        m_window1 = ocbox;
         m_is_vertical = false;
     } else {
         m_window0 = best0;
@@ -197,6 +237,61 @@ void layout_engine_c::brute_force_windows() {
 }
 
 namespace {
+// Effective decode duration of a 1- or 2-window layout (SUPer _decode_duration_base).
+double decode_base(std::initializer_list<int> areas, int container_area) {
+    double dd = std::ceil(pg_decoder_t::FREQ * container_area / pg_decoder_t::RC) / pg_decoder_t::FREQ;
+    double t_dec = 0.0;
+    for (int a : areas) {
+        t_dec += std::ceil(pg_decoder_t::FREQ * a / pg_decoder_t::RD) / pg_decoder_t::FREQ;
+        dd = std::max(t_dec, dd) + std::ceil(pg_decoder_t::FREQ * a / pg_decoder_t::RC) / pg_decoder_t::FREQ;
+    }
+    return dd;
+}
+
+// Grow a window to at least 8px per axis, keeping it inside the screen (SUPer
+// PaddingEngine._pad_any_box with a full-screen container).
+common::box_t pad_min8(const common::box_t& b, int cw, int ch) {
+    const int min_d = 8;
+    if (b.dx >= min_d && b.dy >= min_d) return b;
+
+    const int diff_y = std::max(0, min_d - b.dy);
+    const int diff_x = std::max(0, min_d - b.dx);
+    const double dvy = static_cast<double>(diff_y) * (2.0 * b.y + (b.dy - ch)) / ch;
+    const double dvx = static_cast<double>(diff_x) * (2.0 * b.x + (b.dx - cw)) / cw;
+
+    auto minmax = [](int diff, double dv) {
+        double lo = std::numeric_limits<double>::infinity();
+        double hi = -std::numeric_limits<double>::infinity();
+        for (int i = 0; i < diff; ++i) {
+            const double v = -diff / 2.0 + dv + i;
+            lo = std::min(lo, std::floor(v));
+            hi = std::max(hi, std::ceil(v));
+        }
+        return std::pair<double, double>{lo, hi};
+    };
+    const auto [pu, pd] = minmax(diff_y, dvy);
+    const auto [pl, pr] = minmax(diff_x, dvx);
+
+    int new_x1 = std::max(0, static_cast<int>(b.x + (pl < pr ? pl : 0.0)));
+    int new_x2 = std::min(cw, static_cast<int>(b.x + b.dx + (pl < pr ? pr : 0.0)));
+    int new_y1 = std::max(0, static_cast<int>(b.y + (pu < pd ? pu : 0.0)));
+    int new_y2 = std::min(ch, static_cast<int>(b.y + b.dy + (pu < pd ? pd : 0.0)));
+
+    // Pad right/bottom first (rounding-friendly), else left/top.
+    int missing = diff_x - ((b.x - new_x1) + (new_x2 - (b.x + b.dx)));
+    if (missing > 0) {
+        if (new_x2 + missing <= cw) new_x2 += missing; else new_x1 -= missing;
+    }
+    missing = diff_y - ((b.y - new_y1) + (new_y2 - (b.y + b.dy)));
+    if (missing > 0) {
+        if (new_y2 + missing <= ch) new_y2 += missing; else new_y1 -= missing;
+    }
+
+    common::box_t out;
+    out.x = new_x1; out.y = new_y1; out.dx = new_x2 - new_x1; out.dy = new_y2 - new_y1;
+    return out;
+}
+
 // Tighten a window to its non-zero content (bounding box), clamped to screen bounds.
 // Matches brule's cut_vertical/cut_horizontal (_layouteng.cc): windows are tightened to
 // content WITHOUT padding — brule pads only the container (pad_container, +7px), never the
