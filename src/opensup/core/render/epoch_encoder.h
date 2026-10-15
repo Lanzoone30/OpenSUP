@@ -156,7 +156,8 @@ private:
     /// from result_so_far (previous event's ENDS) when m_overlap is active.
     std::vector<std::shared_ptr<pg_segment_c>>
     emit_event_segments(const event_emit_input_t& in,
-                        const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far);
+                        const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far,
+                        epoch_timings_t* timing_out = nullptr);
 
     uint8_t next_ods_vn(uint16_t o_id);
 
