@@ -50,11 +50,11 @@ TEST(SequenceQualityPolicy, ForcedEventIsAcquisition) {
     EXPECT_EQ(d.comp_state, kAcq);
 }
 
-TEST(SequenceQualityPolicy, ReusableWithMarginRefreshes) {
+TEST(SequenceQualityPolicy, ReusableWithMarginAcquires) {
     auto p = make_policy();
     const auto d = p.decide(false, /*reusable=*/true, false, false,
                             /*acq_valid=*/true, /*dtl=*/0.9);
-    EXPECT_EQ(d.comp_state, kNormal);
+    EXPECT_EQ(d.comp_state, kAcq);
     EXPECT_TRUE(d.reusable_refresh);
 }
 
