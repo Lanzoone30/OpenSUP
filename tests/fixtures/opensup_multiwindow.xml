@@ -12,7 +12,7 @@
     <Event InTC="00:00:01:00" OutTC="00:00:03:00" Forced="False">
       <Graphic Width="200" Height="60" X="100" Y="100">flatgray128.bmp</Graphic>
     </Event>
-    <Event InTC="00:00:03:12" OutTC="00:00:05:12" Forced="False">
+    <Event InTC="00:00:03:00" OutTC="00:00:05:12" Forced="False">
       <Graphic Width="200" Height="60" X="1000" Y="400">flatgray128.bmp</Graphic>
     </Event>
   </Events>
