@@ -55,10 +55,11 @@ sequence_quality_policy_c::decide(bool normal_case, bool reusable, bool forced,
             m_drought = 0.0;
         } else if (reusable && acq_valid &&
                    dtl > std::max(m_thresh - kDroughtDecay * m_drought, 0.0)) {
-            // Reusable node with enough decode margin: re-emit the ODS, stay NORMAL.
+            // Reusable node with enough decode margin: acquire (re-emit the ODS).
+            d.comp_state = pcs_c::composition_state_e::acquisition;
             d.reusable_refresh = true;
             m_drought = 0.0;
-        } else {
+        } else if (d.comp_state == pcs_c::composition_state_e::normal) {
             // Prevent excessive acquisitions: grow the drought.
             m_drought += 1.0 * m_refresh_rate;
         }
