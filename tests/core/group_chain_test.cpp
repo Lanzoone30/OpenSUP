@@ -23,11 +23,13 @@ TEST(GroupChain, FusedEventsGetPaletteChain) {
     // fade. Before P4b, the fused events emitted PCS+WDS+ENDS only, so the
     // fade never reached the decoder. P4b replaces them with real palette
     // updates on a shared union bitmap.
+    // Compression 100 keeps the run NORMAL; at 80 the reusable events are
+    // acquired instead (reference-oracle cadence), bypassing the chain.
     encode_config_t cfg;
     cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
     cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/group_chain.sup";
     cfg.overwrite = true;
-    cfg.compression = 80;
+    cfg.compression = 100;
     cfg.extra_acq = 0;  // isolate the P4b path from extra_acq inserts
 
     bdn_render_c r(cfg);
