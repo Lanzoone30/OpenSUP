@@ -20,7 +20,9 @@ add_executable(opensup_test_core
   ds_timings_test.cpp
   ds_structure_test.cpp
   epoch_split_test.cpp
+  drought_acquisition_test.cpp
   cli_parser_test.cpp
+  interface_bitrate_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 
