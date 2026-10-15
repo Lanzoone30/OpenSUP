@@ -326,18 +326,14 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.Threads != 0 {
 		args = append(args, "-j", intToStr(cfg.Threads))
 	}
-	if cfg.Compression != 0 {
-		args = append(args, "-c", intToStr(cfg.Compression))
-	}
-	if cfg.Acqrate != 0 {
-		args = append(args, "-a", intToStr(cfg.Acqrate))
-	}
+	// Compression/acqrate/extra-acq treat 0 as a meaningful value, so they are
+	// always sent; the UI resolves their defaults (80/100/2) before this.
+	args = append(args, "-c", intToStr(cfg.Compression))
+	args = append(args, "-a", intToStr(cfg.Acqrate))
 	if cfg.SsimTol != 0 {
 		args = append(args, "-t", intToStr(cfg.SsimTol))
 	}
-	if cfg.ExtraAcq != 0 {
-		args = append(args, "-e", intToStr(cfg.ExtraAcq))
-	}
+	args = append(args, "-e", intToStr(cfg.ExtraAcq))
 	return args
 }
 
