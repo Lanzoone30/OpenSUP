@@ -270,6 +270,9 @@ bdn_render_c::execute()
         opts.insert_acquisitions = m_config.extra_acq;
         opts.alternate_oids = m_config.alternate_oids;
         opts.bt_matrix = m_config.bt_matrix;
+        opts.liq_quality = m_config.liq_quality;
+        opts.liq_speed = m_config.liq_speed;
+        opts.liq_dither_pct = m_config.liq_dither_pct;
         opts.is_last_epoch = epoch_index == total_epochs - 1;
         epoch_encoder_c encoder(opts);
         int palette_base = 0;

@@ -31,7 +31,8 @@ using common::logger_c;
 quantize_result_t
 libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
                          int width, int height, int max_colors,
-                         bool single_bitmap, std::string_view matrix)
+                         bool single_bitmap, std::string_view matrix,
+                         const liq_options_t& opts)
 {
     quantize_result_t result;
 
@@ -44,8 +45,9 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
     // min=0 lets libimagequant drop colors it cannot use; sequence mode
     // lowers the quality ceiling and dithering to keep the union compact.
     liq_set_max_colors(handle, max_colors);
-    liq_set_speed(handle, 4);
-    liq_set_quality(handle, 0, single_bitmap ? 95 : 93);
+    liq_set_speed(handle, opts.speed);
+    liq_set_quality(handle, 0,
+                    single_bitmap ? opts.quality : liq_seq_quality(opts.quality));
 
     liq_image* img = liq_image_create_rgba(handle, rgba.data(), width, height, 0);
     if (!img) {
@@ -61,7 +63,10 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
         logger_c::instance().error("libimagequant quantization failed");
         return result;
     }
-    liq_set_dithering_level(quant_result, single_bitmap ? 0.95f : 0.855f);
+    liq_set_dithering_level(quant_result,
+                            single_bitmap
+                                ? static_cast<float>(opts.dither_pct) / 100.0f
+                                : liq_seq_dither(opts.dither_pct));
 
     const liq_palette* pal = liq_get_palette(quant_result);
     for (int i = 0; i < static_cast<int>(pal->count); i++) {
@@ -94,7 +99,7 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
 quantize_result_t
 hextree_t::quantize(const std::vector<uint8_t>& rgba,
                     int width, int /*height*/, int max_colors, bool /*single_bitmap*/,
-                    std::string_view matrix)
+                    std::string_view matrix, const liq_options_t& /*opts*/)
 {
     quantize_result_t result;
 
@@ -148,7 +153,8 @@ uint64_t seq_l2(const uint8_t* a, const uint8_t* b, size_t n) noexcept
 
 bool
 solve_group(const std::vector<group_frame_t>& frames, int max_colors,
-            group_solution_t& out, std::string_view matrix)
+            group_solution_t& out, std::string_view matrix,
+            const liq_options_t& opts)
 {
     if (frames.empty() || max_colors < 1 || max_colors > 255) return false;
     const int w = frames[0].width, h = frames[0].height;
@@ -171,7 +177,8 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
         quantize_result_t qr;
         bool ok = false;
         for (const auto& qz : opt) {
-            qr = qz->quantize(frames[ke].rgba, w, h, max_colors, single_bitmap, matrix);
+            qr = qz->quantize(frames[ke].rgba, w, h, max_colors, single_bitmap,
+                              matrix, opts);
             if (qr.indexed.size() == np) { ok = true; break; }
         }
         if (!ok) return false;
@@ -251,7 +258,7 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     if (t == -1 && nseq >= static_cast<size_t>(max_colors)) {
         // All slots used and no reserved transparent index: lower the color
         // count and retry.
-        return solve_group(frames, max_colors - 1, out, matrix);
+        return solve_group(frames, max_colors - 1, out, matrix, opts);
     }
 
     // Assign ranks, remapping overflow sequences to their nearest kept one.

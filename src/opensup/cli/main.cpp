@@ -13,6 +13,7 @@
 #include <iostream>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #ifdef _WIN32
 #include <io.h>
 #define TTY_STDERR _isatty(_fileno(stderr))
@@ -23,6 +24,25 @@
 
 using namespace opensup;
 using namespace std::chrono;
+
+namespace {
+
+// Palette warnings arrive from the core as "palette: kind=<k> count=<n>";
+// route them into a structured warn event, every other log stays a log line.
+void emit_log_or_warn(const std::string& msg, int level) {
+    if (level == static_cast<int>(common::log_level_e::warn) &&
+        msg.rfind("palette: kind=", 0) == 0) {
+        const auto k0 = msg.find('=') + 1;
+        const auto k1 = msg.find(' ', k0);
+        const auto c0 = msg.find("count=", k1) + 6;
+        cli::emit_warn(msg.substr(k0, k1 - k0),
+                       std::strtoull(msg.c_str() + c0, nullptr, 10));
+        return;
+    }
+    cli::emit_log_event(level, msg);
+}
+
+}
 
 int
 main(int argc, char** argv)
@@ -41,10 +61,7 @@ main(int argc, char** argv)
 
     if (opts.json_mode) {
         common::logger_c::instance().set_quiet(true);
-        common::logger_c::instance().set_callback(
-            [](const std::string& msg, int level) {
-                cli::emit_log_event(level, msg);
-            });
+        common::logger_c::instance().set_callback(emit_log_or_warn);
 
         config.progress_cb = [](int percent, int epoch, int total) {
             cli::emit_progress_event(percent, epoch, total);

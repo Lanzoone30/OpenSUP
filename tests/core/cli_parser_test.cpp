@@ -104,6 +104,85 @@ TEST(CliParser, RedrawPeriodAtLeastOneSecondPassesThrough) {
     EXPECT_DOUBLE_EQ(options_to_config(opts).redraw_period, 1.5);
 }
 
+TEST(CliParser, ConfigOverridesMapToLiqConfig) {
+    cli_options_t opts;
+    opts.config_path = "/tmp/opensup_cli_parser_liq.ini";
+    opts.liq_quality_cfg = 80;
+    opts.liq_speed_cfg = 10;
+    opts.liq_dither_cfg = 30;
+    const auto cfg = options_to_config(opts);
+    EXPECT_EQ(cfg.liq_quality, 80);
+    EXPECT_EQ(cfg.liq_speed, 10);
+    EXPECT_EQ(cfg.liq_dither_pct, 30);
+}
+
+TEST(CliParser, ConfigPartialOverrideKeepsLiqDefaults) {
+    cli_options_t opts;
+    opts.liq_quality_cfg = 80;
+    const auto cfg = options_to_config(opts);
+    EXPECT_EQ(cfg.liq_quality, 80);
+    EXPECT_EQ(cfg.liq_speed, 4);
+    EXPECT_EQ(cfg.liq_dither_pct, 95);
+}
+
+TEST(CliParser, NoConfigKeepsLiqDefaults) {
+    cli_options_t opts;  // no --config
+    const auto cfg = options_to_config(opts);
+    EXPECT_EQ(cfg.liq_quality, 95);
+    EXPECT_EQ(cfg.liq_speed, 4);
+    EXPECT_EQ(cfg.liq_dither_pct, 95);
+}
+
+TEST(CliParser, ReadLiqConfigParsesPiliqSection) {
+    const std::string path = "/tmp/opensup_cli_parser_liq.ini";
+    std::ofstream(path) << "; comment\n[OTHER]\nquality=1\n"
+                           "[PILIQ]\nquality = 80\ndither=30\n";
+
+    cli_options_t opts;
+    ASSERT_TRUE(read_liq_config(path, opts));
+    EXPECT_EQ(opts.liq_quality_cfg, 80);
+    EXPECT_EQ(opts.liq_speed_cfg, -1);  // absent key stays sentinel
+    EXPECT_EQ(opts.liq_dither_cfg, 30);
+}
+
+TEST(CliParser, ReadLiqConfigMissingFileFails) {
+    cli_options_t opts;
+    EXPECT_FALSE(read_liq_config("/tmp/opensup_cli_parser_nonexistent.ini", opts));
+    EXPECT_EQ(opts.liq_quality_cfg, -1);
+}
+
+TEST(CliParser, ReadLiqConfigRejectsInvalidValues) {
+    const std::string path = "/tmp/opensup_cli_parser_liq_bad.ini";
+    cli_options_t opts;
+
+    std::ofstream(path) << "[PILIQ]\nquality=101\n";
+    EXPECT_FALSE(read_liq_config(path, opts));
+
+    std::ofstream(path, std::ios::trunc) << "[PILIQ]\nspeed=4x\n";
+    EXPECT_FALSE(read_liq_config(path, opts));
+}
+
+/// Resolve one cli_options_t into its config, collecting warnings.
+struct resolved_t {
+    core::encode_config_t cfg;
+    std::vector<std::string> warnings;
+};
+
+resolved_t
+resolve_options(const cli_options_t& opts)
+{
+    auto& log = common::logger_c::instance();
+    resolved_t r;
+    log.set_callback([&](const std::string& msg, int level) {
+        if (level == static_cast<int>(common::log_level_e::warn)) r.warnings.push_back(msg);
+    });
+    r.cfg = options_to_config(opts);
+    log.set_callback(nullptr);
+    return r;
+}
+
+// Oracle parity (supercli.py:116-119): unknown matrix/quantizer warns and
+// falls back instead of aborting.
 }  // namespace
 }  // namespace cli
 }  // namespace opensup

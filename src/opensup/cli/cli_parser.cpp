@@ -10,6 +10,7 @@
 
 #include <CLI/CLI.hpp>
 #include <cctype>
+#include <charconv>
 #include <iostream>
 
 namespace opensup {
@@ -82,6 +83,9 @@ parse_args(int argc, char** argv)
                     "Insert acquisition after N palette updates [0 = off] (def: 2)")
         ->check(CLI::Range(0, 100));
 
+    app.add_option("--config", opts.config_path,
+                    "LIQ overrides ini file ([PILIQ] quality/speed/dither)");
+
     app.set_version_flag("-v,--version", "OpenSUP v" OPENSUP_VERSION_STRING);
 
     app.footer("EXAMPLES\n"
@@ -105,6 +109,10 @@ parse_args(int argc, char** argv)
         std::exit(1);
     }
 
+    if (!opts.config_path.empty() && !read_liq_config(opts.config_path, opts)) {
+        std::exit(1);
+    }
+
     return opts;
 }
 
@@ -124,7 +132,64 @@ canonical_bt_matrix(const std::string& raw)
     return {};
 }
 
+/// Strip leading/trailing blanks from a line.
+std::string
+trim(const std::string& s)
+{
+    const auto first = s.find_first_not_of(" \t\r");
+    if (first == std::string::npos) return {};
+    const auto last = s.find_last_not_of(" \t\r");
+    return s.substr(first, last - first + 1);
+}
+
 } // namespace
+
+bool
+read_liq_config(const std::string& path, cli_options_t& opts)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        common::logger_c::instance().error("Cannot open config file: " + path);
+        return false;
+    }
+
+    std::string line;
+    bool in_piliq = false;
+    while (std::getline(file, line)) {
+        const std::string text = trim(line);
+        if (text.empty() || text[0] == ';' || text[0] == '#') continue;
+        if (text[0] == '[') {
+            const auto close = text.find(']');
+            in_piliq = close != std::string::npos
+                       && text.substr(1, close - 1) == "PILIQ";
+            continue;
+        }
+        if (!in_piliq) continue;
+
+        const auto eq = text.find('=');
+        if (eq == std::string::npos) continue;
+        const std::string key = trim(text.substr(0, eq));
+        const std::string value = trim(text.substr(eq + 1));
+
+        int* target = nullptr;
+        int max_value = 0;
+        if (key == "quality") { target = &opts.liq_quality_cfg; max_value = 100; }
+        else if (key == "speed") { target = &opts.liq_speed_cfg; max_value = 10; }
+        else if (key == "dither") { target = &opts.liq_dither_cfg; max_value = 100; }
+        else continue;
+
+        int parsed = 0;
+        const auto res = std::from_chars(value.data(), value.data() + value.size(), parsed);
+        if (res.ec != std::errc{} || res.ptr != value.data() + value.size()
+            || parsed < 0 || parsed > max_value) {
+            common::logger_c::instance().error(
+                "Invalid [PILIQ] '" + key + "' value in config file: " + path);
+            return false;
+        }
+        *target = parsed;
+    }
+    return true;
+}
 
 core::encode_config_t
 options_to_config(const cli_options_t& opts)
@@ -163,6 +228,9 @@ options_to_config(const cli_options_t& opts)
     cfg.acqrate = opts.acqrate;
     cfg.ssim_tol = opts.ssim_tol;
     cfg.extra_acq = opts.extra_acq;
+    if (opts.liq_quality_cfg >= 0) cfg.liq_quality = opts.liq_quality_cfg;
+    if (opts.liq_speed_cfg >= 0) cfg.liq_speed = opts.liq_speed_cfg;
+    if (opts.liq_dither_cfg >= 0) cfg.liq_dither_pct = opts.liq_dither_cfg;
     return cfg;
 }
 

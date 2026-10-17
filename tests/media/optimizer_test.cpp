@@ -147,6 +147,41 @@ TEST(SolveGroup, RejectsMismatchedFrames) {
     EXPECT_FALSE(solve_group({}, 255, sol));
 }
 
+TEST(LiqOptions, SequenceScalingParity) {
+    EXPECT_EQ(liq_seq_quality(95), 93);
+    EXPECT_NEAR(liq_seq_dither(95), 0.855f, 1e-6f);
+    EXPECT_EQ(liq_seq_quality(100), 98);
+    EXPECT_NEAR(liq_seq_dither(100), 0.9f, 1e-6f);
+}
+
+TEST(LiqOptions, QuantizeWithNonDefaults) {
+    auto opt = optimiser_c::get_available();
+    ASSERT_FALSE(opt.empty());
+    liq_options_t liq;
+    liq.quality = 70;
+    liq.speed = 10;
+    liq.dither_pct = 30;
+    auto frame = make_frame(8, 8, 128, false);
+    auto result = opt[0]->quantize(frame.rgba, frame.width, frame.height, 254,
+                                   true, "bt709", liq);
+    EXPECT_FALSE(result.palette.empty());
+    EXPECT_EQ(result.indexed.size(), frame.rgba.size() / 4);
+}
+
+TEST(LiqOptions, SolveGroupForwardsOptions) {
+    std::vector<group_frame_t> frames{
+        make_frame(8, 4, 20, false),
+        make_frame(8, 4, 30, false),
+    };
+    liq_options_t liq;
+    liq.quality = 70;
+    liq.speed = 10;
+    liq.dither_pct = 30;
+    group_solution_t sol;
+    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", liq));
+    EXPECT_EQ(sol.palettes.size(), 2u);
+}
+
 }  // namespace
 }  // namespace media
 }  // namespace opensup

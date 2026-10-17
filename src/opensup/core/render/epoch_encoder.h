@@ -126,6 +126,9 @@ struct epoch_render_options_t {
     bool alternate_oids = false;
     std::string bt_matrix = "bt709";
     bool is_last_epoch = false;
+    int liq_quality = 95;
+    int liq_speed = 4;
+    int liq_dither_pct = 95;
 };
 
 /// Renders one epoch (a run of consecutive events) into PGS segments.
@@ -183,6 +186,7 @@ private:
     bool m_overlap = false;
     bool m_full_palette = false;
     bool m_alternate_oids = false;
+    media::liq_options_t m_liq_options;
     sequence_quality_policy_c m_quality;
     int m_composition_n = 1;
     int m_palette_vn = 0;

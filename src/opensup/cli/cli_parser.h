@@ -37,6 +37,12 @@ struct cli_options_t {
 
     bool json_mode = false;
     bool debug = false;
+
+    // LIQ overrides from --config file ([PILIQ] section); -1 = not provided
+    std::string config_path;
+    int liq_quality_cfg = -1;
+    int liq_speed_cfg = -1;
+    int liq_dither_cfg = -1;   // percent
 };
 
 /**
@@ -45,6 +51,14 @@ struct cli_options_t {
  * Exits with a usage message on unknown flags or missing input.
  */
 cli_options_t parse_args(int argc, char** argv);
+
+/**
+ * @brief Load LIQ overrides from an ini file ([PILIQ] quality/speed/dither).
+ *
+ * @return false on unreadable file or invalid (non-integer/out-of-range)
+ *         value; the offending key and file are logged.
+ */
+bool read_liq_config(const std::string& path, cli_options_t& opts);
 
 /// Translate CLI options into the core encoding configuration.
 core::encode_config_t options_to_config(const cli_options_t& opts);

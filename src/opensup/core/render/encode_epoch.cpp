@@ -123,6 +123,7 @@ epoch_encoder_c::epoch_encoder_c(const epoch_render_options_t& opts)
     , m_overlap(opts.overlap)
     , m_full_palette(opts.full_palette)
     , m_alternate_oids(opts.alternate_oids)
+    , m_liq_options{opts.liq_quality, opts.liq_speed, opts.liq_dither_pct}
     , m_quality(sequence_quality_policy_c::options_t{
           opts.quality_factor, opts.refresh_rate, opts.ssim_tol,
           opts.insert_acquisitions, opts.height})
@@ -140,7 +141,7 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
         if (id >= opt.size()) return false;
         int max_colors = m_full_palette ? 255 : 254;
         auto result = opt[id]->quantize(rgba, width, height, max_colors, true,
-                                        m_bt_matrix);
+                                        m_bt_matrix, m_liq_options);
         if (result.palette.empty() || result.indexed.empty()) return false;
         out_palette = std::move(result.palette);
         out_indexed = std::move(result.indexed);

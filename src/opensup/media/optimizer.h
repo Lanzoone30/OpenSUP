@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -25,6 +26,17 @@ struct quantize_result_t {
     std::vector<uint8_t> indexed;  // palette index per pixel
 };
 
+/// libimagequant tuning. Defaults reproduce the legacy hardcoded values.
+struct liq_options_t {
+    int quality = 95;
+    int speed = 4;
+    int dither_pct = 95;
+};
+
+/// Sequence co-quantization scaling (oracle config.ini [PILIQ] parity).
+inline int liq_seq_quality(int base) { return static_cast<int>(std::lround(base * 0.975)); }
+inline float liq_seq_dither(int base_pct) { return static_cast<float>(base_pct) * 0.9f / 100.0f; }
+
 /**
  * @brief Contract for color quantization backends.
  *
@@ -39,10 +51,12 @@ public:
     ///        (sequence co-quantization) quality and dithering are scaled
     ///        down to keep the union palette compact.
     /// @param matrix YCbCr conversion matrix (bt601|bt709|bt2020).
+    /// @param opts libimagequant tuning; ignored by backends that do not use it.
     virtual quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                        int width, int height, int max_colors,
                                        bool single_bitmap = true,
-                                       std::string_view matrix = "bt709") = 0;
+                                       std::string_view matrix = "bt709",
+                                       const liq_options_t& opts = {}) = 0;
     virtual std::string name() const = 0;
 };
 
@@ -52,7 +66,8 @@ public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                int width, int height, int max_colors,
                                bool single_bitmap,
-                               std::string_view matrix) override;
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
     std::string name() const override { return "libimagequant"; }
 };
 
@@ -62,7 +77,8 @@ public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                int width, int height, int max_colors,
                                bool single_bitmap,
-                               std::string_view matrix) override;
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
     std::string name() const override { return "HexTree"; }
 };
 
@@ -91,11 +107,13 @@ struct group_solution_t {
  * @param max_colors Maximum number of non-transparent sequences (<=255).
  * @param out        Bitmap + per-frame palette diffs (frame 0 carries all).
  * @param matrix     YCbCr conversion matrix (bt601|bt709|bt2020).
+ * @param opts       libimagequant tuning forwarded to the backend.
  * @return true on success.
  */
 [[nodiscard]] bool solve_group(const std::vector<group_frame_t>& frames,
                                int max_colors, group_solution_t& out,
-                               std::string_view matrix = "bt709");
+                               std::string_view matrix = "bt709",
+                               const liq_options_t& opts = {});
 
 /**
  * @brief Factory of quantizers available in this build.
