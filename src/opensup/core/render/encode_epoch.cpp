@@ -139,7 +139,9 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
 
     auto try_quantize = [&](size_t id) -> bool {
         if (id >= opt.size()) return false;
-        int max_colors = m_full_palette ? 255 : 254;
+        // Palette slot 0xFF is reserved for transparent pixels; keep 254 usable
+        // entries regardless of the PDS emission mode.
+        const int max_colors = 254;
         auto result = opt[id]->quantize(rgba, width, height, max_colors, true,
                                         m_bt_matrix, m_liq_options);
         if (result.palette.empty() || result.indexed.empty()) return false;
@@ -178,6 +180,36 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
     return t;
 }
 
+std::shared_ptr<pds_c>
+epoch_encoder_c::make_pds(const media::palette_t& palette, uint8_t palette_id,
+                          double pts, double dts)
+{
+    auto p_vn = static_cast<uint8_t>(m_palette_vn++);
+    bool full = m_full_palette || palette_id != m_last_palette_id ||
+                m_palette_cache.find(palette_id) == m_palette_cache.end();
+
+    std::shared_ptr<pds_c> pds;
+    if (full) {
+        pds = std::make_shared<pds_c>(
+            pds_c::from_scratch(palette, p_vn, palette_id, pts, dts));
+    } else {
+        const auto& prev = m_palette_cache[palette_id];
+        media::palette_t delta = prev.diff(palette);
+        if (delta.empty()) {
+            // No entries changed: send a full palette to keep a valid PDS.
+            pds = std::make_shared<pds_c>(
+                pds_c::from_scratch(palette, p_vn, palette_id, pts, dts));
+        } else {
+            pds = std::make_shared<pds_c>(
+                pds_c::from_scratch(delta, p_vn, palette_id, pts, dts));
+        }
+    }
+
+    m_palette_cache[palette_id] = palette;
+    m_last_palette_id = palette_id;
+    return pds;
+}
+
 void
 epoch_encoder_c::emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& out,
                                    uint8_t pcsfps, double pts, double dts,
@@ -199,6 +231,8 @@ epoch_encoder_c::emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& o
     auto clear_pds = pds_c::from_scratch(clear_pal, static_cast<uint8_t>(m_palette_vn++),
                                          palette_id, dts, dts);
     out.push_back(std::make_shared<pds_c>(std::move(clear_pds)));
+    m_palette_cache[palette_id] = clear_pal;
+    m_last_palette_id = palette_id;
 
     auto clear_end = ends_c::from_scratch(dts, dts);
     out.push_back(std::make_shared<ends_c>(std::move(clear_end)));
@@ -324,9 +358,7 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         }
     }
     if (!in.reusable) {
-        auto p_vn = static_cast<uint8_t>(m_palette_vn++);
-        auto pds = pds_c::from_scratch(in.palette, p_vn, palette_id, pds_pts, pds_dts);
-        result.push_back(std::make_shared<pds_c>(std::move(pds)));
+        result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts));
 
         // Skipped for reused events — the object is already decoded.
         double ods_pts = dt.dts + obj_decode;
@@ -367,6 +399,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
+    m_palette_cache.clear();
+    m_last_palette_id = 0xFF;
     // Overlap + two windows: acquisitions merge into the previous window's
     // nodes, so the whole epoch must be planned before emission (two-phase).
     // Default and single-window overlap keep the single-pass path below
@@ -513,8 +547,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             frames.push_back(std::move(f));
         }
         media::group_solution_t sol;
+        // Reserved slot 0xFF stays constant; -p only selects full-PDS output.
         const bool solved = media::solve_group(
-            frames, m_full_palette ? 255 : 254, sol, m_bt_matrix);
+            frames, 254, sol, m_bt_matrix, m_liq_options);
         if (!solved || sol.palettes.size() != chain.size()) {
             // Fallback: emit each event standalone (fresh ODS each).
             logger_c::instance().warn(
@@ -584,9 +619,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                             pds_dts = prev->dts();
                         }
                     }
-                    diff_pds = std::make_shared<pds_c>(pds_c::from_scratch(
-                        sol.palettes[i], static_cast<uint8_t>(m_palette_vn++),
-                        palette_id, pds_pts, pds_dts));
+                    diff_pds = make_pds(sol.palettes[i], palette_id, pds_pts, pds_dts);
                 }
                 for (auto& seg : segs) {
                     if (diff_pds && dynamic_cast<ends_c*>(seg.get()) != nullptr)

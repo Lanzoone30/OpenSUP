@@ -172,6 +172,12 @@ private:
                            uint8_t pcsfps, double pts, double dts,
                            uint8_t palette_id);
 
+    /// Emit a PDS for palette_id. Full palette when the id changes or when
+    /// full-palette mode is active; otherwise a delta against the last palette
+    /// sent for the same id.
+    std::shared_ptr<pds_c> make_pds(const media::palette_t& palette,
+                                    uint8_t palette_id, double pts, double dts);
+
     double m_fps;
     int m_width, m_height;
     int m_quantizer_id = 0;
@@ -199,6 +205,11 @@ private:
     // Objects of the last emitted display set; a palette-wipe re-references
     // them while its palette turns every entry transparent.
     std::vector<c_object_t> m_last_cobjs;
+
+    /// Last palette sent per palette id, for delta-PDS generation.
+    std::map<uint8_t, media::palette_t> m_palette_cache;
+    uint8_t m_last_palette_id = 0xFF;
+
 
     /// Window owning the point (ev_x+crop_x, ev_y+crop_y); 0 when no layout
     /// windows are provided (single-window mode).
