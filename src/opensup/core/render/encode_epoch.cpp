@@ -535,6 +535,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             return;
         }
 
+        // One extra acquisition per run, on its last event (oracle render2.py:1024).
+        size_t acq_idx = chain.size();
+        for (size_t i = 0; i < chain.size(); i++)
+            if (chain[i].acq_insert) acq_idx = i;
+
         for (size_t i = 0; i < chain.size(); i++) {
             auto& e = chain[i];
             epoch_timings_t ds_t;
@@ -591,7 +596,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             }
             // Mid-group acquisition (extra_acq): re-send this event's own
             // frame so late decoders can re-acquire mid-fade.
-            if (e.acq_insert) {
+            if (e.acq_insert && i == acq_idx) {
                 event_emit_input_t acq_in{e.w, e.h, e.crop_x, e.crop_y,
                                           e.ev_x, e.ev_y, e.ev_forced,
                                           pcs_c::composition_state_e::acquisition,
@@ -970,6 +975,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             m_quality.note_acquisition();
         }
     }
+
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "[event] k=" + std::to_string(k) +
+        " state=" + std::to_string(static_cast<int>(comp_state)) +
+        " member=" + std::to_string(is_member) +
+        " acq_ok=" + std::to_string(acq_ok) +
+        " chain=" + std::to_string(chain.size()));
 
         prev_obj_id = obj_id;
         prev_window_id = cur_window;

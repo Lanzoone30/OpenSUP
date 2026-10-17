@@ -77,10 +77,20 @@ TEST(SequenceQualityPolicy, DroughtLowersEffectiveThreshold) {
 TEST(SequenceQualityPolicy, ExtraAcqFiresAfterEnoughNormalEvents) {
     auto p = make_policy(0.8, 1.0, 0.0, /*extra_acq=*/2);
     EXPECT_FALSE(p.acquisition_due(false));
-    for (int i = 0; i < 3; ++i)
-        (void)p.decide(false, true, false, false, true, 0.1);
-    EXPECT_TRUE(p.acquisition_due(false));
+    (void)p.decide(false, true, false, false, true, 0.1);
+    EXPECT_FALSE(p.acquisition_due(false));  // run length 2: not > 2
+    (void)p.decide(false, true, false, false, true, 0.1);
+    EXPECT_TRUE(p.acquisition_due(false));   // run length 3 > 2
     EXPECT_FALSE(p.acquisition_due(/*forced=*/true));
+}
+
+TEST(SequenceQualityPolicy, ExtraAcqCountsBasePaletteForSingleNormal) {
+    // The oracle compares len(pals[0]) = normals + 1 (render2.py:1003), so
+    // insert_acqs=1 fires on a run of length 2 (one NORMAL after the base).
+    auto p = make_policy(0.8, 1.0, 0.0, /*extra_acq=*/1);
+    EXPECT_FALSE(p.acquisition_due(false));
+    (void)p.decide(false, true, false, false, true, 0.1);
+    EXPECT_TRUE(p.acquisition_due(false));
 }
 
 TEST(SequenceQualityPolicy, ExtraAcqDisabledNeverFires) {
@@ -97,6 +107,16 @@ TEST(SequenceQualityPolicy, NoteAcquisitionResetsCounter) {
     ASSERT_TRUE(p.acquisition_due(false));
     p.note_acquisition();
     EXPECT_FALSE(p.acquisition_due(false));
+}
+
+TEST(SequenceQualityPolicy, NoteAcquisitionKeepsDrought) {
+    // The synthetic insertion is DS-only: it must not reset the drought that
+    // drives the next event's state (oracle inserts after state resolution).
+    auto p = make_policy(0.8, 1.0, 0.0, 2);
+    (void)p.decide(false, true, false, false, true, 0.79);  // normal, drought -> 1
+    p.note_acquisition();
+    const auto d = p.decide(false, true, false, false, true, 0.79);
+    EXPECT_EQ(d.comp_state, kAcq);  // drought survived -> reusable node acquires
 }
 
 TEST(SequenceQualityPolicy, BaseSsimTracksHeight) {

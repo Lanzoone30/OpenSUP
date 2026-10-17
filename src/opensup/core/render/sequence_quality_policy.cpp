@@ -78,14 +78,18 @@ sequence_quality_policy_c::decide(bool normal_case, bool reusable, bool forced,
 bool
 sequence_quality_policy_c::acquisition_due(bool forced) const noexcept
 {
-    return m_insert_acqs > 0 && m_updates_since_acq > m_insert_acqs && !forced;
+    // +1 counts the run's base palette: the oracle compares against
+    // len(pals[0]) = normals + 1 (render2.py:1003).
+    return m_insert_acqs > 0 && m_updates_since_acq + 1 > m_insert_acqs && !forced;
 }
 
 void
 sequence_quality_policy_c::note_acquisition() noexcept
 {
+    // Only the counter resets: the synthetic insertion is DS-only and must not
+    // perturb the drought that drives the next event's state (oracle inserts
+    // after state resolution, render2.py:1024).
     m_updates_since_acq = 0;
-    m_drought = 0.0;
 }
 
 } // namespace core

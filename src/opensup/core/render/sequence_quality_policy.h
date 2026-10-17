@@ -50,10 +50,13 @@ public:
                                     bool force_acquisition, bool acq_valid,
                                     double dtl) noexcept;
 
-    /// True when enough NORMAL events accumulated to force an extra acquisition.
+    /// True when the run's palette (base + NORMAL updates) exceeds insert_acqs.
     [[nodiscard]] bool acquisition_due(bool forced) const noexcept;
 
-    /// Records an emitted acquisition: resets drought and the update counter.
+    /// NORMAL events counted since the last acquisition (diagnostic).
+    [[nodiscard]] int updates_since_acq() const noexcept { return m_updates_since_acq; }
+
+    /// Records an emitted extra acquisition: resets the update counter only.
     void note_acquisition() noexcept;
 
 private:
