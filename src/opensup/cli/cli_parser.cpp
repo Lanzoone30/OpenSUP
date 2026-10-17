@@ -52,7 +52,7 @@ parse_args(int argc, char** argv)
     app.add_flag("--overlap", opts.overlap,
                   "Allow palette update buffering.");
     app.add_flag("--alternate-oids", opts.alternate_oids,
-                  "Alternate per-window object ids (double buffering, multi-window).");
+                  "Force legacy global 0/1 object ids (default is per-window oids).");
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");

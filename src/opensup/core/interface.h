@@ -46,7 +46,7 @@ struct encode_config_t {
     // No CLI/UI surface exposes it yet.
     bool prefer_normal_case = false;
     bool overlap = false;
-    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
+    bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;

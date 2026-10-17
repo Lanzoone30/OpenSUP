@@ -24,7 +24,7 @@ struct cli_options_t {
     bool full_palette = false;
     bool allow_normal_case = false;
     bool overlap = false;
-    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
+    bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
     int threads = 0;         // 0 = auto (physical cores)

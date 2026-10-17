@@ -189,7 +189,7 @@ epoch_encoder_c::encode_epoch_overlap(
     double prev_tc_out = 0.0;
     uint16_t prev_obj_id = 0;
     int prev_pos_x = 0, prev_pos_y = 0;
-    int double_buffer = 1;  // Alternates 0/1 for single-window double buffering
+    int double_buffer = 1;  // Legacy global 0/1 toggle (--alternate-oids), any window count
     for (size_t k = 0; k < events.size(); ++k) {
         const auto& ev = events[k];
         const bool forced = ev.forced();
@@ -259,24 +259,23 @@ epoch_encoder_c::encode_epoch_overlap(
             node.reusable = false;
         }
         node.new_mask = !node.reusable;
-        // Per-window oid alternation (double buffering), only with
-        // m_alternate_oids && 2+ windows. Reused events keep their window's
-        // previous oid (already decoded). Without the flag all non-reusable
-        // objects alternate a global 0/1 buffer, matching the single-pass
-        // numbering so a co-displayed normal case keeps distinct oids.
-        if (m_alternate_oids && m_windows.size() >= 2) {
+        // Object id assignment: per-window double buffering by default;
+        // --alternate-oids requests the legacy global 0/1 scheme.
+        if (m_alternate_oids) {
+            if (!node.reusable) {
+                double_buffer = 1 - double_buffer;
+                node.obj_id = static_cast<uint16_t>(double_buffer);
+            } else {
+                node.obj_id = prev_obj_id;   // Reused object keeps its decoded oid
+            }
+        } else {
             int& dbw = overlap_db[static_cast<size_t>(node.window_id)];
             if (!node.reusable) {
                 dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
                 node.obj_id = static_cast<uint16_t>(node.window_id + dbw);
             } else {
-                node.obj_id = static_cast<uint16_t>(node.window_id + dbw);
+                node.obj_id = prev_obj_id;
             }
-        } else if (!node.reusable) {
-            double_buffer = 1 - double_buffer;
-            node.obj_id = static_cast<uint16_t>(double_buffer);
-        } else {
-            node.obj_id = prev_obj_id;   // Reused object keeps its decoded oid
         }
         // Normal-case takeover: with two windows, the event that takes over the
         // other window while the previous object is still displayed becomes a

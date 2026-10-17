@@ -3,12 +3,12 @@
 //
 // OpenSUP - PGS Encoder
 //
-// F4 (feature 009): alternate_oids — SUPer double_buffering[wid]
-// (render2.py:844, 749-750). Per-window oid alternation for new objects in
-// multi-window epochs: db[w] = abs(n - db[w]), oid = w + db[w]. The normal
-// case reference keeps the on-screen oid without alternating (render2.py:
-// 737-746) and is ordered first in the composition list (render2.py:786-792).
-// Flag off (default) -> byte-identical stream (FR-5).
+// F2 (spec 026): default oid scheme is per-window double buffering —
+// db[w] = abs(n - db[w]), oid = wid + db[w] (render2.py:844, 749-750).
+// --alternate-oids restores the legacy global {0,1} toggle across
+// acquisitions (any window count). The normal case reference keeps the
+// on-screen oid without alternating (render2.py:737-746) and is ordered
+// first in the composition list (render2.py:786-792).
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
@@ -70,7 +70,9 @@ pcs_first_oids(const std::vector<std::shared_ptr<pg_segment_c>>& segs) {
 
 TEST(DbOids, SingleWindowUnchangedByFlag) {
     // A single-window fixture (synth_ssimband.xml, 2 events same position):
-    // the flag must not alter oids nor the stream (multi-window only).
+    // with one window the per-window scheme (default) and the legacy global
+    // toggle (flag) coincide — both toggle 0/1 — so the flag must not alter
+    // oids nor the stream.
     auto off = encode("synth_ssimband.xml",
                       OPENDSUP_TEST_OUTPUT_DIR "/dbo_single_off.sup", false);
     auto on = encode("synth_ssimband.xml",
@@ -81,8 +83,8 @@ TEST(DbOids, SingleWindowUnchangedByFlag) {
 
 TEST(DbOids, MultiWindowReadquisitionAlternatesPerWindow) {
     // opensup_multiwindow_reaq.xml: ev1 w0, ev2 w1, ev3 w0 again (re-acquire).
-    // Default: global {0,1} toggle -> ev1=0, ev2=1, ev3=0.
-    // alternate_oids: per-window db=[2,2] -> w0: {0, 2}, w1: {1}. ev3 (w0) = 2.
+    // Default: per-window db=[2,2] -> w0: {0, 2}, w1: {1}. ev3 (w0) = 2.
+    // alternate_oids (legacy): global {0,1} toggle -> ev1=0, ev2=1, ev3=0.
     auto off = encode("opensup_multiwindow_reaq.xml",
                       OPENDSUP_TEST_OUTPUT_DIR "/dbo_reaq_off.sup", false);
     auto on = encode("opensup_multiwindow_reaq.xml",
@@ -92,15 +94,15 @@ TEST(DbOids, MultiWindowReadquisitionAlternatesPerWindow) {
     EXPECT_NE(stream_hash(on.segments()), stream_hash(off.segments()));
     const auto off_ids = pcs_first_oids(off.segments());
     const auto on_ids = pcs_first_oids(on.segments());
-    // Default: 0, 1, 0 (global toggle). On: 0, 1, 2 (w0 alternates 0 -> 2).
+    // Default: 0, 1, 2 (per-window). Flag: 0, 1, 0 (legacy global toggle).
     ASSERT_EQ(off_ids.size(), 3u);
     ASSERT_EQ(on_ids.size(), 3u);
-    EXPECT_EQ(off_ids[0], 0u);
-    EXPECT_EQ(off_ids[1], 1u);
-    EXPECT_EQ(off_ids[2], 0u);   // default re-acquire reuses oid 0
-    EXPECT_EQ(on_ids[0], 0u);    // w0 first
-    EXPECT_EQ(on_ids[1], 1u);    // w1 first
-    EXPECT_EQ(on_ids[2], 2u);    // w0 re-acquire alternated to 2
+    EXPECT_EQ(off_ids[0], 0u);   // w0 first
+    EXPECT_EQ(off_ids[1], 1u);   // w1 first
+    EXPECT_EQ(off_ids[2], 2u);   // w0 re-acquire alternated to 2
+    EXPECT_EQ(on_ids[0], 0u);    // global toggle first
+    EXPECT_EQ(on_ids[1], 1u);    // global toggle second
+    EXPECT_EQ(on_ids[2], 0u);    // global toggle back to 0
 }
 
 TEST(DbOids, NormalCaseRefFirstWithAlternate) {
@@ -149,13 +151,12 @@ TEST(DbOids, NormalCaseRefFirstWithAlternate) {
 }
 
 TEST(DbOids, OverlapPathAlternatesPerWindow) {
-    // FR-4: the overlap pipeline (encode_epoch_overlap + emit_epoch_from_nodes)
-    // must also alternate oids per window. opensup_multiwindow_merge.xml has
-    // two events in different windows 40ms apart — the shift_forward_overlay
-    // path. With alternate_oids on, each window's acquisition gets its own oid
-    // (w0 -> 0, w1 -> 1), identical to the single-pass numbering here (each
-    // window acquires once) but the flag must keep the stream identical to
-    // default when off.
+    // F2/FR-4: the overlap pipeline (encode_epoch_overlap + emit_epoch_from_nodes)
+    // must follow the same oid scheme as the single-pass path — per-window by
+    // default, legacy global {0,1} toggle with --alternate-oids.
+    // opensup_multiwindow_merge.xml has two events in different windows 40ms
+    // apart (shift_forward_overlay path); each window acquires once, so both
+    // schemes yield the same oids here. Runs must be deterministic.
     auto on1 = encode("opensup_multiwindow_merge.xml",
                       OPENDSUP_TEST_OUTPUT_DIR "/dbo_ovl_on1.sup", true, true);
     auto on2 = encode("opensup_multiwindow_merge.xml",
@@ -164,17 +165,16 @@ TEST(DbOids, OverlapPathAlternatesPerWindow) {
                        OPENDSUP_TEST_OUTPUT_DIR "/dbo_ovl_off1.sup", false, true);
     auto off2 = encode("opensup_multiwindow_merge.xml",
                        OPENDSUP_TEST_OUTPUT_DIR "/dbo_ovl_off2.sup", false, true);
-    // Deterministic on/off; with the flag the overlap path assigns per-window
-    // oids (may differ from default when nodes merge), but the flag-off runs
-    // must be identical to each other (FR-5 default determinism).
+    // Deterministic on/off; the legacy toggle may differ from the default
+    // per-window numbering when nodes merge, but the flag-off runs must be
+    // identical to each other.
     EXPECT_EQ(stream_hash(on1.segments()), stream_hash(on2.segments()));
     EXPECT_EQ(stream_hash(off1.segments()), stream_hash(off2.segments()));
 }
 
 TEST(DbOids, DefaultIsByteIdenticalAcrossFixtures) {
-    // FR-5 / FR-3: with the flag off the stream is byte-identical to the
-    // legacy output for every multi-window fixture (hash equality of two
-    // runs with alternate_oids=false).
+    // Default determinism for every multi-window fixture: two runs with
+    // alternate_oids=false produce the same stream.
     for (const auto& fx : {"opensup_multiwindow.xml",
                            "opensup_multiwindow_merge.xml",
                            "opensup_normalcase.xml"}) {

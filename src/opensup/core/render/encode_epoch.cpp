@@ -414,14 +414,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
     palette_id_counter++;
 
-    // For single window: double_buffer = 1 (alternates 0/1)
-    // For multi-window: more complex alternation; kept simple here.
+    // Global oid alternation 0/1 across acquisitions (no per-window slots).
     int double_buffer = 1;
     // Per-window slot sizing and new-object mask: max (dy,dx) seen per window
     // and which window got new content per event. Consumed by F2.
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
-    // Per-window oid alternation (double buffering), only active with
-    // m_alternate_oids && 2+ windows.
+    // Per-window oid alternation (double buffering), default path.
     std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
     std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
     std::vector<uint8_t> new_mask(nwin, 0);
@@ -828,24 +826,24 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         " acq_valid=" + std::to_string(acq_valid) +
         " dtl=" + std::to_string(dtl) +
         " state=" + std::to_string(static_cast<int>(decision.comp_state)) +
-        " refresh=" + std::to_string(decision.reusable_refresh));
+        " refresh=" + std::to_string(decision.reusable_refresh) +
+        " ups=" + std::to_string(m_quality.updates_since_acq()) +
+        " due=" + std::to_string(m_quality.acquisition_due(forced)));
     // A periodic refresh re-sends the object even when its bitmap is unchanged.
     if (k < forced_acq.size() && forced_acq[k]) emit_reusable = false;
 
-        // Object ID double buffering (alternates 0/1 for single window).
-        // Reused events keep the previous object id (already decoded).
+        // Object ID assignment: per-window double buffering by default;
+        // --alternate-oids requests the legacy global 0/1 scheme.
         uint16_t obj_id;
-        if (reusable) {
+        if (emit_reusable) {
             obj_id = prev_obj_id;
-        } else if (m_alternate_oids && m_windows.size() >= 2) {
-            // Per-window double buffering: each window alternates its own oid
-            // so the decoder never rewrites the buffer being presented.
+        } else if (m_alternate_oids) {
+            double_buffer = 1 - double_buffer;
+            obj_id = static_cast<uint16_t>(double_buffer);
+        } else {
             int& dbw = double_buffer_db[static_cast<size_t>(cur_window)];
             dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
             obj_id = static_cast<uint16_t>(cur_window + dbw);
-        } else {
-            double_buffer = 1 - double_buffer;
-            obj_id = static_cast<uint16_t>(double_buffer);
         }
 
     // Composite tracking:

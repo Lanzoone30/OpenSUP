@@ -275,7 +275,79 @@ def generate_large_wipe():
     print("wrote large_wipe.png (740x740)")
 
 
+def generate_flags_parity():
+    """Three-event fixture for boolean-flags parity.
+
+    Event 1 forces a 2-window layout (two opaque regions with a wide gap).
+    Event 2 starts a new palette id. Event 3 reuses that palette id so the
+    encoder must emit a delta PDS.
+    """
+    w2, h2 = W, H
+    img = Image.new("RGBA", (w2, h2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Two compact opaque blocks far apart so the epoch layout keeps two windows.
+    # Each block is >8 px on both axes and the gap is >8 px.
+    left_block = (10, 80, 20, 100)
+    right_block = (520, 590, 20, 100)
+    d.rectangle([left_block[0], left_block[2], left_block[1], left_block[3]],
+                fill=(220, 60, 60, 255))
+    d.rectangle([right_block[0], right_block[2], right_block[1], right_block[3]],
+                fill=(60, 220, 120, 255))
+    img.save(os.path.join(HERE, "flags_parity_2win.png"))
+    print(f"wrote flags_parity_2win.png ({w2}x{h2})")
+
+    # Single-window frames for palette redefinition/delta tests.
+    # They reuse the left block so the epoch does not merge back to one window.
+    for name, color in (
+        ("flags_parity_swin.png", (80, 120, 220, 255)),
+        ("flags_parity_swin2.png", (220, 180, 40, 255)),
+    ):
+        img = Image.new("RGBA", (w2, h2), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        d.rectangle([left_block[0], left_block[2], left_block[1], left_block[3]],
+                    fill=color)
+        img.save(os.path.join(HERE, name))
+        print(f"wrote {name} ({w2}x{h2})")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<BDN Version="0.9"\n'
+        '     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">\n'
+        '  <Description>\n'
+        '    <Name Title="opensup-flags-parity"/>\n'
+        '    <Language Code="eng"/>\n'
+        '    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>\n'
+        '    <Events Count="3"/>\n'
+        '  </Description>\n'
+        '  <Events>\n'
+        '    <Event InTC="00:00:01:00" OutTC="00:00:03:00" Forced="False">\n'
+        f'      <Graphic Width="{w2}" Height="{h2}" X="{X}" Y="{Y}">flags_parity_2win.png</Graphic>\n'
+        '    </Event>\n'
+        '    <Event InTC="00:00:03:00" OutTC="00:00:05:00" Forced="False">\n'
+        f'      <Graphic Width="{w2}" Height="{h2}" X="{X}" Y="{Y}">flags_parity_swin.png</Graphic>\n'
+        '    </Event>\n'
+        '    <Event InTC="00:00:05:00" OutTC="00:00:07:00" Forced="False">\n'
+        f'      <Graphic Width="{w2}" Height="{h2}" X="{X}" Y="{Y}">flags_parity_swin2.png</Graphic>\n'
+        '    </Event>\n'
+        '  </Events>\n'
+        '</BDN>\n'
+    )
+    out = os.path.join(HERE, "flags_parity.xml")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
-    main()
-    generate_similar_series()
-    generate_large_wipe()
+    if len(sys.argv) > 1 and sys.argv[1] == "rgba_collision":
+        generate_rgba_collision()
+    elif len(sys.argv) > 1 and sys.argv[1] == "flags_parity":
+        generate_flags_parity()
+    else:
+        main()
+        generate_similar_series()
+        generate_long_run()
+        generate_semi_alpha()
+        generate_rgba_collision()
+        generate_large_wipe()
