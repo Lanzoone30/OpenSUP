@@ -183,6 +183,37 @@ resolve_options(const cli_options_t& opts)
 
 // Oracle parity (supercli.py:116-119): unknown matrix/quantizer warns and
 // falls back instead of aborting.
+TEST(CliParser, UnknownBtMatrixWarnsAndFallsBackTo709) {
+    cli_options_t opts;
+    opts.bt_matrix = "bt999";
+    const auto r = resolve_options(opts);
+    EXPECT_EQ(r.cfg.bt_matrix, "bt709");
+    ASSERT_EQ(r.warnings.size(), 1u);
+    EXPECT_EQ(r.warnings[0], "Unknown color space 'bt999', using BT.709.");
+}
+
+TEST(CliParser, QuantizerOutOfRangeWarnsAndFallsBackToPiliq) {
+    for (const int q : {5, -1}) {
+        cli_options_t opts;
+        opts.quantizer = q;
+        const auto r = resolve_options(opts);
+        EXPECT_EQ(r.cfg.quantizer_id, 0) << "q=" << q;
+        ASSERT_EQ(r.warnings.size(), 1u);
+        EXPECT_EQ(r.warnings[0],
+                  "Unknown quantizer '" + std::to_string(q) + "', using PILIQ.");
+    }
+}
+
+TEST(CliParser, QuantizerInRangeStaysSilent) {
+    for (const int q : {0, 1}) {
+        cli_options_t opts;
+        opts.quantizer = q;
+        const auto r = resolve_options(opts);
+        EXPECT_EQ(r.cfg.quantizer_id, q) << "q=" << q;
+        EXPECT_TRUE(r.warnings.empty()) << "q=" << q;
+    }
+}
+
 }  // namespace
 }  // namespace cli
 }  // namespace opensup

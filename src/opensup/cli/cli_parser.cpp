@@ -198,6 +198,11 @@ options_to_config(const cli_options_t& opts)
     cfg.input_path = opts.input_path;
     cfg.output_path = opts.output_path;
     cfg.quantizer_id = opts.quantizer;
+    if (cfg.quantizer_id < 0 || cfg.quantizer_id > 1) {  // 0 = libimagequant, 1 = hextree
+        common::logger_c::instance().warn(
+            "Unknown quantizer '" + std::to_string(opts.quantizer) + "', using PILIQ.");
+        cfg.quantizer_id = 0;
+    }
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
