@@ -64,6 +64,11 @@ struct encode_config_t {
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop
     // Called after each epoch: (percent 0-100, epoch index 1-based, total epochs).
     std::function<void(int, int, int)> progress_cb;
+
+    // Optional hook to override the post-encode compliance decision.
+    // Primarily for tests; when empty the default logic applies.
+    std::function<bool()> post_encode_compliance_hook;
+
     int liq_quality = 95;      // libimagequant quality ceiling, single bitmap
     int liq_speed = 4;
     int liq_dither_pct = 95;   // dithering percent (oracle config.ini [PILIQ] parity)

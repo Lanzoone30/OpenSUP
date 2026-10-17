@@ -333,6 +333,7 @@ bdn_render_c::execute()
 
     // Optional stream bitrate validation (max_kbps path).
     // Warns on decoder-buffer underflow; never fails the encode.
+    bool compliant = true;
     if (m_config.max_kbps > 0) {
         logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +
                                   std::to_string(m_config.max_kbps) + " Kbps...");
@@ -340,11 +341,14 @@ bdn_render_c::execute()
                              static_cast<int64_t>(m_config.max_kbps) * 1000 / 8)) {
             logger_c::instance().warn(
                 "Detected buffer underflow(s) given the provided test bitrate.");
+            compliant = false;
         }
     }
+    if (m_config.post_encode_compliance_hook)
+        compliant = m_config.post_encode_compliance_hook();
 
-    sup_file_c::write_sup(m_config.output_path, m_segments);
-
+    auto pes_path = std::string{};
+    auto mui_path = std::string{};
     if (m_config.both_formats) {
         auto sup = m_config.output_path;
         auto pes = sup;
@@ -354,8 +358,27 @@ bdn_render_c::execute()
         else
             pes = pes + ".pes";
         auto mui = pes + ".mui";
-        logger_c::instance().info("Both formats: " + sup + " + " + pes + " + " + mui);
-        sup_file_c::write_pes_mui(pes, mui, m_segments);
+
+        if (!m_config.overwrite && (std::filesystem::exists(pes) || std::filesystem::exists(mui))) {
+            result.error = "PES/MUI files exist, use -y to overwrite";
+            logger_c::instance().error(result.error);
+            return result;
+        }
+
+        pes_path = std::move(pes);
+        mui_path = std::move(mui);
+    }
+
+    sup_file_c::write_sup(m_config.output_path, m_segments);
+
+    if (m_config.both_formats) {
+        if (!compliant) {
+            logger_c::instance().warn("PES+MUI skipped (stream not compliant)");
+        } else {
+            logger_c::instance().info("Both formats: " + m_config.output_path +
+                                      " + " + pes_path + " + " + mui_path);
+            sup_file_c::write_pes_mui(pes_path, mui_path, m_segments);
+        }
     }
 
     auto end_time = std::chrono::steady_clock::now();
