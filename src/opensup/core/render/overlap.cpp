@@ -26,13 +26,14 @@ void epoch_encoder_c::shift_forward_overlay(
     std::vector<epoch_node_t>& nodes,
     const std::vector<bool>& forced_acq) const
 {
-    (void)forced_acq;
     // Backtracks from an acquisition node with exactly
     // one new object (sum(new_mask)==1) and merges it into the best previous
     // node of the other window, so the object decodes earlier and the
     // intermediate range stays NORMAL.
     for (size_t k = 0; k < nodes.size(); ++k) {
         auto& node = nodes[k];
+        if (!forced_acq.empty() && forced_acq[k])
+            continue;   // anchor: keep full acquisition with its object
         if (node.acq || !node.has_object || !node.new_mask || !node.absolute)
             continue;
         const int future_wid = node.window_id;
@@ -53,6 +54,8 @@ void epoch_encoder_c::shift_forward_overlay(
         std::vector<cand_t> candidates;
         for (size_t pk = 1; pk <= 15 && k >= pk; ++pk) {
             const size_t pj = k - pk;
+            if (!forced_acq.empty() && forced_acq[pj])
+                continue;   // anchor must keep its own object
             auto& pnode = nodes[pj];
             if (!pnode.has_object)
                 continue;
@@ -259,6 +262,11 @@ epoch_encoder_c::encode_epoch_overlap(
             node.reusable = false;
         }
         node.new_mask = !node.reusable;
+        // Anchor events re-send the object even when the bitmap is unchanged.
+        if (k < redraw_flags.size() && redraw_flags[k]) {
+            node.reusable = false;
+            node.new_mask = true;
+        }
         // Object id assignment: per-window double buffering by default;
         // --alternate-oids requests the legacy global 0/1 scheme.
         if (m_alternate_oids) {

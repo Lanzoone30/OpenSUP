@@ -210,6 +210,7 @@ private:
     std::map<uint8_t, media::palette_t> m_palette_cache;
     uint8_t m_last_palette_id = 0xFF;
 
+    friend struct epoch_flags_test_access_t;
 
     /// Window owning the point (ev_x+crop_x, ev_y+crop_y); 0 when no layout
     /// windows are provided (single-window mode).

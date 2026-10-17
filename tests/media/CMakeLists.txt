@@ -1,4 +1,5 @@
 add_executable(opensup_test_media
+  epoch_flags_test.cpp
   optimizer_test.cpp
   palette_test.cpp
   transparency_test.cpp
