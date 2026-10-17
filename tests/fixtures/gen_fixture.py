@@ -7,6 +7,7 @@ and large_wipe.png in this directory. (large_wipe.xml and the other fixture XMLs
 are versioned; only the gitignored PNGs are emitted here.)
 """
 import os
+import sys
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -111,6 +112,144 @@ def generate_similar_series():
         "</BDN>\n"
     )
     out = os.path.join(HERE, "synth_similar.xml")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print(f"wrote {out}")
+
+
+def generate_long_run():
+    """Six-event single run for the extra_acq one-per-run check (SC-003).
+
+    A wide gray fade keeps every event byte-reusable, so with a low acqrate
+    (no drought growth) the whole sequence is one NORMAL run and the oracle
+    inserts a single mid-run acquisition on the last event (+1 frame).
+    """
+    colors = [(20, 20, 20), (32, 32, 32), (44, 44, 44),
+              (56, 56, 56), (68, 68, 68), (80, 80, 80)]
+    for i, rgb in enumerate(colors, start=1):
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 44)
+        except OSError:
+            font = ImageFont.load_default()
+        d.rounded_rectangle([8, 8, W - 8, H - 8], radius=16, fill=(240, 200, 255, 230))
+        d.text((30, 32), "Subtitle", fill=rgb + (255,), font=font)
+        img.save(os.path.join(HERE, f"lr{i:05d}.png"))
+        print(f"wrote lr{i:05d}.png (text color {rgb})")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<BDN Version="0.9"\n'
+        '     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">\n'
+        '  <Description>\n'
+        '    <Name Title="opensup-synth-long-run"/>\n'
+        '    <Language Code="eng"/>\n'
+        '    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>\n'
+        '    <Events Count="6"/>\n'
+        '  </Description>\n'
+        '  <Events>\n'
+    )
+    for i in range(len(colors)):
+        a, b = 1 + i * 4, 5 + i * 4
+        xml += (
+            f'    <Event InTC="00:00:{a:02d}:00" OutTC="00:00:{b:02d}:00" Forced="False">\n'
+            f'      <Graphic Width="{W}" Height="{H}" X="{X}" Y="{Y}">lr{i + 1:05d}.png</Graphic>\n'
+            '    </Event>\n'
+        )
+    xml += '  </Events>\n</BDN>\n'
+
+    out = os.path.join(HERE, "synth_long_run.xml")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print(f"wrote {out}")
+
+
+def generate_semi_alpha():
+    """Single event with alpha==0, alpha==64 and alpha==255 blocks (R2).
+
+    The alpha==0 block is green (non-black RGB) and sits inside the opaque
+    frame so it survives the padding trim; the semi-transparent block is a
+    distinct blue so the quantizer keeps it as its own entry.
+    """
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle([10, 10, W - 11, H - 11], fill=(200, 60, 60, 255))
+    d.rectangle([70, 40, 229, 79], fill=(40, 120, 240, 64))
+    d.rectangle([330, 40, 449, 79], fill=(60, 220, 60, 0))
+    img.save(os.path.join(HERE, "semi_alpha.png"))
+    print(f"wrote semi_alpha.png ({W}x{H})")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<BDN Version="0.9"\n'
+        '     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">\n'
+        '  <Description>\n'
+        '    <Name Title="opensup-semi-alpha"/>\n'
+        '    <Language Code="eng"/>\n'
+        '    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>\n'
+        '    <Events Count="1"/>\n'
+        '  </Description>\n'
+        '  <Events>\n'
+        '    <Event InTC="00:00:01:00" OutTC="00:00:03:00" Forced="False">\n'
+        f'      <Graphic Width="{W}" Height="{H}" X="{X}" Y="{Y}">semi_alpha.png</Graphic>\n'
+        '    </Event>\n'
+        '  </Events>\n'
+        "</BDN>\n"
+    )
+    out = os.path.join(HERE, "semi_alpha.xml")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print(f"wrote {out}")
+
+
+def generate_rgba_collision():
+    """Single event, 6 opaque color blocks (H1: RGBA vs YCrCbA solver domain).
+
+    Blocks 0/1 collide to the same bt709 YCrCbA after palette_entry_t::from_rgba
+    rounding (11,21,30) and (11,22,31) -> Y=33 Cr=133 Cb=123. Block 2 (10,20,30)
+    is a near collision (dY=1); 3-5 are contrast colors so the palette is not
+    trivial. Run: python3 gen_fixture.py rgba_collision
+    """
+    blocks = [
+        (11, 21, 30),    # A1  -> Y=33 Cr=133 Cb=123
+        (11, 22, 31),    # A2  -> Y=33 Cr=133 Cb=123 (same YCrCbA as A1)
+        (10, 20, 30),    # B1  -> Y=32 Cr=133 Cb=123 (near twin, dY=1)
+        (200, 60, 40),
+        (40, 120, 200),
+        (240, 240, 240),
+    ]
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    bw = W // len(blocks)
+    for i, rgb in enumerate(blocks):
+        x0 = i * bw
+        d.rectangle([x0, 0, x0 + bw - 1 if i < len(blocks) - 1 else W - 1, H - 1],
+                    fill=rgb + (255,))
+    img.save(os.path.join(HERE, "rgba_collision.png"))
+    print(f"wrote rgba_collision.png ({W}x{H}, {len(blocks)} blocks)")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<BDN Version="0.9"\n'
+        '     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '     xsi:noNamespaceSchemaLocation="BD-03-006-006-009.xsd">\n'
+        '  <Description>\n'
+        '    <Name Title="opensup-rgba-collision"/>\n'
+        '    <Language Code="eng"/>\n'
+        '    <Format VideoFormat="1080p" FrameRate="25" DropFrame="False"/>\n'
+        '    <Events Count="1"/>\n'
+        '  </Description>\n'
+        '  <Events>\n'
+        '    <Event InTC="00:00:01:00" OutTC="00:00:03:00" Forced="False">\n'
+        f'      <Graphic Width="{W}" Height="{H}" X="{X}" Y="{Y}">rgba_collision.png</Graphic>\n'
+        '    </Event>\n'
+        '  </Events>\n'
+        "</BDN>\n"
+    )
+    out = os.path.join(HERE, "rgba_collision.xml")
     with open(out, "w", encoding="utf-8") as f:
         f.write(xml)
     print(f"wrote {out}")
