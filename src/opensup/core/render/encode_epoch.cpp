@@ -690,25 +690,38 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
         // Quantize the trimmed RGBA image
-        // Phase A: build transparent pixel mask (PGS: palette[0] must be fully transparent)
-        size_t np = static_cast<size_t>(obj_w) * static_cast<size_t>(obj_h);
-        std::vector<bool> trans_mask(np, false);
-        for (size_t i = 0; i < np; i++) {
-            trans_mask[i] = (trimmed_rgba[i * 4 + 3] < 128);
-        }
         palette_t palette;
         std::vector<uint8_t> indexed;
         bool quant_ok = quantize_image(trimmed_rgba, obj_w, obj_h, palette, indexed);
         if (quant_ok) {
-            if (!m_full_palette) {
-                // PGS fix: shift palette to make index 0 = fully transparent
-                palette.offset(1);
-                palette.set(0, palette_entry_t::from_rgba(0, 0, 0, 0, m_bt_matrix));
-                // Remap indexed image: transparent pixels → 0, others → old_idx + 1
+            // Oracle parity: transparency decided by palette entries with
+            // alpha==0; index 0 stays free, the reserved entry maps to 0xFF
+            // and is dropped from the palette (same layout as solve_group).
+            int t = -1;
+            for (const auto& [idx, e] : palette.entries()) {
+                if (e.alpha == 0) { t = static_cast<int>(idx); break; }
+            }
+            if (t >= 0) {
                 for (size_t i = 0; i < indexed.size(); i++) {
-                    indexed[i] = trans_mask[i] ? 0 : static_cast<uint8_t>(indexed[i] + 1);
+                    uint8_t b = indexed[i];
+                    if (b == t) {
+                        indexed[i] = 0xFF;
+                    } else if (b < t) {
+                        indexed[i] = static_cast<uint8_t>(b + 1);
+                    }
+                }
+            } else {
+                for (size_t i = 0; i < indexed.size(); i++) {
+                    indexed[i] = static_cast<uint8_t>(indexed[i] + 1);
                 }
             }
+            palette_t shifted;
+            for (const auto& [idx, e] : palette.entries()) {
+                if (static_cast<int>(idx) == t) continue;
+                shifted.set(t == -1 || idx < t ? static_cast<uint8_t>(idx + 1)
+                                               : idx, e);
+            }
+            palette = std::move(shifted);
         } else {
             logger_c::instance().warn("Quantization failed for event " + std::to_string(k));
             continue;

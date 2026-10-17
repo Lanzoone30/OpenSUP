@@ -1,6 +1,7 @@
 add_executable(opensup_test_media
   optimizer_test.cpp
   palette_test.cpp
+  transparency_test.cpp
 )
 
 target_link_libraries(opensup_test_media
@@ -13,6 +14,11 @@ target_link_libraries(opensup_test_media
 target_include_directories(opensup_test_media
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src
+)
+
+target_compile_definitions(opensup_test_media
+  PRIVATE
+    OPENDSUP_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
 )
 
 gtest_discover_tests(opensup_test_media)
