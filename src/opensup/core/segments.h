@@ -216,6 +216,18 @@ public:
                                uint8_t p_vn, uint8_t p_id = 0,
                                double pts = 0.0, double dts = 0.0,
                                int offset = 0);
+
+    /// Emitted entries violating the limited-range oracle; diagnostic only,
+    /// serialization is never altered.
+    struct palette_warn_t {
+        size_t out_of_range   = 0;
+        size_t reserved_alpha = 0;
+    };
+
+    /// Limited range: 16<=y<=235, 16<=cb/cr<=240; index 0xFF is reserved and
+    /// must stay transparent (alpha==0). Pure check, changes nothing.
+    [[nodiscard]] static palette_warn_t validate_palette(
+        const media::palette_t& palette) noexcept;
 };
 
 /**

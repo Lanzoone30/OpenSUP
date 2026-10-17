@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "opensup/core/pgstream.h"
 #include "opensup/core/segments.h"
+#include "opensup/common/logger.h"
+#include "opensup/media/palette.h"
 
 namespace opensup {
 namespace core {
@@ -115,6 +117,59 @@ TEST(PgStream, LeakyBufferUsage) {
     // The running average sits between the deepest drain and full.
     EXPECT_GT(stats.avg_usage, stats.min_usage);
     EXPECT_LT(stats.avg_usage, 1.0);
+}
+
+// PDS palette validation: warnings only, serialized bytes stay untouched.
+class warn_capture_c {
+public:
+    warn_capture_c() {
+        common::logger_c::instance().set_callback(
+            [this](const std::string& msg, int level) {
+                if (level == static_cast<int>(common::log_level_e::warn))
+                    msgs.push_back(msg);
+            });
+    }
+    ~warn_capture_c() { common::logger_c::instance().set_callback(nullptr); }
+    std::vector<std::string> msgs;
+};
+
+TEST(PdsPaletteWarn, OutOfRangeEntry) {
+    warn_capture_c cap;
+    media::palette_t pal;
+    pal.set(1, media::palette_entry_t(10, 128, 128, 255));
+    pds_c::from_scratch(pal, 1);
+    ASSERT_FALSE(cap.msgs.empty());
+    EXPECT_NE(cap.msgs[0].find("kind=out-of-range"), std::string::npos);
+    EXPECT_NE(cap.msgs[0].find("count=1"), std::string::npos);
+}
+
+TEST(PdsPaletteWarn, ReservedAlpha) {
+    warn_capture_c cap;
+    media::palette_t pal;
+    pal.set(0xFF, media::palette_entry_t(128, 128, 128, 255));
+    pds_c::from_scratch(pal, 1);
+    ASSERT_FALSE(cap.msgs.empty());
+    EXPECT_NE(cap.msgs[0].find("kind=reserved-alpha"), std::string::npos);
+}
+
+TEST(PdsPaletteWarn, ValidPaletteSilent) {
+    warn_capture_c cap;
+    media::palette_t pal;
+    pal.set(1, media::palette_entry_t(16, 128, 128, 255));
+    pal.set(2, media::palette_entry_t(235, 240, 240, 255));
+    pds_c::from_scratch(pal, 1);
+    EXPECT_TRUE(cap.msgs.empty());
+}
+
+TEST(PdsPaletteWarn, ViolationDoesNotAlterBytes) {
+    warn_capture_c cap;
+    media::palette_t pal;
+    pal.set(0xFF, media::palette_entry_t(10, 128, 128, 255)); // both violations
+    const auto pds = pds_c::from_scratch(pal, /*p_vn=*/1, /*p_id=*/2);
+    std::vector<uint8_t> want{2, 1};
+    const auto pal_bytes = pal.to_bytes();
+    want.insert(want.end(), pal_bytes.begin(), pal_bytes.end());
+    EXPECT_EQ(pds.payload(), want);
 }
 
 } // namespace

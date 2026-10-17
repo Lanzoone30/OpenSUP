@@ -7,6 +7,7 @@
 
 #include "opensup/pch.h"
 #include "opensup/core/segments.h"
+#include "opensup/common/logger.h"
 
 #include <cstring>
 #include <algorithm>
@@ -384,6 +385,21 @@ void pds_c::set_palette(const media::palette_t& pal) {
     update_length();
 }
 
+pds_c::palette_warn_t pds_c::validate_palette(const media::palette_t& palette) noexcept
+{
+    palette_warn_t w;
+    for (const auto& [idx, e] : palette.entries()) {
+        if (e.y < 16 || e.y > 235 || e.cb < 16 || e.cb > 240 ||
+            e.cr < 16 || e.cr > 240) {
+            ++w.out_of_range;
+        }
+        if (idx == 0xFF && e.alpha != 0) {
+            ++w.reserved_alpha;
+        }
+    }
+    return w;
+}
+
 pds_c pds_c::from_scratch(const media::palette_t& palette,
                            uint8_t p_vn, uint8_t p_id,
                            double pts, double dts, int offset)
@@ -395,6 +411,15 @@ pds_c pds_c::from_scratch(const media::palette_t& palette,
     seg.m_data.push_back(p_vn);
     auto pal = palette;
     if (offset > 0) pal.offset(offset);
+    const auto warn = validate_palette(pal);
+    if (warn.out_of_range > 0) {
+        common::logger_c::instance().warn("palette: kind=out-of-range count="
+                                          + std::to_string(warn.out_of_range));
+    }
+    if (warn.reserved_alpha > 0) {
+        common::logger_c::instance().warn("palette: kind=reserved-alpha count="
+                                          + std::to_string(warn.reserved_alpha));
+    }
     auto pal_bytes = pal.to_bytes();
     seg.m_data.insert(seg.m_data.end(), pal_bytes.begin(), pal_bytes.end());
     seg.set_pts(pts);

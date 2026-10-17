@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -18,6 +19,9 @@ namespace cli {
 
 /// Emit a log event: {"type":"log","level":"info","msg":"..."}
 void emit_log_event(int level, const std::string& msg);
+
+/// Emit a palette warning: {"type":"warn","kind":"out-of-range","count":2}
+void emit_warn(const std::string& kind, size_t count);
 
 /// Emit a progress event: {"type":"progress","percent":42,"epoch":3,"total":12}
 void emit_progress_event(int percent, int epoch, int total);

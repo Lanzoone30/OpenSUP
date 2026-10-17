@@ -61,6 +61,11 @@ void emit_log_event(int level, const std::string& msg) {
               + "\",\"msg\":\"" + escape_json(msg) + "\"}");
 }
 
+void emit_warn(const std::string& kind, size_t count) {
+    emit_line("{\"type\":\"warn\",\"kind\":\"" + escape_json(kind)
+              + "\",\"count\":" + std::to_string(count) + "}");
+}
+
 void emit_progress_event(int percent, int epoch, int total) {
     emit_line("{\"type\":\"progress\",\"percent\":" + std::to_string(percent)
               + ",\"epoch\":" + std::to_string(epoch)
