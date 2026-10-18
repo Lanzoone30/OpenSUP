@@ -102,8 +102,8 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
 
 /// Sub-recorte del indexed del evento a la ventana [x0,y0,x1,y1) en coords
 /// absolutas: resta el origen (ax,ay) del bbox del evento; píxeles fuera del
-/// evento quedan 0xFF (transparente).
-static std::vector<uint8_t>
+/// evento quedan 0xFF (transparente). Defined here, used by overlap.cpp too.
+std::vector<uint8_t>
 crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay, int obj_w, int obj_h,
              int x0, int y0, int x1, int y1)
 {
@@ -472,6 +472,18 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
     std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
     std::vector<uint8_t> new_mask(nwin, 0);
+    // Last object emitted per window. An acquisition re-lists every active
+    // window and re-emits its ODS, so an untouched window keeps its object.
+    struct window_object_t {
+        std::vector<uint8_t> indexed;
+        int w = 0, h = 0, x = 0, y = 0;
+        bool active = false;
+    };
+    std::vector<window_object_t> window_objects(nwin);
+    // True when the previous display set carried every layout window; only then
+    // does an acquisition keep the untouched windows alive (they were part of
+    // the same coupled composition).
+    bool prev_all_windows = false;
 
     // Track previous event for clear DS insertion
     double prev_tc_out = 0.0;
@@ -889,10 +901,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         } else if (m_alternate_oids) {
             double_buffer = 1 - double_buffer;
             obj_id = static_cast<uint16_t>(double_buffer);
-        } else {
-            int& dbw = double_buffer_db[static_cast<size_t>(cur_window)];
+        } else if (m_windows.size() < 2) {
+            int& dbw = double_buffer_db[0];
             dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
-            obj_id = static_cast<uint16_t>(cur_window + dbw);
+            obj_id = static_cast<uint16_t>(dbw);
+        } else {
+            // Multi-window: advanced per window in the split loop below.
+            obj_id = prev_obj_id;
         }
 
     // Composite tracking:
@@ -1048,26 +1063,71 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             const int ax = ev.x() + crop_x, ay = ev.y() + crop_y;
             // Legacy --alternate-oids keeps the global {0,1} toggle across
             // acquisitions (any window count). The default is per-window double
-            // buffering: oid = wid + buffer[wid] (render2.py:749-750), the same
-            // value already computed for the current window above.
+            // buffering: oid = wid + buffer[wid] (render2.py:749-750), advanced
+            // once per window that emits.
             const uint16_t legacy_bit = static_cast<uint16_t>(double_buffer);
-            std::vector<std::shared_ptr<pg_segment_c>> ev_segs;
+            // Windows the event actually covers come first (the oracle lists the
+            // newly defined objects ahead of the kept ones).
+            std::vector<size_t> emit_order;
             for (size_t wi = 0; wi < m_windows.size(); ++wi) {
+                const auto& wd = m_windows[wi];
+                const int ix0 = std::max(ax, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(ay, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(ax + obj_w,
+                    static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + obj_h,
+                    static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0)
+                    emit_order.push_back(wi);
+            }
+            // On an acquisition the oracle re-lists every active window and
+            // re-emits its ODS, so a coupled window the event does not touch
+            // keeps its last object (new oid). Independent acquisitions whose
+            // previous display set did not carry all windows stay separate.
+            const bool reemit_retained =
+                !emit_reusable && !normal_case && !emit_order.empty() && prev_all_windows;
+            if (reemit_retained) {
+                for (size_t wi = 0; wi < m_windows.size(); ++wi)
+                    if (std::find(emit_order.begin(), emit_order.end(), wi) ==
+                            emit_order.end() && window_objects[wi].active)
+                        emit_order.push_back(wi);
+            }
+            std::vector<std::shared_ptr<pg_segment_c>> ev_segs;
+            uint16_t cur_win_oid = obj_id;
+            for (size_t wi : emit_order) {
                 const auto& wd = m_windows[wi];
                 const int wx = wd.h_pos, wy = wd.v_pos;
                 const int ix0 = std::max(ax, wx), iy0 = std::max(ay, wy);
                 const int ix1 = std::min(ax + obj_w, wx + static_cast<int>(wd.width));
                 const int iy1 = std::min(ay + obj_h, wy + static_cast<int>(wd.height));
-                if (ix1 <= ix0 || iy1 <= iy0)
-                    continue;
-                slot_touch(wd.window_id, ix0, iy0, ix1, iy1);
-                std::vector<uint8_t> sub =
-                    crop_indexed(indexed, ax, ay, obj_w, obj_h, ix0, iy0, ix1, iy1);
-                const uint16_t win_oid = m_alternate_oids
-                    ? legacy_bit
-                    : static_cast<uint16_t>(static_cast<int>(wi) + double_buffer_db[wi]);
+                const bool covered = (ix1 > ix0 && iy1 > iy0);
+                std::vector<uint8_t> sub;
+                int ow, oh, ox, oy;
+                if (covered) {
+                    slot_touch(wd.window_id, ix0, iy0, ix1, iy1);
+                    sub = crop_indexed(indexed, ax, ay, obj_w, obj_h, ix0, iy0, ix1, iy1);
+                    ow = ix1 - ix0; oh = iy1 - iy0; ox = ix0 - wx; oy = iy0 - wy;
+                    window_objects[wi] = window_object_t{sub, ow, oh, ox, oy, true};
+                } else {
+                    sub = window_objects[wi].indexed;
+                    ow = window_objects[wi].w; oh = window_objects[wi].h;
+                    ox = window_objects[wi].x; oy = window_objects[wi].y;
+                }
+                uint16_t win_oid;
+                if (m_alternate_oids) {
+                    win_oid = legacy_bit;
+                } else if (emit_reusable) {
+                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + double_buffer_db[wi]);
+                } else {
+                    int& dbw = double_buffer_db[wi];
+                    dbw = static_cast<int>(std::abs(
+                        static_cast<long long>(m_windows.size()) - dbw));
+                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + dbw);
+                }
+                if (wd.window_id == in.window_id)
+                    cur_win_oid = win_oid;
                 event_emit_input_t win_in{
-                    ix1 - ix0, iy1 - iy0, ix0 - wx, iy0 - wy, wx, wy,
+                    ow, oh, ox, oy, wx, wy,
                     in.ev_forced, in.comp_state,
                     win_oid, wd.window_id,
                     in.palette_id, in.reusable, in.fps_enum, in.palette, sub, in.timings};
@@ -1081,6 +1141,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 for (auto& seg : wsegs)
                     ev_segs.push_back(std::move(seg));
             }
+            prev_all_windows = (emit_order.size() == m_windows.size());
+            obj_id = cur_win_oid;
             // One display set per event: merge the per-window segments -- single
             // PCS carrying every window's CObject, single WDS, single ENDS, one
             // of each equal PDS. PGS order is PCS, WDS, (PDS, ODS)..., ENDS.

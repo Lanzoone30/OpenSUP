@@ -20,6 +20,9 @@ using media::pg_decoder_t;
 void trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
                               std::vector<uint8_t>& out, int& out_w, int& out_h,
                               int& offset_x, int& offset_y);
+/// Defined in encode_epoch.cpp.
+std::vector<uint8_t> crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay,
+                                  int obj_w, int obj_h, int x0, int y0, int x1, int y1);
 // Overlap pipeline: active only when m_overlap && m_windows.size() == 2.
 
 void epoch_encoder_c::shift_forward_overlay(
@@ -355,6 +358,18 @@ epoch_encoder_c::emit_epoch_from_nodes(
     if (nodes.empty()) return result;
     auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
     palette_id_counter++;
+    // Emission-time per-window oid slots and last-object cache, matching the
+    // single-pass multi-window path: every acquisition re-lists the coupled
+    // windows, so an untouched window keeps its object with a fresh oid.
+    const size_t wen = m_windows.empty() ? 1 : m_windows.size();
+    std::vector<int> emit_db(wen, static_cast<int>(wen));
+    struct em_win_obj_t {
+        std::vector<uint8_t> indexed;
+        int w = 0, h = 0, x = 0, y = 0;
+        bool active = false;
+    };
+    std::vector<em_win_obj_t> em_win_objects(wen);
+    bool em_prev_all = false;
     for (size_t k = 0; k < nodes.size(); ++k) {
         const auto& node = nodes[k];
         if (!node.has_object)
@@ -390,20 +405,132 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
             }
         }
-        event_emit_input_t in{
-            node.w, node.h, node.crop_x, node.crop_y,
-            node.ev_x, node.ev_y, node.forced,
-            node.state, node.obj_id,
-            static_cast<uint8_t>(node.window_id), palette_id,
-            node.reusable, fps_enum, node.palette, node.indexed,
-            node.timings};
-        in.normal_case_ref = node.normal_case_ref;
-        in.ref_window_id = node.ref_window_id;
-        in.ref_obj_id = node.ref_obj_id;
-        in.ref_x = node.ref_x;
-        in.ref_y = node.ref_y;
-        auto segs = emit_event_segments(in, result);
-        for (auto& seg : segs)
+        std::vector<std::shared_ptr<pg_segment_c>> ev_segs;
+        if (wen < 2) {
+            event_emit_input_t in{
+                node.w, node.h, node.crop_x, node.crop_y,
+                node.ev_x, node.ev_y, node.forced,
+                node.state, node.obj_id,
+                static_cast<uint8_t>(node.window_id), palette_id,
+                node.reusable, fps_enum, node.palette, node.indexed,
+                node.timings};
+            in.normal_case_ref = node.normal_case_ref;
+            in.ref_window_id = node.ref_window_id;
+            in.ref_obj_id = node.ref_obj_id;
+            in.ref_x = node.ref_x;
+            in.ref_y = node.ref_y;
+            auto segs = emit_event_segments(in, result);
+            for (auto& seg : segs)
+                ev_segs.push_back(std::move(seg));
+        } else {
+            // Split the node's bitmap per layout window; the touched windows go
+            // first, then the coupled untouched ones (kept alive on acquisition).
+            const int ax = node.ev_x + node.crop_x, ay = node.ev_y + node.crop_y;
+            std::vector<size_t> emit_order;
+            for (size_t wi = 0; wi < wen; ++wi) {
+                const auto& wd = m_windows[wi];
+                const int ix0 = std::max(ax, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(ay, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(ax + node.w,
+                    static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + node.h,
+                    static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0)
+                    emit_order.push_back(wi);
+            }
+            const bool reemit_retained = !node.reusable && !node.normal_case_ref &&
+                !emit_order.empty() && em_prev_all;
+            if (reemit_retained) {
+                for (size_t wi = 0; wi < wen; ++wi)
+                    if (std::find(emit_order.begin(), emit_order.end(), wi) ==
+                            emit_order.end() && em_win_objects[wi].active)
+                        emit_order.push_back(wi);
+            }
+            for (size_t wi : emit_order) {
+                const auto& wd = m_windows[wi];
+                const int wx = wd.h_pos, wy = wd.v_pos;
+                const int ix0 = std::max(ax, wx), iy0 = std::max(ay, wy);
+                const int ix1 = std::min(ax + node.w, wx + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + node.h, wy + static_cast<int>(wd.height));
+                const bool covered = (ix1 > ix0 && iy1 > iy0);
+                std::vector<uint8_t> sub;
+                int ow, oh, ox, oy;
+                if (covered) {
+                    sub = crop_indexed(node.indexed, ax, ay, node.w, node.h,
+                                       ix0, iy0, ix1, iy1);
+                    ow = ix1 - ix0; oh = iy1 - iy0; ox = ix0 - wx; oy = iy0 - wy;
+                    em_win_objects[wi] = em_win_obj_t{sub, ow, oh, ox, oy, true};
+                } else {
+                    sub = em_win_objects[wi].indexed;
+                    ow = em_win_objects[wi].w; oh = em_win_objects[wi].h;
+                    ox = em_win_objects[wi].x; oy = em_win_objects[wi].y;
+                }
+                uint16_t win_oid;
+                if (wd.window_id == static_cast<uint8_t>(node.window_id)) {
+                    if (!node.reusable) {
+                        int& dbw = emit_db[wi];
+                        dbw = static_cast<int>(std::abs(
+                            static_cast<long long>(wen) - dbw));
+                    }
+                    win_oid = node.obj_id;
+                } else {
+                    int& dbw = emit_db[wi];
+                    dbw = static_cast<int>(std::abs(
+                        static_cast<long long>(wen) - dbw));
+                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + dbw);
+                }
+                event_emit_input_t win_in{
+                    ow, oh, ox, oy, wx, wy, node.forced, node.state,
+                    win_oid, wd.window_id, palette_id, node.reusable, fps_enum,
+                    node.palette, sub, node.timings};
+                win_in.normal_case_ref =
+                    node.normal_case_ref && wd.window_id != node.ref_window_id;
+                win_in.ref_window_id = node.ref_window_id;
+                win_in.ref_obj_id = node.ref_obj_id;
+                win_in.ref_x = node.ref_x;
+                win_in.ref_y = node.ref_y;
+                auto wsegs = emit_event_segments(win_in, result);
+                for (auto& seg : wsegs)
+                    ev_segs.push_back(std::move(seg));
+            }
+            em_prev_all = (emit_order.size() == wen);
+            // Merge into one display set: single PCS carrying every window's
+            // CObject, single WDS, one of each equal PDS, single ENDS.
+            std::shared_ptr<pcs_c> merged_pcs;
+            std::vector<uint8_t> first_pds;
+            bool have_wds = false, have_pds = false;
+            for (size_t si = 0; si < ev_segs.size(); ++si) {
+                auto& seg = ev_segs[si];
+                if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
+                    if (merged_pcs) {
+                        merged_pcs->cobjects.insert(merged_pcs->cobjects.end(),
+                                                    pcs->cobjects.begin(),
+                                                    pcs->cobjects.end());
+                        merged_pcs->update();
+                        continue;
+                    }
+                    merged_pcs = pcs;
+                } else if (std::dynamic_pointer_cast<wds_c>(seg)) {
+                    if (have_wds)
+                        continue;
+                    have_wds = true;
+                } else if (std::dynamic_pointer_cast<pds_c>(seg)) {
+                    auto bytes = seg->to_bytes();
+                    if (have_pds && bytes == first_pds)
+                        continue;
+                    have_pds = true;
+                    first_pds = std::move(bytes);
+                } else if (dynamic_cast<ends_c*>(seg.get()) != nullptr &&
+                           si + 1 < ev_segs.size()) {
+                    continue;
+                }
+                result.push_back(std::move(seg));
+            }
+            if (merged_pcs)
+                m_last_cobjs = merged_pcs->cobjects;
+            continue;
+        }
+        for (auto& seg : ev_segs)
             result.push_back(std::move(seg));
     }
     // End-of-epoch clear (final wipe) — parity with the single-pass path
