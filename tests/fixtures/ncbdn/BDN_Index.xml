@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BDN Version="0.93" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Description>
+    <Name Title="nc_test" Content="" />
+    <Language Code="eng" />
+    <Format VideoFormat="1920x1080" FrameRate="25" DropFrame="false" />
+    <Events Type="Graphic" FirstEventInTC="00:00:10:00" LastEventOutTC="00:00:30:00" NumberofEvents="2" />
+  </Description>
+  <Events>
+    <Event Forced="true" InTC="00:00:10:00" OutTC="00:00:20:00">
+      <Graphic Width="718" Height="66" X="200" Y="940">0001.png</Graphic>
+      <Graphic Width="833" Height="119" X="1000" Y="900">0002.png</Graphic>
+    </Event>
+    <Event Forced="true" InTC="00:00:20:00" OutTC="00:00:30:00">
+      <Graphic Width="357" Height="67" X="200" Y="940">0003.png</Graphic>
+      <Graphic Width="833" Height="119" X="1000" Y="900">0002.png</Graphic>
+    </Event>
+  </Events>
+</BDN>

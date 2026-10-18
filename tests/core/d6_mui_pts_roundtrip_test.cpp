@@ -91,10 +91,8 @@ std::vector<ts_record> run_mui_script(const std::string& script,
 }
 
 TEST(D6MuiPtsRoundtrip, MuiPesTimestampsMatchSupTwin) {
-    const fs::path temp_dir = fs::path(OPENDSUP_TEST_OUTPUT_DIR).parent_path();
-    const fs::path repo = temp_dir.parent_path();
-    const fs::path fixture = temp_dir / "params-audit" / "ncbdn";
-    const fs::path script = repo / "tests" / "scripts" / "mui_pts_tsv.py";
+    const fs::path fixture = fs::path(OPENDSUP_FIXTURES_DIR) / "ncbdn";
+    const fs::path script = fs::path(OPENDSUP_FIXTURES_DIR).parent_path() / "scripts" / "mui_pts_tsv.py";
 
     if (!fs::exists(fixture / "BDN_Index.xml") ||
         !fs::exists(fixture / "0001.png"))

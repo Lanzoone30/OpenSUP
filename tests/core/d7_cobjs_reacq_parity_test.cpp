@@ -67,13 +67,9 @@ std::vector<cobj_set_t> scan_sup_cobjs(const std::string& path) {
     return sets;
 }
 
-std::string repo_root() {
-    return std::string(OPENDSUP_FIXTURES_DIR) + "/../..";
-}
-
 void expect_parity(const std::string& port_rel, const std::string& oracle_rel) {
-    const std::string port = repo_root() + "/" + port_rel;
-    const std::string oracle = repo_root() + "/" + oracle_rel;
+    const std::string port = std::string(OPENDSUP_FIXTURES_DIR) + "/ncbdn/" + port_rel;
+    const std::string oracle = std::string(OPENDSUP_FIXTURES_DIR) + "/ncbdn/" + oracle_rel;
     std::ifstream po(port), oo(oracle);
     if (!po || !oo) {
         GTEST_SKIP() << "fixture ausente: " << port_rel << " / " << oracle_rel;
@@ -102,20 +98,17 @@ void expect_parity(const std::string& port_rel, const std::string& oracle_rel) {
 }  // namespace
 
 TEST(D7CobjsReacqParity, Base) {
-    expect_parity("temp/params-audit/ncbdn/nc_cpp_base.sup",
-                  "temp/params-audit/ncbdn/nc_py_base.sup");
+    expect_parity("nc_cpp_base.sup", "nc_py_base.sup");
 }
 
 TEST(D7CobjsReacqParity, AnOverlap) {
-    expect_parity("temp/params-audit/ncbdn/nc_cpp_an_ov.sup",
-                  "temp/params-audit/ncbdn/nc_py_an_ov.sup");
+    expect_parity("nc_cpp_an_ov.sup", "nc_py_an_ov.sup");
 }
 
 // Third D7 case: the --allow-normal variant must re-list the same cobjs as the
 // oracle (same re-adquisition reuse rule, no overlap merging).
 TEST(D7CobjsReacqParity, AnNormal) {
-    expect_parity("temp/params-audit/ncbdn/nc_cpp_an.sup",
-                  "temp/params-audit/ncbdn/nc_py_an.sup");
+    expect_parity("nc_cpp_an.sup", "nc_py_an.sup");
 }
 
 }  // namespace core

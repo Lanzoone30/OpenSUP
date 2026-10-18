@@ -1,0 +1,16 @@
+DEBUG: Finding all epochs and their screen layout (this can take a while)...
+DEBUG: Layout engine preset: 2, with capabilities: Python.
+DEBUG: Epoch Context: 00:00:10:00->00:00:35:00 3, RC=Box(y=np.int64(906), dy=np.int64(120), x=np.int64(193), dx=np.int64(1647)), WDS=(Box(y=np.int64(47), dy=np.int64(53), x=np.int64(7), dx=np.int64(718)), Box(y=np.int64(7), dy=np.int64(106), x=np.int64(807), dx=np.int64(833))), [-inf;inf]
+INFO: Identified 1 epochs.
+DEBUG: Registered signal handlers.
+INFO: Starting workers...
+INFO: Done distributing epochs, waiting for all workers to finish.
+INFO: All jobs finished, cleaning-up.
+DEBUG: Unserializing workers data.
+DEBUG: Fixing PCS composition number.
+DEBUG: n(ES)=1, n(ACQ)=2, n(NC)=1 (n(ODS)=0, n(PU)=0). Buffered: n(PU)=0.
+INFO: Checking stream consistency and compliancy...
+INFO: Checking PTS and DTS rules...
+INFO: => Output PGS is compliant.
+INFO: Writing output file nc_py_an.sup
+INFO: Success. Duration: 0:00:03.676000

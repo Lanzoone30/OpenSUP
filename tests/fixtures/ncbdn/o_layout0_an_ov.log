@@ -1,0 +1,17 @@
+ SUPer WARN : No extension provided, assuming .SUP.
+ SUPer IINF : Parameters: quality_factor=0.8:refresh_rate=1.0:quantize_lib=3:bt_colorspace=bt709:allow_overlaps=True:full_palette=False:output_all_formats=False:allow_normal_case=True:prefer_normal_case=False:max_kbps=0:log_to_file=0:insert_acquisitions=2:ssim_tol=0.0:redraw_period=0.0:threads=2
+ SUPer IINF : BDN metadata: 1920x1080, FPS=25, DF=False, 3 valid events.
+SUPer version 0.2.8 - (c) 2025 cubicibo
+HDMV PGS encoder, with support from Masstock, Alllen and Emulgator.
+  0%|          | 0/3 [00:00<?, ?it/s]Finding epochs and layouts:   0%|          | 0/3 [00:00<?, ?it/s]Finding epochs and layouts: 100%|██████████| 3/3 [00:00<00:00,  3.44it/s]Finding epochs and layouts: : 4it [00:00,  4.56it/s]                     
+ SUPer INFO : Identified 1 epochs.
+ SUPer INFO : Starting workers...
+ SUPer INFO : Worker 0 ready.
+ SUPer INFO : W0: Encoding epoch 00:00:10:00->00:00:35:00 with 3 event(s), 2 window(s).
+ SUPer INFO : Done distributing epochs, waiting for all workers to finish.
+ SUPer INFO : All jobs finished, cleaning-up.
+ SUPer INFO : Checking stream consistency and compliancy...
+ SUPer INFO : Checking PTS and DTS rules...
+ SUPer INFO : => Output PGS is compliant.
+ SUPer INFO : Writing output file o_layout0_an_ov.sup
+ SUPer INFO : Success. Duration: 0:00:03.707000

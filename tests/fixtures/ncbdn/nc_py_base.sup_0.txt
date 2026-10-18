@@ -1,0 +1,23 @@
+DEBUG: INI parameters: {'super_cfg': {'use_gpu': '1', 'layout_mode': '2'}, 'quant': {'qpath': '/home/lanzoone30/Desarrollo/Proyectos_Personales/Proyectos/Dev/OpenSUP-go/temp/SUPer-main/G:/Software/pngquant/pngquant.exe', 'quality': 95, 'speed': 4, 'dither': 95}}
+DEBUG: Configuring pngquant with: speed=4:quality=95:dither=0.95
+DEBUG: RGBA quantizer 'PILIQ'.
+DEBUG: Bitmap encoder capabilities: Numba, Python.
+DEBUG: OpenCL enabled: True.
+INFO: Worker 0 ready.
+DEBUG: WORKER 0 on EPOCH 0
+DEBUG: Removed 0 duplicate event(s).
+INFO: W0: Encoding epoch 00:00:10:00->00:00:35:00 with 3 event(s), 2 window(s).
+DEBUG: Window 0: X=200, Y=953, W=718, H=53
+DEBUG: Window 1: X=1000, Y=913, W=833, H=106
+DEBUG: Window=0 has new PGObject: f=0, S(mask)=1, mask=[np.True_]
+DEBUG: Window=0 has new PGObject: f=2, S(mask)=1, mask=[np.True_]
+DEBUG: Window=1 has new PGObject: f=1, S(mask)=1, mask=[np.True_]
+DEBUG: Backtracking to filter acquisitions and events.
+DEBUG: 0: 80 00-False DTS=9.9960->9.9984 PTS=10.0000=00:00:10:00 OM=[True, False] 0 0 cdts=False
+DEBUG: 1: 40 00-False DTS=14.9917->14.9972 PTS=15.0000=00:00:15:00 OM=[False, True] 0 1 cdts=False
+DEBUG: 2: 40 00-False DTS=24.9960->24.9984 PTS=25.0000=00:00:25:00 OM=[True, False] 0 2 cdts=False
+DEBUG: Acquisition: PTS=00:00:10:00=10.000, 2OBJs=False, NC=False Npalups=0 S(ODS)=18500, L(ODS)=1, f: 0->1
+DEBUG: Acquisition: PTS=00:00:15:00=15.000, 2OBJs=False, NC=False Npalups=0 S(ODS)=32315, L(ODS)=1, f: 1->2
+DEBUG: Acquisition: PTS=00:00:25:00=25.000, 2OBJs=False, NC=False Npalups=0 S(ODS)=9016, L(ODS)=1, f: 2->3
+DEBUG: Performing standard screen wipe at 00:00:35:00 (end of epoch).
+DEBUG: W0:  => encoded as 4 display sets.

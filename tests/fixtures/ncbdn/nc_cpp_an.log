@@ -1,0 +1,8 @@
+OpenSUP v2.0.0 - PGS Subtitle Encoder
+Input:  temp/params-audit/ncbdn/BDN_Index.xml
+Output: temp/params-audit/ncbdn/nc_cpp_an.sup
+17:16:28 INFO: Input: 2 events, 1920x1080 @25.000000 fps
+17:16:28 INFO: Split into 1 epoch(s)
+17:16:28 INFO: Encoded epoch with 2 events, 17 segments.
+17:16:28 PASS: Encoding complete: 17 segments, 2 events, 335 ms
+17:16:28 PASS: Success. Duration: 0.335000s
