@@ -319,6 +319,8 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
         uint32_t raw_pts = seg->tpts();
         uint64_t mui_dts = static_cast<uint64_t>(raw_dts) + MUI_TS_OFFSET;
         uint64_t mui_pts = static_cast<uint64_t>(raw_pts) + MUI_TS_OFFSET;
+        // from_mui rebuilds a 39-bit PTS then shifts it >>6: emit PTS<<6.
+        uint64_t mui_pts_field = (mui_pts << 6) & 0x7F'FFFFFFFFULL;
 
         uint8_t mui_entry[14];
         // Entry header: segment type + block length (length + 3 for MUI prefix)
@@ -335,11 +337,11 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
         mui_entry[7]  = static_cast<uint8_t>((mui_dts >> 9) & 0xFF);   // DTS[16:9]
         mui_entry[8]  = static_cast<uint8_t>((mui_dts >> 1) & 0xFF);   // DTS[8:1]
         mui_entry[9]  = static_cast<uint8_t>((mui_dts & 1) << 7);      // DTS[0] in MSB
-        mui_entry[9] |= static_cast<uint8_t>((mui_pts >> 32) & 0x7F);  // PTS[38:32]
-        mui_entry[10] = static_cast<uint8_t>((mui_pts >> 24) & 0xFF);  // PTS[31:24]
-        mui_entry[11] = static_cast<uint8_t>((mui_pts >> 16) & 0xFF);  // PTS[23:16]
-        mui_entry[12] = static_cast<uint8_t>((mui_pts >> 8) & 0xFF);   // PTS[15:8]
-        mui_entry[13] = static_cast<uint8_t>(mui_pts & 0xFF);          // PTS[7:0]
+        mui_entry[9] |= static_cast<uint8_t>((mui_pts_field >> 32) & 0x7F);  // PTS[38:32]
+        mui_entry[10] = static_cast<uint8_t>((mui_pts_field >> 24) & 0xFF);  // PTS[31:24]
+        mui_entry[11] = static_cast<uint8_t>((mui_pts_field >> 16) & 0xFF);  // PTS[23:16]
+        mui_entry[12] = static_cast<uint8_t>((mui_pts_field >> 8) & 0xFF);   // PTS[15:8]
+        mui_entry[13] = static_cast<uint8_t>(mui_pts_field & 0xFF);          // PTS[7:0]
 
         fmui.write(reinterpret_cast<const char*>(mui_entry), 14);
     }
