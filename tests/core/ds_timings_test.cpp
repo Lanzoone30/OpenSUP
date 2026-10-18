@@ -19,6 +19,11 @@ constexpr int64_t kFreq = 90000;
 
 int64_t ticks(double secs) { return std::llround(secs * kFreq); }
 
+// Copy time of a plane region at the compose rate, in ticks (ceil).
+int64_t copy_ticks(int64_t area) {
+    return (area * kFreq + 32000000 - 1) / 32000000;
+}
+
 window_definition_t window(uint8_t id, uint16_t w, uint16_t h) {
     window_definition_t wd;
     wd.window_id = id;
@@ -104,6 +109,21 @@ TEST(DsTiming, DecodeBaseAggregatesWindowCopies) {
     EXPECT_EQ(ticks(decode_base({}, container)), 5832);  // container copy only
     EXPECT_EQ(ticks(decode_base({window(0, 585, 105)}, container)), 6005);
     EXPECT_EQ(ticks(decode_base({window(0, 585, 105), window(1, 585, 105)}, container)), 6178);
+}
+
+TEST(DsTimings, WipeIsCeilOfSum) {
+    // 1919x1079 and 100x101 each give a fractional copy time; the sum-of-ceils
+    // and the ceil-of-sum differ, so wipe must be copy_ticks(a0 + a2).
+    const int64_t a0 = 1919ll * 1079;
+    const int64_t a2 = 100ll * 101;
+    const int64_t seq_sum = copy_ticks(a0) + copy_ticks(a2);
+
+    ds_timing_input_t in;
+    in.windows = {window(0, 1919, 1079), window(1, 100, 101)};
+
+    const auto t = compute_ds_timing(in);
+    EXPECT_DOUBLE_EQ(t.wipe_duration, static_cast<double>(copy_ticks(a0 + a2)) / kFreq);
+    EXPECT_NE(seq_sum, copy_ticks(a0 + a2));
 }
 
 }  // namespace
