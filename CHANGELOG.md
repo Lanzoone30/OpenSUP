@@ -32,11 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MUI PTS/DTS writer (spec 029, D6)**: MUI records rebuild a 39-bit timestamp and
   re-shift it `>>6`; the writer now emits `PTS<<6` so `from_mui` round-trips exactly
   (SUP → MUI → from_mui produces readable, exact PTS/DTS and `check_integrity()` passes).
-- **Acquisition PCS cobject re-acquisition (spec 029, D7)**: epoch s with a re-acquired
+- **Acquisition PCS re-acquisition (spec 029, D7)**: epoch s with a re-acquired
   palette now re-emits ODS/PDS per window (spec-027 interleaved OIDs, D-029-2 numbering
   by window) and the multi-window single-pass route clears windows via WDS instead of a
-  palette-end wipe. Known debt: 11 display sets of the ENIGMA-1080p battery still over-
-  list retained windows in the acquisition PCS (tracked in spec 030).
+  palette-end wipe.
+- **Acquisition PCS re-listing (spec 030, D-A)**: the acquisition PCS of a display set
+  now lists only the windows the event composites in that set; active-but-unpainted
+  windows stay retained and no longer receive a cobj or a re-emitted ODS (the spec-029
+  over-generalization to every active window is removed, in both the epoch route and
+  the per-window `--overlap` route). ENIGMA-1080p base battery: 11 → 0 divergent
+  display sets; non-cropped (ncbd) outputs stay byte-identical. The geometry check on
+  ncbd remains a documented skip (known multi-`<Graphic>` divergence, spec 033).
 
 ## [2.0.0] - 2026-09-19
 
