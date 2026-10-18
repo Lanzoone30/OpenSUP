@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PDS/ODS with window OIDs, no extra acquisitions), and intermediate multi-window epochs
   end in a WDS clear instead of a palette-end wipe, matching the oracle exactly
   (324/168/156/0, 43 ACQUISITIONs); ghost epochs without PCS are eliminated (52 → 0).
+- **MUI PTS/DTS writer (spec 029, D6)**: MUI records rebuild a 39-bit timestamp and
+  re-shift it `>>6`; the writer now emits `PTS<<6` so `from_mui` round-trips exactly
+  (SUP → MUI → from_mui produces readable, exact PTS/DTS and `check_integrity()` passes).
+- **Acquisition PCS cobject re-acquisition (spec 029, D7)**: epoch s with a re-acquired
+  palette now re-emits ODS/PDS per window (spec-027 interleaved OIDs, D-029-2 numbering
+  by window) and the multi-window single-pass route clears windows via WDS instead of a
+  palette-end wipe. Known debt: 11 display sets of the ENIGMA-1080p battery still over-
+  list retained windows in the acquisition PCS (tracked in spec 030).
 
 ## [2.0.0] - 2026-09-19
 
