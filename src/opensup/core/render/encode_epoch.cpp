@@ -1082,11 +1082,13 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                     ev_segs.push_back(std::move(seg));
             }
             // One display set per event: merge the per-window segments -- single
-            // PCS carrying every window's CObject, single WDS, one of each equal PDS.
+            // PCS carrying every window's CObject, single WDS, single ENDS, one
+            // of each equal PDS. PGS order is PCS, WDS, (PDS, ODS)..., ENDS.
             std::shared_ptr<pcs_c> merged_pcs;
             std::vector<uint8_t> first_pds;
             bool have_wds = false, have_pds = false;
-            for (auto& seg : ev_segs) {
+            for (size_t si = 0; si < ev_segs.size(); ++si) {
+                auto& seg = ev_segs[si];
                 if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
                     if (merged_pcs) {
                         merged_pcs->cobjects.insert(merged_pcs->cobjects.end(),
@@ -1105,23 +1107,16 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                         continue;
                     have_pds = true;
                     first_pds = std::move(bytes);
+                } else if (dynamic_cast<ends_c*>(seg.get()) != nullptr &&
+                           si + 1 < ev_segs.size()) {
+                    // Keep only the last ENDS: the per-window trailing ENDS must
+                    // not close the display set before the remaining windows.
+                    continue;
                 }
                 result.push_back(std::move(seg));
             }
             if (merged_pcs)
                 m_last_cobjs = merged_pcs->cobjects;
-        }
-        if (acq_ok) {
-            // Same object, same obj_id (re-acquire the current buffer).
-            event_emit_input_t acq_in{
-                obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
-                pcs_c::composition_state_e::acquisition, obj_id, window_for(ev.x(), ev.y(), crop_x, crop_y), palette_id,
-                false /* emit ODS: fresh acquisition */, fps_enum,
-                palette, indexed, acq_timings};
-            auto acq_segs = emit_event_segments(acq_in, result);
-            for (auto& seg : acq_segs)
-                result.push_back(std::move(seg));
-            m_quality.note_acquisition();
         }
     }
 
@@ -1167,13 +1162,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         const bool perform_wds_end = last_frames >=
             std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
         // The last event's redraw budget decides the wipe: a WDS wipe is used
-        // whenever it fits. A multi-window epoch only forces the palette swap
-        // when another epoch follows (an intermediate epoch keeps its merged
-        // composition); the last epoch blanks with a WDS wipe that re-declares
-        // the layout and drops the composition (render2.py), so the final
-        // display set is bounded and the palette wipe does not linger.
-        const bool use_palette_end =
-            !perform_wds_end || (m_windows.size() >= 2 && !m_is_last_epoch);
+        // whenever it fits, otherwise a palette swap. Multi-window intermediate
+        // epochs take the WDS clear too (the oracle drops the merged
+        // composition instead of keeping it via a palette swap), so every
+        // content epoch ends bounded by a clear.
+        const bool use_palette_end = !perform_wds_end;
         emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y,
                       use_palette_end ? clear_mode_e::force_palette
                                       : clear_mode_e::force_wds);

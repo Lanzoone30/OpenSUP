@@ -93,8 +93,8 @@ var Table = map[string][2]string{
 
 	// -- Checkbox tooltips --
 	"tipAllowNormal": {
-		"Update only one composition out of the two, whenever updating both is not possible due to time constraints.\nThis exploits the PG object buffer capabilities as intended by the format designers.\nStream shall NOT be Built or Rebuilt at the authoring stage.",
-		"Actualiza solo una composición de las dos, cuando no es posible actualizar ambas por restricciones de tiempo.\nEsto aprovecha las capacidades del buffer de objetos PG según lo diseñado por el formato.\nEl stream NO debe ser Construido ni Reconstruido en la etapa de authoring.",
+		"Registering the same graphic multiple times produces re-timing of the palette and small color shifts (up to a 0.6% of the inner 8 palette rows);\nwhen disabled, palette updates take effect twice as fast with subtle visual changes.",
+		"Registrar el mismo gráfico varias veces produce un reajuste de los tiempos de la paleta y pequeños cambios de color (hasta un 0.6% de las 8 filas internas de la paleta);\ncuando se desactiva, las actualizaciones de paleta surten efecto el doble de rápido con cambios visuales sutiles.",
 	},
 	"tipFullPalette": {
 		"Don't optimize palette reduction when there are too many colors.\nInstead, just use the full palette.\nMay improve quality in some rare cases at the cost of bigger output size.",

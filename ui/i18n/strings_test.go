@@ -56,7 +56,7 @@ func TestFormat(t *testing.T) {
 func TestMultilineTooltipsLiterals(t *testing.T) {
 	en := Get(EN, "tipAllowNormal")
 	require.NotEmpty(t, en)
-	assert.Contains(t, en, "shall NOT be Built")
+	assert.Contains(t, en, "0.6% of the inner 8 palette rows")
 
 	es := Get(ES, "tipOverlapBuf")
 	require.NotEmpty(t, es)

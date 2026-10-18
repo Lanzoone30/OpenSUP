@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Per-window ODS emission in multi-window epochs (spec 027)**: windows with relevant
+  intersection now get their own ODS/palette per event (cropped from a shared packed
+  palette solve instead of one full-event bounding box), OIDs follow the oracle
+  interleaved scheme (`o_id = window ordinal + DB flip × N`, single-window `{0,1}`
+  unchanged), and the WDS declares every window even when no object covers it.
+- **DS timing parity (D3)**: wipe duration is now the ceiling of the summed window
+  areas (was sum of per-window ceilings) and the WDS PTS half-tick nudge was replaced
+  by the oracle's decode+1 guard.
+- **Buffer guard (DB1)**: splits whose post-pad window areas exceed the 16-entry
+  bitmap buffer ceiling (`(1<<20)-150`) degrade to a single window in
+  `determine_windows` and `encode_epoch`, matching the oracle's
+  `may_not_fit_buffer → base_box` fallback.
+
+### Fixed
+
+- **Single-pass multi-window display set parity (spec 028)**: the multi-window merge in
+  the single-pass route now emits one display set per event (unique ENDS, per-window
+  PDS/ODS with window OIDs, no extra acquisitions), and intermediate multi-window epochs
+  end in a WDS clear instead of a palette-end wipe, matching the oracle exactly
+  (324/168/156/0, 43 ACQUISITIONs); ghost epochs without PCS are eliminated (52 → 0).
+
 ## [2.0.0] - 2026-09-19
 
 ### Added
