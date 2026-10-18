@@ -25,6 +25,8 @@ add_executable(opensup_test_core
   interface_bitrate_test.cpp
   flags_gate_test.cpp
   single_pass_ds_parity_test.cpp
+  d7_cobjs_reacq_parity_test.cpp
+  d6_mui_pts_roundtrip_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 

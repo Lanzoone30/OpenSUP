@@ -182,7 +182,7 @@ sup_stats_t scan_sup(const std::string& path) {
 TEST(SinglePassDsParity, BdnSinglePassMatchesOracleOff) {
     const std::string repo = std::string(OPENDSUP_FIXTURES_DIR) + "/../..";
     const std::string bdn = repo + "/temp/ENIGMA/BDN_Index.xml";
-    const std::string oracle = repo + "/oracle_sup_phase28/oracle_buffering_off.sup";
+    const std::string oracle = repo + "/temp/phase28/oracle_sup_phase28/oracle_buffering_off.sup";
     if (!std::ifstream(bdn).good())
         GTEST_SKIP() << "BDN local no presente: " << bdn;
     if (!std::ifstream(oracle).good())

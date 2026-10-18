@@ -206,12 +206,15 @@ TEST(MultiwindowOds, CrossWindow)
         EXPECT_TRUE(ods->width() < 200 || ods->height() < 60);
     }
 
-    // Each display set carries one cobject per window; per-window oid slots
-    // alternate independently ({0,1} in window 0, {2,3} in window 1).
+    // Content display sets carry one cobject per window; per-window oid slots
+    // alternate independently ({0,1} in window 0, {2,3} in window 1). The
+    // epoch-final clear PCS is empty by contract (oracle emits it empty).
     uint16_t oid_w0 = 0;
     uint16_t oid_w1 = 0;
     for (const auto& seg : segs) {
         if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
+            if (pcs->cobjects.empty())
+                continue;
             EXPECT_EQ(pcs->cobjects.size(), 2u);
             bool has_w0 = false;
             bool has_w1 = false;
