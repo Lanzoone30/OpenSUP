@@ -132,8 +132,13 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     }
 
     auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
-    (void)container;
     (void)is_vertical;
+    // Buffer holds 16 entries (1<<20 bytes); a window at/above 1MB-150B cannot fit,
+    // so collapse the split into the single container window.
+    if ((w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) &&
+        (w0.area() >= (1 << 20) - 150 || w1.area() >= (1 << 20) - 150)) {
+        return windows_from_boxes(container, container);
+    }
     return windows_from_boxes(w0, w1);
 }
 
