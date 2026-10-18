@@ -480,10 +480,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         bool active = false;
     };
     std::vector<window_object_t> window_objects(nwin);
-    // True when the previous display set carried every layout window; only then
-    // does an acquisition keep the untouched windows alive (they were part of
-    // the same coupled composition).
-    bool prev_all_windows = false;
 
     // Track previous event for clear DS insertion
     double prev_tc_out = 0.0;
@@ -1066,8 +1062,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             // buffering: oid = wid + buffer[wid] (render2.py:749-750), advanced
             // once per window that emits.
             const uint16_t legacy_bit = static_cast<uint16_t>(double_buffer);
-            // Windows the event actually covers come first (the oracle lists the
-            // newly defined objects ahead of the kept ones).
+            // Windows the event actually covers, in layout order.
             std::vector<size_t> emit_order;
             for (size_t wi = 0; wi < m_windows.size(); ++wi) {
                 const auto& wd = m_windows[wi];
@@ -1079,18 +1074,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                     static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
                 if (ix1 > ix0 && iy1 > iy0)
                     emit_order.push_back(wi);
-            }
-            // On an acquisition the oracle re-lists every active window and
-            // re-emits its ODS, so a coupled window the event does not touch
-            // keeps its last object (new oid). Independent acquisitions whose
-            // previous display set did not carry all windows stay separate.
-            const bool reemit_retained =
-                !emit_reusable && !normal_case && !emit_order.empty() && prev_all_windows;
-            if (reemit_retained) {
-                for (size_t wi = 0; wi < m_windows.size(); ++wi)
-                    if (std::find(emit_order.begin(), emit_order.end(), wi) ==
-                            emit_order.end() && window_objects[wi].active)
-                        emit_order.push_back(wi);
             }
             std::vector<std::shared_ptr<pg_segment_c>> ev_segs;
             uint16_t cur_win_oid = obj_id;
@@ -1141,7 +1124,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 for (auto& seg : wsegs)
                     ev_segs.push_back(std::move(seg));
             }
-            prev_all_windows = (emit_order.size() == m_windows.size());
             obj_id = cur_win_oid;
             // One display set per event: merge the per-window segments -- single
             // PCS carrying every window's CObject, single WDS, single ENDS, one

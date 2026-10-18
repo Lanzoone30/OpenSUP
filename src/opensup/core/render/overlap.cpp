@@ -369,7 +369,6 @@ epoch_encoder_c::emit_epoch_from_nodes(
         bool active = false;
     };
     std::vector<em_win_obj_t> em_win_objects(wen);
-    bool em_prev_all = false;
     for (size_t k = 0; k < nodes.size(); ++k) {
         const auto& node = nodes[k];
         if (!node.has_object)
@@ -423,8 +422,7 @@ epoch_encoder_c::emit_epoch_from_nodes(
             for (auto& seg : segs)
                 ev_segs.push_back(std::move(seg));
         } else {
-            // Split the node's bitmap per layout window; the touched windows go
-            // first, then the coupled untouched ones (kept alive on acquisition).
+            // Split the node's bitmap per layout window.
             const int ax = node.ev_x + node.crop_x, ay = node.ev_y + node.crop_y;
             std::vector<size_t> emit_order;
             for (size_t wi = 0; wi < wen; ++wi) {
@@ -437,14 +435,6 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
                 if (ix1 > ix0 && iy1 > iy0)
                     emit_order.push_back(wi);
-            }
-            const bool reemit_retained = !node.reusable && !node.normal_case_ref &&
-                !emit_order.empty() && em_prev_all;
-            if (reemit_retained) {
-                for (size_t wi = 0; wi < wen; ++wi)
-                    if (std::find(emit_order.begin(), emit_order.end(), wi) ==
-                            emit_order.end() && em_win_objects[wi].active)
-                        emit_order.push_back(wi);
             }
             for (size_t wi : emit_order) {
                 const auto& wd = m_windows[wi];
@@ -493,7 +483,6 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 for (auto& seg : wsegs)
                     ev_segs.push_back(std::move(seg));
             }
-            em_prev_all = (emit_order.size() == wen);
             // Merge into one display set: single PCS carrying every window's
             // CObject, single WDS, one of each equal PDS, single ENDS.
             std::shared_ptr<pcs_c> merged_pcs;
