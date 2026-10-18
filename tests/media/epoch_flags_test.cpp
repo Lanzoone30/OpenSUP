@@ -166,5 +166,153 @@ TEST(EpochFlags, AnchorNodeKeepsItsObject)
     EXPECT_EQ(nodes[1].obj_id, 7);
 }
 
+TEST(MultiwindowOds, CrossWindow)
+{
+    bdn_xml_c xml;
+    ASSERT_TRUE(xml.parse(std::string(OPENDSUP_FIXTURES_DIR) + "/opensup_multiwindow.xml"));
+
+    // Both windows overlap the first event (100,100,200x60); y=131 splits it
+    // into a top part (window 0) and a bottom part (window 1).
+    std::vector<window_definition_t> windows(2);
+    windows[0].window_id = 0;
+    windows[0].h_pos = 90;
+    windows[0].v_pos = 90;
+    windows[0].width = 220;
+    windows[0].height = 40;
+    windows[1].window_id = 1;
+    windows[1].h_pos = 90;
+    windows[1].v_pos = 131;
+    windows[1].width = 220;
+    windows[1].height = 40;
+
+    auto events = xml.events();
+    std::vector<bool> redraw(events.size(), true);
+    epoch_render_options_t opts;
+    epoch_encoder_c enc(opts);
+    int palette_id_counter = 0;
+    auto segs = enc.encode_epoch(events, redraw, common::fps_e::from_double(25.0),
+                                 palette_id_counter, windows);
+
+    // The crossing event is split into one ODS per window, never the 200x60
+    // global bbox.
+    std::vector<std::shared_ptr<ods_c>> ods_list;
+    for (const auto& seg : segs)
+        if (auto ods = std::dynamic_pointer_cast<ods_c>(seg))
+            ods_list.push_back(ods);
+    EXPECT_EQ(ods_list.size(), 2u);
+    for (const auto& ods : ods_list) {
+        EXPECT_GT(ods->width(), 0);
+        EXPECT_GT(ods->height(), 0);
+        EXPECT_TRUE(ods->width() < 200 || ods->height() < 60);
+    }
+
+    // Each display set carries one cobject per window; per-window oid slots
+    // alternate independently ({0,1} in window 0, {2,3} in window 1).
+    uint16_t oid_w0 = 0;
+    uint16_t oid_w1 = 0;
+    for (const auto& seg : segs) {
+        if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
+            EXPECT_EQ(pcs->cobjects.size(), 2u);
+            bool has_w0 = false;
+            bool has_w1 = false;
+            for (const auto& cobj : pcs->cobjects) {
+                if (cobj.window_id == 0) { has_w0 = true; oid_w0 = cobj.o_id; }
+                if (cobj.window_id == 1) { has_w1 = true; oid_w1 = cobj.o_id; }
+            }
+            EXPECT_TRUE(has_w0);
+            EXPECT_TRUE(has_w1);
+        }
+    }
+    EXPECT_NE(oid_w0, oid_w1);
+
+    // The WDS re-declares both layout windows.
+    bool saw_wds = false;
+    for (const auto& seg : segs) {
+        if (auto wds = std::dynamic_pointer_cast<wds_c>(seg)) {
+            saw_wds = true;
+            EXPECT_EQ(wds->windows.size(), 2u);
+        }
+    }
+    EXPECT_TRUE(saw_wds);
+}
+
+TEST(MultiwindowOds, SingleWindowNoCross)
+{
+    bdn_xml_c xml;
+    ASSERT_TRUE(xml.parse(std::string(OPENDSUP_FIXTURES_DIR) + "/opensup_multiwindow.xml"));
+
+    // Window 0 crops the first event (100,100,200x60); window 1 is far away
+    // and must stay empty.
+    std::vector<window_definition_t> windows(2);
+    windows[0].window_id = 0;
+    windows[0].h_pos = 90;
+    windows[0].v_pos = 90;
+    windows[0].width = 220;
+    windows[0].height = 40;
+    windows[1].window_id = 1;
+    windows[1].h_pos = 900;
+    windows[1].v_pos = 500;
+    windows[1].width = 220;
+    windows[1].height = 40;
+
+    auto events = xml.events();
+    std::vector<bool> redraw(events.size(), true);
+    redraw[1] = false;  // second event (1000,400) is not redrawn
+    epoch_render_options_t opts;
+    epoch_encoder_c enc(opts);
+    int palette_id_counter = 0;
+    auto segs = enc.encode_epoch(events, redraw, common::fps_e::from_double(25.0),
+                                 palette_id_counter, windows);
+
+    size_t ods_count = 0;
+    size_t cobjects_in_w1 = 0;
+    for (const auto& seg : segs) {
+        if (std::dynamic_pointer_cast<ods_c>(seg))
+            ++ods_count;
+        if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg))
+            for (const auto& cobj : pcs->cobjects)
+                if (cobj.window_id == 1)
+                    ++cobjects_in_w1;
+    }
+    EXPECT_EQ(ods_count, 1u);
+    EXPECT_EQ(cobjects_in_w1, 0u);
+}
+
+TEST(MultiwindowOds, BufferGuardDegrades)
+{
+    bdn_xml_c xml;
+    ASSERT_TRUE(xml.parse(std::string(OPENDSUP_FIXTURES_DIR) + "/opensup_multiwindow.xml"));
+
+    // Two full-frame windows, area >= (1<<20)-150: the buffer guard must
+    // degrade the layout to a single window.
+    std::vector<window_definition_t> windows(2);
+    for (size_t i = 0; i < windows.size(); ++i) {
+        windows[i].window_id = static_cast<uint8_t>(i);
+        windows[i].h_pos = 0;
+        windows[i].v_pos = 0;
+        windows[i].width = 1919;
+        windows[i].height = 1079;
+    }
+
+    auto events = xml.events();
+    std::vector<bool> redraw(events.size(), true);
+    epoch_render_options_t opts;
+    epoch_encoder_c enc(opts);
+    int palette_id_counter = 0;
+    auto segs = enc.encode_epoch(events, redraw, common::fps_e::from_double(25.0),
+                                 palette_id_counter, windows);
+
+    std::shared_ptr<wds_c> first_wds;
+    for (const auto& seg : segs) {
+        if (auto wds = std::dynamic_pointer_cast<wds_c>(seg)) {
+            first_wds = wds;
+            break;
+        }
+    }
+    EXPECT_TRUE(first_wds != nullptr);
+    if (first_wds)
+        EXPECT_EQ(first_wds->windows.size(), 1u);
+}
+
 }  // namespace core
 }  // namespace opensup
