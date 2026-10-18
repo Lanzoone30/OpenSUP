@@ -12,6 +12,8 @@
 #include <memory>
 #include <functional>
 #include <string>
+#include <algorithm>
+#include <map>
 
 #include "opensup/core/segments.h"
 #include "opensup/core/filestreams.h"
@@ -209,6 +211,28 @@ private:
     /// Last palette sent per palette id, for delta-PDS generation.
     std::map<uint8_t, media::palette_t> m_palette_cache;
     uint8_t m_last_palette_id = 0xFF;
+
+    /// Visible-area slot tracked per window, epoch-scoped.
+    struct slot_t { int x = 0, y = 0, w = 0, h = 0; };
+    std::map<uint8_t, slot_t> m_slots;
+
+    /// Accumulate the union of rect (x0,y0)-(x1,y1) into window_id's slot,
+    /// with a minimum extent of 8x8.
+    void slot_touch(uint8_t window_id, int x0, int y0, int x1, int y1) {
+        auto [it, inserted] = m_slots.try_emplace(
+            window_id, slot_t{x0, y0, x1 - x0, y1 - y0});
+        slot_t& s = it->second;
+        if (!inserted) {
+            const int rx = std::max(s.x + s.w, x1);
+            const int by = std::max(s.y + s.h, y1);
+            s.x = std::min(s.x, x0);
+            s.y = std::min(s.y, y0);
+            s.w = rx - s.x;
+            s.h = by - s.y;
+        }
+        s.w = std::max(s.w, 8);
+        s.h = std::max(s.h, 8);
+    }
 
     friend struct epoch_flags_test_access_t;
 
