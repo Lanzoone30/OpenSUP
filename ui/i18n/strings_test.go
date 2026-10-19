@@ -8,7 +8,19 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 66)
+	assert.Len(t, Table, 74)
+}
+
+func TestSuPerSurfaceKeys(t *testing.T) {
+	// 032: new SUPer-parity keys must exist in both languages.
+	for _, key := range []string{"preferNormal", "logToFile",
+		"logDisabled", "logDebug", "logStandard", "logWarnings"} {
+		require.Contains(t, Table, key)
+		assert.NotEmpty(t, Get(EN, key), "EN %s", key)
+		assert.NotEmpty(t, Get(ES, key), "ES %s", key)
+	}
+	assert.Equal(t, "Force legacy global object ids (0/1).", Get(EN, "alternateOids"))
+	assert.NotEqual(t, Get(EN, "alternateOids"), Get(ES, "alternateOids"))
 }
 
 func TestGetUnknownKeyReturnsItself(t *testing.T) {

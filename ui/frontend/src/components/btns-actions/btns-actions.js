@@ -37,6 +37,7 @@ export function startEncode() {
     IgnoreRes:       $("chk_ignore_res").checked,
     BothFormats:     $("chk_both_formats").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
+    PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
     AlternateOids:   $("chk_alternate_oids").checked,
@@ -47,6 +48,7 @@ export function startEncode() {
     Acqrate:         numOr($("input_acqrate"), 100),
     SsimTol:         numOr($("input_ssim_tol"), 0),
     ExtraAcq:        numOr($("input_extra_acq"), 2),
+    LogToFile:       numOr($("combo_log"), 0),
   };
 
   setEncodingState(true);

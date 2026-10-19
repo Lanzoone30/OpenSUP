@@ -41,6 +41,7 @@ type EncodeConfig struct {
 	BothFormats      bool
 	FullPalette      bool
 	AllowNormalCase  bool
+	PreferNormalCase bool
 	Overlap          bool
 	AlternateOids    bool
 	RedrawPeriod     float64
@@ -50,6 +51,7 @@ type EncodeConfig struct {
 	Acqrate          int
 	SsimTol          int
 	ExtraAcq         int
+	LogToFile        int
 }
 
 // Result is the terminal outcome of a Run call.
@@ -290,7 +292,7 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.OutputPath != "" {
 		args = append(args, cfg.OutputPath)
 	}
-	if cfg.Quantizer != 0 {
+	if cfg.Quantizer != 0 && cfg.Quantizer != 3 { // 3 = LIQ, the engine default
 		args = append(args, "-q", intToStr(cfg.Quantizer))
 	}
 	if cfg.BTMatrix != "" {
@@ -309,13 +311,19 @@ func buildArgs(cfg EncodeConfig) []string {
 		args = append(args, "-p")
 	}
 	if cfg.AllowNormalCase {
-		args = append(args, "--allow-normal")
+		args = append(args, "-n")
+	}
+	if cfg.PreferNormalCase {
+		args = append(args, "-k")
 	}
 	if cfg.Overlap {
-		args = append(args, "--overlap")
+		args = append(args, "-d")
 	}
 	if cfg.AlternateOids {
 		args = append(args, "--alternate-oids")
+	}
+	if cfg.LogToFile != 0 {
+		args = append(args, "-l", intToStr(cfg.LogToFile))
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))
@@ -324,14 +332,14 @@ func buildArgs(cfg EncodeConfig) []string {
 		args = append(args, "-m", intToStr(cfg.MaxKbps))
 	}
 	if cfg.Threads != 0 {
-		args = append(args, "-j", intToStr(cfg.Threads))
+		args = append(args, "-t", intToStr(cfg.Threads))
 	}
 	// Compression/acqrate/extra-acq treat 0 as a meaningful value, so they are
 	// always sent; the UI resolves their defaults (80/100/2) before this.
 	args = append(args, "-c", intToStr(cfg.Compression))
 	args = append(args, "-a", intToStr(cfg.Acqrate))
 	if cfg.SsimTol != 0 {
-		args = append(args, "-t", intToStr(cfg.SsimTol))
+		args = append(args, "--ssim-tol", intToStr(cfg.SsimTol))
 	}
 	args = append(args, "-e", intToStr(cfg.ExtraAcq))
 	return args
