@@ -43,6 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the per-window `--overlap` route). ENIGMA-1080p base battery: 11 → 0 divergent
   display sets; non-cropped (ncbd) outputs stay byte-identical. The geometry check on
   ncbd remains a documented skip (known multi-`<Graphic>` divergence, spec 033).
+- **Overlap route gap-clears (spec 031)**: the overlap builder now marks intra-epoch
+  gaps (`>=1` frame) and emits the oracle's gap-clear display sets (PCS NORMAL
+  0 cobjs, WDS with the full epoch layout, ENDS), and every clear in the overlap
+  route (including end-of-epoch) uses the full layout with summed wipe area instead
+  of a single last-object bbox. ENIGMA-1080p with `--overlap`: 304 → 324 display
+  sets matching the oracle; base-mode and ncbd outputs stay byte-identical, and
+  `cpp_ov` now matches `cpp_an_ov` exactly like the oracle pair. Known residuals:
+  1 post-clear ACQ with a pre-existing oid-phase difference, and the ncbd
+  WDS/ODS geometry divergence owned by spec 033.
 
 ## [2.0.0] - 2026-09-19
 
