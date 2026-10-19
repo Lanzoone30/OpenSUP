@@ -7,6 +7,7 @@ add_library(opensup_core
   render/sequence_quality_policy.cpp
   interface.cpp
   pgstream.cpp
+  pgstats.cpp
   layout_engine.cpp
   ctu.cpp
 )

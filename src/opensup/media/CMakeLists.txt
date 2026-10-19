@@ -3,6 +3,7 @@ add_library(opensup_media
   pgraphics.cpp
   optimizer.cpp
   hextree_impl.cpp
+  rle_decode.cpp
 )
 
 target_include_directories(opensup_media

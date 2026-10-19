@@ -15,6 +15,7 @@
 #include <functional>
 
 #include "opensup/core/filestreams.h"
+#include "opensup/core/pgstats.h"
 #include "opensup/core/render/epoch_encoder.h"
 
 namespace opensup {
@@ -28,6 +29,9 @@ struct encode_result_t {
     int epochs = 0;
     int segments = 0;
     int64_t duration_ms = 0;
+    /// 034/US3: census of the emitted stream (filled from the renderer).
+    pg_counters_t counters {};
+    int reuse_candidates = 0;
 };
 
 /// Input parameters for a single encode run.

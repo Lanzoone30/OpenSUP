@@ -74,11 +74,20 @@ void emit_progress_event(int percent, int epoch, int total) {
 
 void emit_done_event(const core::encode_result_t& result) {
     if (result.success) {
+        const auto& c = result.counters;
         emit_line("{\"type\":\"done\",\"success\":true,\"events\":"
                   + std::to_string(result.events)
                   + ",\"epochs\":" + std::to_string(result.epochs)
                   + ",\"segments\":" + std::to_string(result.segments)
-                  + ",\"duration_ms\":" + std::to_string(result.duration_ms) + "}");
+                  + ",\"duration_ms\":" + std::to_string(result.duration_ms)
+                  + ",\"es\":" + std::to_string(c.es)
+                  + ",\"acq\":" + std::to_string(c.acq)
+                  + ",\"nc\":" + std::to_string(c.nc)
+                  + ",\"nc_ods\":" + std::to_string(c.nc_ods)
+                  + ",\"pu\":" + std::to_string(c.pu)
+                  + ",\"pu_buffered\":" + std::to_string(c.pu_buffered)
+                  + ",\"display_sets\":" + std::to_string(c.display_sets)
+                  + ",\"reuse_candidates\":" + std::to_string(result.reuse_candidates) + "}");
     } else {
         emit_line("{\"type\":\"done\",\"success\":false,\"error\":\""
                   + escape_json(result.error) + "\"}");

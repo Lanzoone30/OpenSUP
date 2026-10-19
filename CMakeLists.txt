@@ -152,6 +152,7 @@ FetchContent_MakeAvailable(cli11_proj)
 add_subdirectory(src/opensup/common)
 add_subdirectory(src/opensup/media)
 add_subdirectory(src/opensup/core)
+add_subdirectory(src/opensup/read)
 add_subdirectory(src/opensup/cli)
 
 if(BUILD_TESTS)

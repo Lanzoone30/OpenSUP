@@ -28,12 +28,16 @@ add_executable(opensup_test_core
   d7_cobjs_reacq_parity_test.cpp
   overlap_gap_clear_test.cpp
   d6_mui_pts_roundtrip_test.cpp
+  rle_decode_test.cpp
+  sup_reader_test.cpp
+  inspector_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 
 target_link_libraries(opensup_test_core
   PRIVATE
     opensup_core
+    opensup_read
     CLI11::CLI11
     GTest::gtest_main
 )
