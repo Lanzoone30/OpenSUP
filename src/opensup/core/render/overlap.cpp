@@ -195,6 +195,7 @@ epoch_encoder_c::encode_epoch_overlap(
     double prev_tc_out = 0.0;
     uint16_t prev_obj_id = 0;
     int prev_pos_x = 0, prev_pos_y = 0;
+    int prev_obj_w = 0, prev_obj_h = 0;
     int double_buffer = 1;  // Legacy global 0/1 toggle (--alternate-oids), any window count
     for (size_t k = 0; k < events.size(); ++k) {
         const auto& ev = events[k];
@@ -319,6 +320,15 @@ epoch_encoder_c::encode_epoch_overlap(
                 : (node.reusable ? pcs_c::composition_state_e::normal
                                  : pcs_c::composition_state_e::epoch_start);
         }
+        // Gap-node: a hole >= 1 frame before this event gets a clear DS at the
+        // previous event's tc_out (same rule as the single-pass rec.has_clear).
+        // The emitter gates on clear_pts < base_pts, so only real gaps emit.
+        node.has_clear = (k > 0);
+        node.clear_x = prev_pos_x;
+        node.clear_y = prev_pos_y;
+        node.clear_w = prev_obj_w;
+        node.clear_h = prev_obj_h;
+        node.clear_pts = prev_tc_out;
         prev_pts = node.timings.base_pts;
         prev_dts_end = node.dts_end;
         prev_base_pts = node.timings.base_pts;
@@ -327,6 +337,8 @@ epoch_encoder_c::encode_epoch_overlap(
         prev_obj_id = node.obj_id;
         prev_pos_x = node.ev_x + node.crop_x;
         prev_pos_y = node.ev_y + node.crop_y;
+        prev_obj_w = node.w;
+        prev_obj_h = node.h;
         prev_window_id = node.window_id;
         nodes.push_back(std::move(node));
     }
@@ -374,14 +386,33 @@ epoch_encoder_c::emit_epoch_from_nodes(
         if (!node.has_object)
             continue;
         if (node.has_clear && (!m_overlap || node.clear_pts < node.timings.base_pts)) {
-            // Clear display set — inline analog of the emit_clear_ds lambda
-            // in encode_epoch.
-            const double wipe_dur = std::ceil(static_cast<double>(node.clear_w) *
-                static_cast<double>(node.clear_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
-                pg_decoder_t::FREQ;
-            double dts = node.clear_pts - wipe_dur;
+            // Gap clear — same payload as the single-pass emit_clear_ds: PCS
+            // NORMAL 0 cobjs + WDS with the full epoch layout + ENDS.
+            std::vector<window_definition_t> clear_windows;
+            int64_t wipe_area = 0;
+            if (m_windows.size() >= 2) {
+                clear_windows = m_windows;
+                for (const auto& wd : clear_windows)
+                    wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+            } else {
+                window_definition_t clear_wd;
+                clear_wd.window_id = 0;
+                clear_wd.h_pos = static_cast<uint16_t>(node.clear_x);
+                clear_wd.v_pos = static_cast<uint16_t>(node.clear_y);
+                clear_wd.width = static_cast<uint16_t>(node.clear_w);
+                clear_wd.height = static_cast<uint16_t>(node.clear_h);
+                clear_windows.push_back(clear_wd);
+                wipe_area = static_cast<int64_t>(node.clear_w) * node.clear_h;
+            }
+            const double wipe_ticks = std::ceil(static_cast<double>(wipe_area) *
+                pg_decoder_t::FREQ / pg_decoder_t::RC);
+            const double wipe_dur = wipe_ticks / pg_decoder_t::FREQ;
+            const double decode_dur = wipe_dur + 1.0 / pg_decoder_t::FREQ;
+            double dts = node.clear_pts - decode_dur;
             if (dts < 0) dts = 0;
-            if ((wipe_dur + 3.0 / pg_decoder_t::FREQ) >= 1.0 / m_fps) {
+            const bool wds_fits =
+                (wipe_dur + 3.0 / pg_decoder_t::FREQ) < 1.0 / m_fps;
+            if (!wds_fits) {
                 emit_palette_wipe(result, static_cast<uint8_t>(fps_enum.to_pcsfps()),
                                   node.clear_pts, dts, palette_id);
             } else {
@@ -392,15 +423,10 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     pcs_c::composition_state_e::normal, false, palette_id,
                     {}, node.clear_pts, dts);
                 result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
-                window_definition_t clear_wd;
-                clear_wd.window_id = 0;
-                clear_wd.h_pos = static_cast<uint16_t>(node.clear_x);
-                clear_wd.v_pos = static_cast<uint16_t>(node.clear_y);
-                clear_wd.width = static_cast<uint16_t>(node.clear_w);
-                clear_wd.height = static_cast<uint16_t>(node.clear_h);
-                auto clear_wds = wds_c::from_scratch({clear_wd}, node.clear_pts, dts);
+                auto clear_wds = wds_c::from_scratch(clear_windows,
+                                                     node.clear_pts - wipe_dur, dts);
                 result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
-                auto clear_end = ends_c::from_scratch(node.clear_pts, dts);
+                auto clear_end = ends_c::from_scratch(dts, dts);
                 result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
             }
         }
@@ -537,13 +563,18 @@ epoch_encoder_c::emit_epoch_from_nodes(
             last_y = node.ev_y;
         }
         if (last_w > 0 && last_h > 0) {
-            const double wipe_dur = std::ceil(static_cast<double>(last_w) *
-                static_cast<double>(last_h) * pg_decoder_t::FREQ / pg_decoder_t::RC) /
-                pg_decoder_t::FREQ;
+            int64_t wipe_area = static_cast<int64_t>(last_w) * last_h;
+            if (m_windows.size() >= 2) {
+                wipe_area = 0;
+                for (const auto& wd : m_windows)
+                    wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+            }
+            const double wipe_dur = std::ceil(static_cast<double>(wipe_area) *
+                pg_decoder_t::FREQ / pg_decoder_t::RC) / pg_decoder_t::FREQ;
             double dts = last_pts - wipe_dur;
             if (dts < 0) dts = 0;
-            const double write_ticks = std::ceil(static_cast<double>(last_w) *
-                static_cast<double>(last_h) * pg_decoder_t::FREQ / pg_decoder_t::RC);
+            const double write_ticks = std::ceil(static_cast<double>(wipe_area) *
+                pg_decoder_t::FREQ / pg_decoder_t::RC);
             const double last_frames = (last_pts - last_base_pts) * m_fps;
             const bool perform_wds_end = last_frames >=
                 std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
@@ -557,13 +588,19 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     pcs_c::composition_state_e::normal, false, palette_id,
                     {}, pts, ddts);
                 result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
-                window_definition_t clear_wd;
-                clear_wd.window_id = 0;
-                clear_wd.h_pos = static_cast<uint16_t>(last_x);
-                clear_wd.v_pos = static_cast<uint16_t>(last_y);
-                clear_wd.width = static_cast<uint16_t>(last_w);
-                clear_wd.height = static_cast<uint16_t>(last_h);
-                auto clear_wds = wds_c::from_scratch({clear_wd}, pts, ddts);
+                std::vector<window_definition_t> clear_windows;
+                if (m_windows.size() >= 2) {
+                    clear_windows = m_windows;
+                } else {
+                    window_definition_t clear_wd;
+                    clear_wd.window_id = 0;
+                    clear_wd.h_pos = static_cast<uint16_t>(last_x);
+                    clear_wd.v_pos = static_cast<uint16_t>(last_y);
+                    clear_wd.width = static_cast<uint16_t>(last_w);
+                    clear_wd.height = static_cast<uint16_t>(last_h);
+                    clear_windows.push_back(clear_wd);
+                }
+                auto clear_wds = wds_c::from_scratch(clear_windows, pts, ddts);
                 result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
                 auto clear_end = ends_c::from_scratch(pts, ddts);
                 result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
