@@ -116,7 +116,7 @@ struct epoch_render_options_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 0;
+    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ (def)
     bool allow_normal_case = false;
     bool overlap = false;
     bool full_palette = false;
@@ -186,10 +186,10 @@ private:
     std::string m_bt_matrix = "bt709";
     // Normal case needs two windows: it redefines one, keeps the other's object up.
     bool m_allow_normal_case = false;
-    // Reserved for the faithful prefer_normal_case implementation.
-    // Stored but not yet read: without the decode-node chain there is no tie
-    // to break, so allow alone already behaves as prefer-always for the
-    // modelled cases.
+    // 032/D-032-5: flag + storage only. The faithful oracle rule
+    // (render2.py:544, j_nc > j / prefer) needs the decode-node buffer chain,
+    // which this encoder does not model; allow alone already behaves as
+    // prefer-always for the modelled cases, so -k widens to a no-op here.
     [[maybe_unused]] bool m_prefer_normal_case = false;
     bool m_overlap = false;
     bool m_full_palette = false;

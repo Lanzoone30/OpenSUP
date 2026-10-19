@@ -9,6 +9,7 @@
 #include "opensup/common/logger.h"
 
 #include <CLI/CLI.hpp>
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <iostream>
@@ -16,12 +17,32 @@
 namespace opensup {
 namespace cli {
 
+int
+normalize_log_to_file(int raw)
+{
+    if (raw == 0) return 0;
+    if (raw > 40) {
+        common::logger_c::instance().warn("Meaningless logging level, disabling file logging.");
+        return 0;
+    }
+    if (raw == 10 || raw == 20 || raw == 30) return raw;
+    if (raw < 0) {
+        common::logger_c::instance().warn(
+            "Succint report not available in this build, using standard logging.");
+        return 20;
+    }
+    common::logger_c::instance().warn("Unsupported logging level, using standard logging.");
+    return 20;
+}
+
 cli_options_t
 parse_args(int argc, char** argv)
 {
     CLI::App app("OpenSUP - PGS Subtitle Encoder");
 
     cli_options_t opts;
+    bool deprecated_overlap = false;  // legacy alias --overlap
+    int deprecated_threads = -1;      // legacy alias -j
 
     app.add_option("-i,--input", opts.input_path, "Input BDN XML file")
         ->required()->check(CLI::ExistingFile);
@@ -30,7 +51,7 @@ parse_args(int argc, char** argv)
         ->required();
 
     app.add_option("-q,--quantizer", opts.quantizer,
-                    "Quantizer [0:libimagequant (best, fast), 1:HexTree (good, very fast)] (def: 0)");
+                    "Set image quantizer. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant] (def: 3)");
 
     app.add_option("-b,--bt", opts.bt_matrix,
                     "Color Space [BT.709, BT.601, BT.2020] (def: BT.709)");
@@ -46,17 +67,21 @@ parse_args(int argc, char** argv)
 
     app.add_flag("-p,--palette", opts.full_palette,
                   "Write full palette for all epochs.");
-
-    app.add_flag("--allow-normal", opts.allow_normal_case,
-                  "Allow normal case object redefinition.");
-    app.add_flag("--overlap", opts.overlap,
-                  "Allow palette update buffering.");
+    app.add_flag("-n,--allow-normal", opts.allow_normal_case,
+                  "Flag to allow normal case object refreshes.");
+    app.add_flag("-k,--prefer-normal", opts.prefer_normal_case,
+                  "Flag to prefer normal case over acquisitions.");
+    app.add_flag("-d,--ahead", opts.overlap,
+                  "Flag to enable flexible palette update buffering.");
+    app.add_flag("--overlap", deprecated_overlap,
+                  "[deprecated] Use -d/--ahead.");
+   
     app.add_flag("--alternate-oids", opts.alternate_oids,
                   "Force legacy global 0/1 object ids (default is per-window oids).");
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
-    app.add_flag("-d,--debug", opts.debug,
+    app.add_flag("--debug", opts.debug,
                   "Enable debug logging (LDEBUG level)");
 
     app.add_option("--redraw-period", opts.redraw_period,
@@ -65,8 +90,11 @@ parse_args(int argc, char** argv)
     app.add_option("-m,--max-kbps", opts.max_kbps,
                     "Validate output against a max bitrate in Kbps [0 = off, 1-9 rejected, >48000 warns] (def: 0)");
 
-    app.add_option("-j,--threads", opts.threads,
+    app.add_option("-t,--threads", opts.threads,
                     "Parallel epoch encoding workers [0 = auto, 1 = sequential, max 10] (def: 0 = auto)")
+        ->check(CLI::Range(0, 10));
+    app.add_option("-j", deprecated_threads,
+                    "[deprecated] Use -t/--threads.")
         ->check(CLI::Range(0, 10));
 
     // Drought / quality parameters
@@ -76,12 +104,15 @@ parse_args(int argc, char** argv)
     app.add_option("-a,--acqrate", opts.acqrate,
                     "Acquisition rate / drought scaling [0-100] (def: 100)")
         ->check(CLI::Range(0, 100));
-    app.add_option("-t,--ssim-tol", opts.ssim_tol,
+    app.add_option("--ssim-tol", opts.ssim_tol,
                     "SSIM tolerance [-100..100, adjusts threshold per resolution] (def: 0)")
         ->check(CLI::Range(-100, 100));
     app.add_option("-e,--extra-acq", opts.extra_acq,
                     "Insert acquisition after N palette updates [0 = off] (def: 2)")
         ->check(CLI::Range(0, 100));
+
+    app.add_option("-l,--log-to-file", opts.log_to_file,
+                    "Log to build file [10: debug, 20: standard, 30: warnings] (def: 0)");
 
     app.add_option("--config", opts.config_path,
                     "LIQ overrides ini file ([PILIQ] quality/speed/dither)");
@@ -90,7 +121,7 @@ parse_args(int argc, char** argv)
 
     app.footer("EXAMPLES\n"
                "  opensup_cli -i input.xml output.sup\n"
-               "  opensup_cli -i input.xml output.sup -q 1 -y\n\n"
+               "  opensup_cli -i input.xml output.sup -q 2 -y\n\n"
                "Project: https://github.com/Lanzoone30/OpenSUP");
 
     try {
@@ -98,6 +129,16 @@ parse_args(int argc, char** argv)
     } catch (const CLI::ParseError& e) {
         std::exit(app.exit(e));
     }
+
+    if (deprecated_overlap) {
+        common::logger_c::instance().warn("--overlap is deprecated, use -d/--ahead.");
+        opts.overlap = true;
+    }
+    if (deprecated_threads >= 0) {
+        common::logger_c::instance().warn("-j is deprecated, use -t/--threads.");
+        opts.threads = std::clamp(deprecated_threads, 0, 10);
+    }
+    opts.log_to_file = normalize_log_to_file(opts.log_to_file);
 
     if (opts.redraw_period < 0.0) {
         common::logger_c::instance().error("Negative anchor interval, aborting.");
@@ -198,15 +239,25 @@ options_to_config(const cli_options_t& opts)
     cfg.input_path = opts.input_path;
     cfg.output_path = opts.output_path;
     cfg.quantizer_id = opts.quantizer;
-    if (cfg.quantizer_id < 0 || cfg.quantizer_id > 1) {  // 0 = libimagequant, 1 = hextree
+    if (cfg.quantizer_id < 0 || cfg.quantizer_id > 4) {
         common::logger_c::instance().warn(
-            "Unknown quantizer '" + std::to_string(opts.quantizer) + "', using PILIQ.");
-        cfg.quantizer_id = 0;
+            "Invalid quantizer '" + std::to_string(opts.quantizer) + "', using PNGQ/LIQ (3).");
+        cfg.quantizer_id = 3;
+    } else if (cfg.quantizer_id != 2 && cfg.quantizer_id != 3) {
+        common::logger_c::instance().error(
+            "backend not available in this build (available: 2, 3)");
+        std::exit(1);
     }
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
     cfg.allow_normal_case = opts.allow_normal_case;
+    cfg.prefer_normal_case = opts.prefer_normal_case;
+    if (cfg.prefer_normal_case && !cfg.allow_normal_case) {
+        common::logger_c::instance().warn(
+            "--prefer-normal requires --allow-normal, forcefully enabling this flag.");
+        cfg.allow_normal_case = true;
+    }
     cfg.overlap = opts.overlap;
     cfg.alternate_oids = opts.alternate_oids;
     cfg.bt_matrix = canonical_bt_matrix(opts.bt_matrix);

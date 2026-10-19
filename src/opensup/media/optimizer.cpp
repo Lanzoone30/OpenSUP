@@ -138,6 +138,16 @@ optimiser_c::get_available()
     return backends;
 }
 
+int
+optimiser_c::index_for(int quantizer_id) noexcept
+{
+    switch (quantizer_id) {
+    case 3: return 0;  // PNGQ/LIQ
+    case 2: return 1;  // HexTree
+    default: return -1;
+    }
+}
+
 namespace {
 /// Squared L2 distance between two F*4-byte YCrCbA sequences.
 uint64_t seq_l2(const uint8_t* a, const uint8_t* b, size_t n) noexcept

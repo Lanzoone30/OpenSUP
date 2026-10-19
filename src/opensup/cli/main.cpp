@@ -27,6 +27,15 @@ using namespace std::chrono;
 
 namespace {
 
+// <outfile>_build.log, with a trailing .sup extension stripped.
+std::string
+log_file_path(const std::string& out)
+{
+    const auto pos = out.rfind(".sup");
+    const auto stem = (pos != std::string::npos && pos + 4 == out.size()) ? out.substr(0, pos) : out;
+    return stem + "_build.log";
+}
+
 // Palette warnings arrive from the core as "palette: kind=<k> count=<n>";
 // route them into a structured warn event, every other log stays a log line.
 void emit_log_or_warn(const std::string& msg, int level) {
@@ -58,6 +67,15 @@ main(int argc, char** argv)
 
     common::logger_c::instance().set_level(
         opts.debug ? common::log_level_e::ldebug : common::log_level_e::info);
+
+    if (opts.log_to_file != 0) {
+        // SUPer levels: 10 = debug, 20 = standard, 30 = warnings/errors.
+        const auto level = opts.log_to_file == 10 ? common::log_level_e::ldebug
+                          : opts.log_to_file == 30 ? common::log_level_e::warn
+                                                   : common::log_level_e::info;
+        common::logger_c::instance().set_level(level);
+        common::logger_c::instance().set_file_output(log_file_path(opts.output_path));
+    }
 
     if (opts.json_mode) {
         common::logger_c::instance().set_quiet(true);

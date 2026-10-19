@@ -123,6 +123,10 @@ struct group_solution_t {
 class optimiser_c {
 public:
     static std::vector<std::unique_ptr<quantizer_base_c>> get_available();
+
+    /// SUPer quantizer id (2 = HexTree, 3 = LIQ) -> get_available() index,
+    /// or -1 when the backend is not compiled into this build.
+    static int index_for(int quantizer_id) noexcept;
 };
 
 }

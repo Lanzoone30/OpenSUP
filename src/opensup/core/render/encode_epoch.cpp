@@ -171,13 +171,15 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
         return true;
     };
 
-    size_t qid = static_cast<size_t>(m_quantizer_id);
-    if (qid >= opt.size()) qid = 0;
+    // Default (id 3) maps to the LIQ backend at index 0, keeping the stream
+    // byte-identical to the pre-032 encoding.
+    int idx = media::optimiser_c::index_for(m_quantizer_id);
+    size_t qid = idx < 0 ? 0u : static_cast<size_t>(idx);
     if (try_quantize(qid)) return true;
 
     // Fall back to the other backend when the preferred one failed.
-    size_t fallback_id = (m_quantizer_id == 0 && opt.size() > 1) ? 1 : 0;
-    return fallback_id != qid && try_quantize(fallback_id);
+    size_t fallback_id = qid ^ 1u;
+    return fallback_id < opt.size() && try_quantize(fallback_id);
 }
 
 epoch_timings_t

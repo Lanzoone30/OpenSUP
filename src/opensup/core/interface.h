@@ -37,13 +37,13 @@ struct encode_config_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 0;  // 0 = libimagequant, 1 = hextree
+    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ
     bool overwrite = false;
     bool ignore_resolution = false;
     bool both_formats = false;
     bool allow_normal_case = false;
-    // Reserved for the faithful prefer_normal_case implementation.
-    // No CLI/UI surface exposes it yet.
+    // 032/D-032-5: surface flag is stored but the core rule is deferred to a
+    // behaviour spec (needs the decode-node buffer chain, render2.py:544).
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
