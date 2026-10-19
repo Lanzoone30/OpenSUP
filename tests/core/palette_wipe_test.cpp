@@ -47,7 +47,7 @@ bdn_render_c encode_fixture(const std::string& fixture, const std::string& out) 
     cfg.output_path = out;
     cfg.overwrite = true;
     cfg.extra_acq = 0;
-    cfg.quantizer_id = 1;  // hextree: fast, keeps the test off the slow default
+    cfg.quantizer_id = 2;  // hextree: fast, keeps the test off the slow default
 
     bdn_render_c render(cfg);
     const auto res = render.execute();

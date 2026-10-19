@@ -1,7 +1,9 @@
 // 031: gap-clears del oraculo en modo overlap. Un hueco >= 1 frame antes de un
 // evento inserta un DS NORMAL (PCS 0 cobjs + WDS layout completo + ENDS); la
 // adquisicion siguiente lista solo las ventanas que compone el evento (D-030-1).
-// Los bbox de WDS/ODS siguen divergiendo (propiedad de 033), fuera del gate.
+// Los bbox de WDS/ODS siguen divergiendo. 033 (parser multi-<Graphic>) queda
+// fuera de este fixture (ENIGMA-1080p es single-graphic por evento), asi que la
+// re-evaluacion post-033 deja la residencia intacta: 30 DS, fuera del gate.
 #include <gtest/gtest.h>
 
 #include <array>
@@ -187,11 +189,13 @@ TEST(OverlapGapClear, WdsOdsGeometry) {
         ++divergent;
         rep << "DS=" << k + 1 << " pts=" << orac[k].pts << " WDS/ODS divergen\n";
     }
-    // Los bbox de WDS/ODS divergen en un puñado de DS desde antes de 031; esa
-    // divergencia es propiedad de 033 y no del gap-clear.
+    // Los bbox de WDS/ODS divergen en un puñado de DS desde antes de 031.
+    // Re-evaluado tras 033: sigue divergiendo (residencia no cubierta por el
+    // parser multi-<Graphic>), asi que el gate queda fuera hasta una spec de
+    // geometria WDS/ODS. No es una regresion del gap-clear.
     if (divergent > 0)
         GTEST_SKIP() << "WDS/ODS divergen en " << divergent
-                     << " DS (propiedad 033), gap-clears intactos";
+                     << " DS (re-evaluado post-033: sin resolver), gap-clears intactos";
 }
 
 }  // namespace
