@@ -34,13 +34,10 @@ export async function setOutput() {
       state.outputPath = path;
       state.lastOutDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
       $("lbl_output_file").textContent = path.split(/[\\/]/).pop();
-      // .pes destinations require full palette.
-      if (path.toLowerCase().endsWith(".pes")) {
-        $("chk_full_palette").checked = true;
-        $("chk_full_palette").disabled = true;
-      } else if (!$("chk_both_formats").checked) {
-        $("chk_full_palette").disabled = false;
-      }
+      const forced =
+        path.toLowerCase().endsWith(".pes") || $("chk_both_formats").checked;
+      if (forced) $("chk_full_palette").checked = true;
+      $("chk_full_palette").disabled = forced;
       updateReadyState();
       updateOutputActions();
     }

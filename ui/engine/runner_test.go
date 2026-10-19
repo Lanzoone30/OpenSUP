@@ -96,6 +96,34 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	assert.Empty(t, want, "missing args: %v", want)
 }
 
+func TestBuildArgs_EngineOptionFlagMapping(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  EncodeConfig
+		want []string
+	}{
+		{"overlap", EncodeConfig{Overlap: true}, []string{"-d"}},
+		{"full palette", EncodeConfig{FullPalette: true}, []string{"-p"}},
+		{"allow normal", EncodeConfig{AllowNormalCase: true}, []string{"-n"}},
+		{"prefer normal", EncodeConfig{PreferNormalCase: true}, []string{"-k"}},
+		{"both formats", EncodeConfig{BothFormats: true}, []string{"-w"}},
+		{"alternate oids", EncodeConfig{AlternateOids: true}, []string{"--alternate-oids"}},
+		// The GUI forces allow-normal while prefer-normal is on, so both flags
+		// reach the engine together (CLI also force-enables -n).
+		{"prefer with forced allow", EncodeConfig{PreferNormalCase: true, AllowNormalCase: true}, []string{"-k", "-n"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.cfg.InputPath = "in.xml"
+			tt.cfg.OutputPath = "out.sup"
+			args := buildArgs(tt.cfg)
+			for _, flag := range tt.want {
+				assert.Contains(t, args, flag)
+			}
+		})
+	}
+}
+
 func argValue(args []string, flag string) (string, bool) {
 	for i, a := range args {
 		if a == flag && i+1 < len(args) {

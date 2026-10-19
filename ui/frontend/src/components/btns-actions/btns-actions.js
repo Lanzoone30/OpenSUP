@@ -95,17 +95,29 @@ export function wireButtons() {
   $("btn_abort").addEventListener("click", abortEncode);
 }
 
+let allowBeforePrefer = false;
+
 // Wire the option checkboxes that gate encode readiness.
 export function wireOptions() {
-  // Both-formats output requires full palette; unchecking only re-enables
-  // Full Palette without touching its own value.
-  $("chk_both_formats").addEventListener("change", (e) => {
+  $("chk_prefer_normal").addEventListener("change", (e) => {
     if (e.target.checked) {
-      $("chk_full_palette").checked = true;
-      $("chk_full_palette").disabled = true;
-    } else if (!state.outputPath.toLowerCase().endsWith(".pes")) {
-      $("chk_full_palette").disabled = false;
+      allowBeforePrefer = $("chk_allow_normal").checked;
+      $("chk_allow_normal").checked = true;
+      $("chk_allow_normal").disabled = true;
+    } else {
+      $("chk_allow_normal").disabled = false;
+      $("chk_allow_normal").checked = allowBeforePrefer;
     }
+    updateReadyState();
+  });
+
+  // Both-formats and .pes destinations require full palette; the re-enable is
+  // re-evaluated on both triggers so no disabled state survives.
+  $("chk_both_formats").addEventListener("change", () => {
+    const forced =
+      $("chk_both_formats").checked || state.outputPath.toLowerCase().endsWith(".pes");
+    if (forced) $("chk_full_palette").checked = true;
+    $("chk_full_palette").disabled = forced;
     updateReadyState();
   });
 
