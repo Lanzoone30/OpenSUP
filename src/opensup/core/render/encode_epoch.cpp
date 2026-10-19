@@ -1128,11 +1128,20 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             }
             obj_id = cur_win_oid;
             // One display set per event: merge the per-window segments -- single
-            // PCS carrying every window's CObject, single WDS, single ENDS, one
-            // of each equal PDS. PGS order is PCS, WDS, (PDS, ODS)..., ENDS.
+            // PCS carrying every window's CObject, a single PDS with the fused
+            // palette, single WDS, single ENDS. PGS order is PCS, WDS, (PDS, ODS)..., ENDS.
             std::shared_ptr<pcs_c> merged_pcs;
-            std::vector<uint8_t> first_pds;
-            bool have_wds = false, have_pds = false;
+            std::shared_ptr<pds_c> fused_pds;
+            std::map<uint8_t, media::palette_entry_t> fused_entries;
+            size_t dropped_pds = 0;
+            bool have_wds = false;
+            double last_ods_pts = 0.0;
+            uint16_t last_ods_id = 0xFFFF;
+            bool have_prev_ods = false, reanchored = false;
+            std::shared_ptr<wds_c> wds_kept;
+            std::shared_ptr<ends_c> ends_kept;
+            std::vector<std::shared_ptr<ods_c>> ods_kept;
+            std::vector<std::pair<uint16_t, uint64_t>> ods_areas;
             for (size_t si = 0; si < ev_segs.size(); ++si) {
                 auto& seg = ev_segs[si];
                 if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
@@ -1143,23 +1152,94 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                         continue;
                     }
                     merged_pcs = pcs;
-                } else if (std::dynamic_pointer_cast<wds_c>(seg)) {
+                } else if (auto wd = std::dynamic_pointer_cast<wds_c>(seg)) {
                     if (have_wds)
                         continue;
                     have_wds = true;
-                } else if (std::dynamic_pointer_cast<pds_c>(seg)) {
-                    auto bytes = seg->to_bytes();
-                    if (have_pds && bytes == first_pds)
+                    wds_kept = wd;
+                } else if (auto pd = std::dynamic_pointer_cast<pds_c>(seg)) {
+                    if (fused_pds) {
+                        const auto pd_pal = pd->to_palette();
+                        for (const auto& [idx, entry] : pd_pal.entries())
+                            fused_entries[idx] = entry;
+                        ++dropped_pds;
                         continue;
-                    have_pds = true;
-                    first_pds = std::move(bytes);
-                } else if (dynamic_cast<ends_c*>(seg.get()) != nullptr &&
-                           si + 1 < ev_segs.size()) {
+                    }
+                    fused_pds = pd;
+                    fused_entries = pd->to_palette().entries();
+                } else if (auto od = std::dynamic_pointer_cast<ods_c>(seg)) {
+                    const bool new_group = (od->o_id() != last_ods_id) && have_prev_ods;
+                    if (new_group && od->dts() < last_ods_pts) {
+                        const double dur = od->pts() - od->dts();
+                        od->set_dts(last_ods_pts);
+                        od->set_pts(last_ods_pts + dur);
+                        reanchored = true;
+                    }
+                    if (!have_prev_ods || new_group)
+                        ods_areas.emplace_back(od->o_id(),
+                            static_cast<uint64_t>(od->width()) * od->height());
+                    ods_kept.push_back(od);
+                    last_ods_pts = od->pts();
+                    last_ods_id = od->o_id();
+                    have_prev_ods = true;
+                } else if (auto en = std::dynamic_pointer_cast<ends_c>(seg)) {
                     // Keep only the last ENDS: the per-window trailing ENDS must
                     // not close the display set before the remaining windows.
-                    continue;
+                    if (si + 1 < ev_segs.size())
+                        continue;
+                    ends_kept = en;
                 }
                 result.push_back(std::move(seg));
+            }
+            if (!m_overlap && merged_pcs && wds_kept) {
+                // Merged DS decodes both windows: rebase the DTS from the merged
+                // composition, then schedule ODS groups back-to-back.
+                ds_timing_input_t tin{};
+                tin.state = merged_pcs->composition_state();
+                tin.pal_flag = merged_pcs->pal_flag();
+                tin.plane_area = static_cast<uint64_t>(m_width) * static_cast<uint64_t>(m_height);
+                tin.pts = in.timings.base_pts;
+                tin.windows = wds_kept->windows;
+                tin.cobjects = merged_pcs->cobjects;
+                tin.ods = ods_areas;
+                const ds_timing_t dt = compute_ds_timing(tin);
+                merged_pcs->set_dts(dt.dts);
+                wds_kept->set_dts(dt.dts);
+                wds_kept->set_pts(in.timings.base_pts - dt.wipe_duration);
+                double end = dt.dts;
+                double group_start = dt.dts;
+                for (size_t oi = 0; oi < ods_kept.size(); ++oi) {
+                    auto& od = ods_kept[oi];
+                    const bool first = oi == 0 ||
+                        ods_kept[oi - 1]->o_id() != od->o_id();
+                    if (first)
+                        group_start = end;
+                    const double dur = od->pts() - od->dts();
+                    od->set_dts(group_start);
+                    od->set_pts(group_start + dur);
+                    const bool closes_group = oi + 1 == ods_kept.size() ||
+                        ods_kept[oi + 1]->o_id() != od->o_id();
+                    if (closes_group)
+                        end = group_start + dur;
+                }
+                if (ends_kept) {
+                    ends_kept->set_pts(end);
+                    ends_kept->set_dts(end);
+                }
+            } else if (reanchored && ends_kept) {
+                ends_kept->set_pts(last_ods_pts);
+                ends_kept->set_dts(last_ods_pts);
+            }
+            if (fused_pds && merged_pcs) {
+                media::palette_t fused(fused_entries);
+                fused_pds->set_palette(fused);
+                if (!m_overlap) {
+                    fused_pds->set_pts(merged_pcs->dts());
+                    fused_pds->set_dts(merged_pcs->dts());
+                }
+                m_palette_cache[fused_pds->p_id()] = fused;
+                m_last_palette_id = fused_pds->p_id();
+                m_palette_vn -= static_cast<int>(dropped_pds);
             }
             if (merged_pcs)
                 m_last_cobjs = merged_pcs->cobjects;

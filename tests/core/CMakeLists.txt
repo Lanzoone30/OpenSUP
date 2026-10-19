@@ -8,6 +8,7 @@ add_executable(opensup_test_core
   redraw_test.cpp
   layout_engine_test.cpp
   multiwindow_test.cpp
+  multiwindow_pds_parity_test.cpp
   normalcase_test.cpp
   params_test.cpp
   findacqs_test.cpp

@@ -510,10 +510,12 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     ev_segs.push_back(std::move(seg));
             }
             // Merge into one display set: single PCS carrying every window's
-            // CObject, single WDS, one of each equal PDS, single ENDS.
+            // CObject, a single PDS with the fused palette, single WDS, single ENDS.
             std::shared_ptr<pcs_c> merged_pcs;
-            std::vector<uint8_t> first_pds;
-            bool have_wds = false, have_pds = false;
+            std::shared_ptr<pds_c> fused_pds;
+            std::map<uint8_t, media::palette_entry_t> fused_entries;
+            size_t dropped_pds = 0;
+            bool have_wds = false;
             for (size_t si = 0; si < ev_segs.size(); ++si) {
                 auto& seg = ev_segs[si];
                 if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
@@ -529,17 +531,28 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     if (have_wds)
                         continue;
                     have_wds = true;
-                } else if (std::dynamic_pointer_cast<pds_c>(seg)) {
-                    auto bytes = seg->to_bytes();
-                    if (have_pds && bytes == first_pds)
+                } else if (auto pd = std::dynamic_pointer_cast<pds_c>(seg)) {
+                    if (fused_pds) {
+                        const auto pd_pal = pd->to_palette();
+                        for (const auto& [idx, entry] : pd_pal.entries())
+                            fused_entries[idx] = entry;
+                        ++dropped_pds;
                         continue;
-                    have_pds = true;
-                    first_pds = std::move(bytes);
+                    }
+                    fused_pds = pd;
+                    fused_entries = pd->to_palette().entries();
                 } else if (dynamic_cast<ends_c*>(seg.get()) != nullptr &&
                            si + 1 < ev_segs.size()) {
                     continue;
                 }
                 result.push_back(std::move(seg));
+            }
+            if (fused_pds && merged_pcs) {
+                media::palette_t fused(fused_entries);
+                fused_pds->set_palette(fused);
+                m_palette_cache[fused_pds->p_id()] = fused;
+                m_last_palette_id = fused_pds->p_id();
+                m_palette_vn -= static_cast<int>(dropped_pds);
             }
             if (merged_pcs)
                 m_last_cobjs = merged_pcs->cobjects;
