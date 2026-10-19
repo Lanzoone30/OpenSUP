@@ -39,7 +39,6 @@ function applyI18n() {
     chk_both_formats: "tipBothFormats",
     chk_overlap: "tipOverlapBuf",
     chk_alternate_oids: "tipAlternateOids",
-    chk_ignore_res: "tipIgnoreRes",
   };
   for (const [id, key] of Object.entries(tips)) {
     const el = $(id);

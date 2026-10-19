@@ -37,7 +37,6 @@ type EncodeConfig struct {
 	Quantizer        int
 	BTMatrix         string
 	Overwrite        bool
-	IgnoreRes        bool
 	BothFormats      bool
 	FullPalette      bool
 	AllowNormalCase  bool
@@ -51,7 +50,6 @@ type EncodeConfig struct {
 	Acqrate          int
 	SsimTol          int
 	ExtraAcq         int
-	LogToFile        int
 }
 
 // Result is the terminal outcome of a Run call.
@@ -301,9 +299,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.Overwrite {
 		args = append(args, "-y")
 	}
-	if cfg.IgnoreRes {
-		args = append(args, "--ignore-resolution")
-	}
 	if cfg.BothFormats {
 		args = append(args, "-w")
 	}
@@ -321,9 +316,6 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.AlternateOids {
 		args = append(args, "--alternate-oids")
-	}
-	if cfg.LogToFile != 0 {
-		args = append(args, "-l", intToStr(cfg.LogToFile))
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))

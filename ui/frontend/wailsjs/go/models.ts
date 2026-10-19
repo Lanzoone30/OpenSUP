@@ -35,10 +35,10 @@ export namespace engine {
 	    Quantizer: number;
 	    BTMatrix: string;
 	    Overwrite: boolean;
-	    IgnoreRes: boolean;
 	    BothFormats: boolean;
 	    FullPalette: boolean;
 	    AllowNormalCase: boolean;
+	    PreferNormalCase: boolean;
 	    Overlap: boolean;
 	    AlternateOids: boolean;
 	    RedrawPeriod: number;
@@ -60,10 +60,10 @@ export namespace engine {
 	        this.Quantizer = source["Quantizer"];
 	        this.BTMatrix = source["BTMatrix"];
 	        this.Overwrite = source["Overwrite"];
-	        this.IgnoreRes = source["IgnoreRes"];
 	        this.BothFormats = source["BothFormats"];
 	        this.FullPalette = source["FullPalette"];
 	        this.AllowNormalCase = source["AllowNormalCase"];
+	        this.PreferNormalCase = source["PreferNormalCase"];
 	        this.Overlap = source["Overlap"];
 	        this.AlternateOids = source["AlternateOids"];
 	        this.RedrawPeriod = source["RedrawPeriod"];

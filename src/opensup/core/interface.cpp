@@ -179,7 +179,7 @@ bdn_render_c::execute()
     auto start_time = std::chrono::steady_clock::now();
 
     bdn_xml_c xml;
-    if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
+    if (!xml.parse(m_config.input_path)) {
         result.error = "Failed to parse BDN XML: " + m_config.input_path;
         logger_c::instance().error(result.error);
         return result;

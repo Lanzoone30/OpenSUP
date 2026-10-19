@@ -8,13 +8,12 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 74)
+	assert.Len(t, Table, 67)
 }
 
-func TestSuPerSurfaceKeys(t *testing.T) {
-	// 032: new SUPer-parity keys must exist in both languages.
-	for _, key := range []string{"preferNormal", "logToFile",
-		"logDisabled", "logDebug", "logStandard", "logWarnings"} {
+func TestEngineSurfaceKeys(t *testing.T) {
+	// 032: new engine-parity keys must exist in both languages.
+	for _, key := range []string{"preferNormal"} {
 		require.Contains(t, Table, key)
 		assert.NotEmpty(t, Get(EN, key), "EN %s", key)
 		assert.NotEmpty(t, Get(ES, key), "ES %s", key)

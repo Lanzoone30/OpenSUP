@@ -19,7 +19,6 @@ struct cli_options_t {
     int quantizer = 3;       // SUPer ids: 2 = HexTree, 3 = LIQ (def); 0/1/4 reserved
     std::string bt_matrix = "bt709";
     bool overwrite = false;
-    bool ignore_resolution = false;
     bool both_formats = false;
     bool full_palette = false;
     bool allow_normal_case = false;
@@ -29,7 +28,6 @@ struct cli_options_t {
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
     int threads = 0;         // 0 = auto (physical cores)
-    int log_to_file = 0;     // 0 = off; 10/20/30 = file log level
 
     // Drought / quality parameters
     int compression = 80;    // quality_factor: 0-100 (def 80)
@@ -38,7 +36,6 @@ struct cli_options_t {
     int extra_acq = 2;       // insert_acquisitions: min palette updates (def 2)
 
     bool json_mode = false;
-    bool debug = false;
 
     // LIQ overrides from --config file ([PILIQ] section); -1 = not provided
     std::string config_path;
@@ -53,10 +50,6 @@ struct cli_options_t {
  * Exits with a usage message on unknown flags or missing input.
  */
 cli_options_t parse_args(int argc, char** argv);
-
-/// Normalize -l/--log-to-file into {0, 10, 20, 30}, warning on unsupported
-/// values (Succint negative levels fall back to standard logging).
-int normalize_log_to_file(int raw);
 
 /**
  * @brief Load LIQ overrides from an ini file ([PILIQ] quality/speed/dither).

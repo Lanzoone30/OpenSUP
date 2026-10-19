@@ -7,9 +7,7 @@
 
 #include <string>
 #include <string_view>
-#include <memory>
 #include <vector>
-#include <fstream>
 #include <mutex>
 
 namespace opensup {
@@ -29,10 +27,10 @@ enum class log_level_e : uint8_t {
 };
 
 /**
- * @brief Singleton logger with severity levels, file output and UI callbacks.
+ * @brief Singleton logger with severity levels and UI callbacks.
  *
  * All logging goes through this class; the GUI and CLI consume the same
- * stream via set_callback() / set_file_output().
+ * stream via set_callback().
  */
 class logger_c {
 public:
@@ -50,8 +48,6 @@ public:
     void pass(const std::string& msg)    { log(log_level_e::pass, msg); }
     void fail(const std::string& msg)    { log(log_level_e::fail, msg); }
 
-    /// Mirror all log output to a file (appended).
-    void set_file_output(const std::string& path);
     /// Suppress console output; useful for GUI mode.
     void set_quiet(bool quiet) noexcept { m_quiet = quiet; }
 
@@ -71,7 +67,6 @@ private:
     log_level_e m_level = log_level_e::info;
     bool m_quiet = false;
     std::mutex m_mutex;
-    std::unique_ptr<std::ofstream> m_file;
     log_callback_t m_callback;
 };
 

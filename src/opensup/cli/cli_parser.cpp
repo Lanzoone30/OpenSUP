@@ -17,24 +17,6 @@
 namespace opensup {
 namespace cli {
 
-int
-normalize_log_to_file(int raw)
-{
-    if (raw == 0) return 0;
-    if (raw > 40) {
-        common::logger_c::instance().warn("Meaningless logging level, disabling file logging.");
-        return 0;
-    }
-    if (raw == 10 || raw == 20 || raw == 30) return raw;
-    if (raw < 0) {
-        common::logger_c::instance().warn(
-            "Succint report not available in this build, using standard logging.");
-        return 20;
-    }
-    common::logger_c::instance().warn("Unsupported logging level, using standard logging.");
-    return 20;
-}
-
 cli_options_t
 parse_args(int argc, char** argv)
 {
@@ -59,9 +41,6 @@ parse_args(int argc, char** argv)
     app.add_flag("-y,--yes", opts.overwrite,
                   "Overwrite existing output file");
 
-    app.add_flag("--ignore-resolution", opts.ignore_resolution,
-                  "Ignore Resolution Validation (Experimental)");
-
     app.add_flag("-w,--withsup", opts.both_formats,
                   "Generate both SUP and PES+MUI files.");
 
@@ -81,8 +60,6 @@ parse_args(int argc, char** argv)
 
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
-    app.add_flag("--debug", opts.debug,
-                  "Enable debug logging (LDEBUG level)");
 
     app.add_option("--redraw-period", opts.redraw_period,
                     "Anchor interval in seconds (0 = disable, minimum: 1)");
@@ -111,9 +88,6 @@ parse_args(int argc, char** argv)
                     "Insert acquisition after N palette updates [0 = off] (def: 2)")
         ->check(CLI::Range(0, 100));
 
-    app.add_option("-l,--log-to-file", opts.log_to_file,
-                    "Log to build file [10: debug, 20: standard, 30: warnings] (def: 0)");
-
     app.add_option("--config", opts.config_path,
                     "LIQ overrides ini file ([PILIQ] quality/speed/dither)");
 
@@ -138,7 +112,6 @@ parse_args(int argc, char** argv)
         common::logger_c::instance().warn("-j is deprecated, use -t/--threads.");
         opts.threads = std::clamp(deprecated_threads, 0, 10);
     }
-    opts.log_to_file = normalize_log_to_file(opts.log_to_file);
 
     if (opts.redraw_period < 0.0) {
         common::logger_c::instance().error("Negative anchor interval, aborting.");
@@ -249,7 +222,6 @@ options_to_config(const cli_options_t& opts)
         std::exit(1);
     }
     cfg.overwrite = opts.overwrite;
-    cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
     cfg.allow_normal_case = opts.allow_normal_case;
     cfg.prefer_normal_case = opts.prefer_normal_case;

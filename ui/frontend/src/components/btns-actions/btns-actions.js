@@ -34,7 +34,6 @@ export function startEncode() {
     Quantizer:       parseInt($("combo_quantizer").value),
     BTMatrix:        $("combo_colorspace").value,
     Overwrite:       true,
-    IgnoreRes:       $("chk_ignore_res").checked,
     BothFormats:     $("chk_both_formats").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
     PreferNormalCase: $("chk_prefer_normal").checked,
@@ -48,7 +47,6 @@ export function startEncode() {
     Acqrate:         numOr($("input_acqrate"), 100),
     SsimTol:         numOr($("input_ssim_tol"), 0),
     ExtraAcq:        numOr($("input_extra_acq"), 2),
-    LogToFile:       numOr($("combo_log"), 0),
   };
 
   setEncodingState(true);
@@ -113,7 +111,7 @@ export function wireOptions() {
 
   // Re-evaluate encode readiness if options change (button gate: paths only).
   ["chk_allow_normal", "chk_full_palette",
-   "chk_both_formats", "chk_overlap", "chk_alternate_oids", "chk_ignore_res"]
+   "chk_both_formats", "chk_overlap", "chk_alternate_oids"]
     .forEach((id) => {
       $(id).addEventListener("change", updateReadyState);
     });

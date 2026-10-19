@@ -24,7 +24,7 @@ const Table = {
   colorSpaceTip:  { en: "Color matrix for YCbCr conversion. Recommended: BT.709 (HD/SDR).", es: "Matriz de color para conversión YCbCr. Recomendado: BT.709 (HD/SDR)." },
   quantizer:      { en: "Quantizer: ",                    es: "Quantizer: " },
   quantHexTree:   { en: "HexTree (good, very fast)",      es: "HexTree (bueno, muy rápido)" },
-  quantPiliq:     { en: "PILIQ (best, fast)",             es: "PILIQ (el mejor, rápido)" },
+  quantPiliq:     { en: "libimage (best, fast)",           es: "libimage (el mejor, rápido)" },
   quantizerTip:   { en: "Image quantizer backend. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant]. Available here: 2 and 3. Recommended: PNGQ/LIQ for final output; HexTree for fast tests.", es: "Motor de cuantización. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant]. Disponibles aquí: 2 y 3. Recomendado: PNGQ/LIQ para la salida final; HexTree para pruebas rápidas." },
   redrawPeriod:   { en: "Anchor interval",                 es: "Intervalo de anclaje" },
   redrawPeriodTip:{ en: "Insert anchors so decoders can catch up on long events. 0: disabled (recommended). For events over ~5 s try 1 s.", es: "Inserta anclajes para que los decodificadores alcancen eventos largos. 0: desactivado (recomendado). Para eventos de más de ~5 s prueba 1 s." },
@@ -46,17 +46,11 @@ const Table = {
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
   allowNormal:    { en: "Allow normal case object redefinition.", es: "Permitir redefinición normal case" },
   preferNormal:   { en: "Prefer normal case object redefinition.", es: "Preferir redefinición normal case" },
-  logToFile:      { en: "Log to file: ",                   es: "Registrar en archivo: " },
-  logDisabled:    { en: "Disabled",                        es: "Desactivado" },
-  logDebug:       { en: "Debug",                           es: "Depuración" },
-  logStandard:    { en: "Standard",                        es: "Estándar" },
-  logWarnings:    { en: "Warnings/errors",                 es: "Avisos/errores" },
   fullPalette:    { en: "Write the full palette.",         es: "Escribir la paleta completa." },
   bothFormatsTip: { en: "Generate both .sup and .pes/.mui output formats.", es: "Generar formatos .sup y .pes/.mui." },
   bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "SUP + PES/MUI" },
   overlapBuf:     { en: "Allow palette update buffering.",  es: "Permitir buffering de paleta" },
   alternateOids:  { en: "Force legacy global object ids (0/1).", es: "Forzar ids de objeto globales legacy (0/1)." },
-  ignoreRes:      { en: "Ignore Resolution Validation (Experimental)", es: "Ignorar Validación de Resolución (Experimental)" },
 
   // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
@@ -91,7 +85,6 @@ const Table = {
   tipBothFormats:  { en: "Export also a .pes/.mui file alongside the .sup file.", es: "Exportar también un archivo .pes/.mui junto con el archivo .sup." },
   tipOverlapBuf:   { en: "Allow this encoder to generate overlapping objects in the output stream.\nThis method is more efficient but not well supported by some hardware decoders.", es: "Permitir que este codificador genere objetos superpuestos en el stream de salida.\nEste método es más eficiente pero no es bien soportado por algunos decodificadores de hardware." },
   tipAlternateOids:{ en: "Force legacy global object ids (0/1) instead of per-window ids.\nMay help older players; identical visual output.", es: "Forzar ids de objeto globales legacy (0/1) en lugar de ids por ventana.\nPuede ayudar a reproductores antiguos; salida visual idéntica." },
-  tipIgnoreRes:    { en: "Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.", es: "Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores." },
 };
 
 // Current language: 0 = EN, 1 = ES

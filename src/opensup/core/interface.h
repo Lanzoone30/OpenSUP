@@ -43,7 +43,6 @@ struct encode_config_t {
     int height = 1080;
     int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ
     bool overwrite = false;
-    bool ignore_resolution = false;
     bool both_formats = false;
     bool allow_normal_case = false;
     // 032/D-032-5: surface flag is stored but the core rule is deferred to a

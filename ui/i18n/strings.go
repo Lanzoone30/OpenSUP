@@ -38,7 +38,7 @@ var Table = map[string][2]string{
 	"colorSpaceTip":   {"Color matrix for YCbCr conversion. Recommended: BT.709 (HD/SDR).", "Matriz de color para conversión YCbCr. Recomendado: BT.709 (HD/SDR)."},
 	"quantizer":       {"Quantizer: ", "Quantizer: "},
 	"quantHexTree":    {"HexTree (good, very fast)", "HexTree (bueno, muy rápido)"},
-	"quantPiliq":      {"PILIQ (best, fast)", "PILIQ (el mejor, rápido)"},
+	"quantPiliq":      {"libimage (best, fast)", "libimage (el mejor, rápido)"},
 	"quantizerTip":    {"Image quantizer backend. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant]. Available here: 2 and 3. Recommended: PNGQ/LIQ for final output; HexTree for fast tests.", "Motor de cuantización. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant]. Disponibles aquí: 2 y 3. Recomendado: PNGQ/LIQ para la salida final; HexTree para pruebas rápidas."},
 	"redrawPeriod":    {"Anchor interval", "Intervalo de anclaje"},
 	"redrawPeriodTip": {"Insert anchors so decoders can catch up on long events. 0: disabled (recommended). For events over ~5 s try 1 s.", "Inserta anclajes para que los decodificadores alcancen eventos largos. 0: desactivado (recomendado). Para eventos de más de ~5 s prueba 1 s."},
@@ -60,17 +60,11 @@ var Table = map[string][2]string{
 	"engineOpts":     {"Engine Options", "Opciones del Motor"},
 	"allowNormal":    {"Allow normal case object redefinition.", "Permitir redefinición normal case"},
 	"preferNormal":   {"Prefer normal case object redefinition.", "Preferir redefinición normal case"},
-	"logToFile":      {"Log to file: ", "Registrar en archivo: "},
-	"logDisabled":    {"Disabled", "Desactivado"},
-	"logDebug":       {"Debug", "Depuración"},
-	"logStandard":    {"Standard", "Estándar"},
-	"logWarnings":    {"Warnings/errors", "Avisos/errores"},
 	"fullPalette":    {"Write the full palette.", "Escribir la paleta completa."},
 	"bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
 	"bothFormats":    {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
 	"overlapBuf":     {"Allow palette update buffering.", "Permitir buffering de paleta"},
 	"alternateOids":  {"Force legacy global object ids (0/1).", "Forzar ids de objeto globales legacy (0/1)."},
-	"ignoreRes":      {"Ignore Resolution Validation (Experimental)", "Ignorar Validación de Resolución (Experimental)"},
 
 	// -- Activity Log --
 	"activityLog": {"ACTIVITY LOG", "REGISTRO DE ACTIVIDAD"},
@@ -119,10 +113,6 @@ var Table = map[string][2]string{
 	"tipAlternateOids": {
 		"Alternate the object id per window on every acquisition (double buffering).\nAvoids tearing on hardware that reuses object buffers; identical visual output.",
 		"Alternar el id de objeto por ventana en cada adquisición (doble buffer).\nEvita tearing en hardware que reutiliza buffers de objeto; salida visual idéntica.",
-	},
-	"tipIgnoreRes": {
-		"Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.",
-		"Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores.",
 	},
 }
 

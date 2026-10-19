@@ -115,7 +115,7 @@ is_standard_resolution(int w, int h)
 }
 
 bool
-bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
+bdn_xml_c::parse(const std::string& filepath)
 {
     pugi::xml_document doc;
     pugi::xml_parse_result result = doc.load_file(filepath.c_str());
@@ -170,16 +170,10 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
     // Validate Blu-ray standard resolution
     if (!is_standard_resolution(m_width, m_height)) {
-        auto msg = "Non-standard Blu-ray resolution " +
-                   std::to_string(m_width) + "x" + std::to_string(m_height) +
-                   ". Use --ignore-resolution or the checkbox in the GUI.";
-        if (!ignore_resolution) {
-            logger_c::instance().error(msg);
-            return false;
-        }
-        logger_c::instance().warn(
-            "Non-standard resolution " + std::to_string(m_width) + "x" +
-            std::to_string(m_height) + ", continuing anyway.");
+        logger_c::instance().error(
+            "Non-standard Blu-ray resolution " +
+            std::to_string(m_width) + "x" + std::to_string(m_height) + ".");
+        return false;
     }
 
     auto path = std::filesystem::path(filepath);

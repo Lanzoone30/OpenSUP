@@ -26,10 +26,10 @@
         <div class="param-row">
           <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
           <div class="dropdown" id="dd_quantizer">
-            <button type="button" class="dd-btn">PILIQ (best, fast)</button>
+            <button type="button" class="dd-btn">libimage (best, fast)</button>
             <ul class="dd-list" role="listbox">
               <li role="option" data-val="2" title="HexTree (good, very fast)"><span data-i18n="quantHexTree">HexTree (good, very fast)</span></li>
-              <li role="option" data-val="3" title="PILIQ (best, fast)"><span data-i18n="quantPiliq">PILIQ (best, fast)</span></li>
+              <li role="option" data-val="3" title="libimage (best, fast)"><span data-i18n="quantPiliq">libimage (best, fast)</span></li>
             </ul>
             <select id="combo_quantizer" class="seg-source">
               <option value="2">HexTree</option>
@@ -130,19 +130,6 @@
             <input type="checkbox" id="chk_both_formats"/>
             <span data-i18n="bothFormats">Generate both SUP and PES+MUI files.</span>
           </label>
-          <label class="check">
-            <input type="checkbox" id="chk_ignore_res"/>
-            <span data-i18n="ignoreRes">Ignore Resolution Validation</span>
-          </label>
-        </div>
-        <div class="param-row param-row-gap">
-          <label for="combo_log" class="param-label" data-i18n="logToFile">Log to file: </label>
-          <select id="combo_log">
-            <option value="0" data-i18n="logDisabled">Disabled</option>
-            <option value="10" data-i18n="logDebug">Debug</option>
-            <option value="20" data-i18n="logStandard">Standard</option>
-            <option value="30" data-i18n="logWarnings">Warnings/errors</option>
-          </select>
         </div>
       </details>
 

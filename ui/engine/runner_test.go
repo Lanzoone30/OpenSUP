@@ -60,7 +60,6 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		Quantizer:        2,
 		BTMatrix:         "bt2020",
 		Overwrite:        true,
-		IgnoreRes:        true,
 		BothFormats:      true,
 		FullPalette:      true,
 		AllowNormalCase:  true,
@@ -74,14 +73,13 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		Acqrate:          90,
 		SsimTol:          10,
 		ExtraAcq:         3,
-		LogToFile:        20,
 	}
 	args := buildArgs(cfg)
 	want := map[string]bool{
 		"--json": true, "-i": true, "in.xml": true, "out.sup": true,
 		"-q": true, "2": true, "-b": true, "bt2020": true,
 		"-y": true,
-		"--ignore-resolution": true, "-w": true, "-p": true,
+		"-w": true, "-p": true,
 		"-n": true, "-k": true,
 		"-d": true, "--alternate-oids": true,
 		"--redraw-period": true, "0.5": true,
@@ -91,7 +89,6 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		"-a": true, "90": true,
 		"--ssim-tol": true, "10": true,
 		"-e": true, "3": true,
-		"-l": true, "20": true,
 	}
 	for _, a := range args {
 		delete(want, a)

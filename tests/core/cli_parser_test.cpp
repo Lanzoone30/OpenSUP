@@ -3,15 +3,14 @@
 //
 // OpenSUP - PGS Encoder
 //
-// CLI flag semantics. 032 aligns the surface with SUPer: quantizer ids
+// CLI flag semantics. 032 aligns the surface: quantizer ids
 // (2 = HexTree, 3 = LIQ), -n/--allow-normal, -k/--prefer-normal, -d/--ahead,
-// -t/--threads, --ssim-tol/--debug long-only, -l/--log-to-file.
+// -t/--threads, --ssim-tol long-only.
 #include <gtest/gtest.h>
 
 #include "opensup/cli/cli_parser.h"
 #include "opensup/common/logger.h"
 
-#include <cstdio>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -224,7 +223,7 @@ TEST(CliParser, QuantizerUnavailableBackendAborts) {
     }
 }
 
-// --- 032: SUPer flag surface (shorts, aliases, prefer-normal, log-to-file) ---
+// --- 032: flag surface (shorts, aliases, prefer-normal) ---
 
 /// Run parse_args over argv, collecting warnings emitted while parsing.
 cli_options_t
@@ -253,7 +252,6 @@ TEST(CliParser, NewShortFlagsMapToSuPerSurface) {
     EXPECT_EQ(opts.threads, 4);
     EXPECT_TRUE(opts.allow_normal_case);
     EXPECT_TRUE(opts.prefer_normal_case);
-    EXPECT_FALSE(opts.debug) << "-d is --ahead, not --debug";
     EXPECT_TRUE(warnings.empty());
 }
 
@@ -288,68 +286,6 @@ TEST(CliParser, PreferNormalForcesAllowNormal) {
     ASSERT_EQ(r.warnings.size(), 1u);
     EXPECT_EQ(r.warnings[0],
               "--prefer-normal requires --allow-normal, forcefully enabling this flag.");
-}
-
-/// Normalize one -l value, collecting warnings.
-int
-normalize_capturing(int raw, std::vector<std::string>& warnings)
-{
-    auto& log = common::logger_c::instance();
-    log.set_callback([&](const std::string& msg, int level) {
-        if (level == static_cast<int>(common::log_level_e::warn)) warnings.push_back(msg);
-    });
-    const int result = normalize_log_to_file(raw);
-    log.set_callback(nullptr);
-    return result;
-}
-
-TEST(CliParser, LogToFileSupportedLevelsStaySilent) {
-    for (const int raw : {0, 10, 20, 30}) {
-        std::vector<std::string> warnings;
-        EXPECT_EQ(normalize_capturing(raw, warnings), raw) << "raw=" << raw;
-        EXPECT_TRUE(warnings.empty()) << "raw=" << raw;
-    }
-}
-
-TEST(CliParser, LogToFileSuccintFallsBackWithWarning) {
-    std::vector<std::string> warnings;
-    EXPECT_EQ(normalize_capturing(-10, warnings), 20);
-    ASSERT_EQ(warnings.size(), 1u);
-    EXPECT_EQ(warnings[0],
-              "Succint report not available in this build, using standard logging.");
-}
-
-TEST(CliParser, LogToFileAboveRangeDisablesWithWarning) {
-    std::vector<std::string> warnings;
-    EXPECT_EQ(normalize_capturing(41, warnings), 0);
-    ASSERT_EQ(warnings.size(), 1u);
-    EXPECT_EQ(warnings[0], "Meaningless logging level, disabling file logging.");
-}
-
-TEST(CliParser, LogToFileOptionIsParsed) {
-    const std::string path = "/tmp/opensup_cli_parser_log.xml";
-    std::ofstream(path) << "<BDN/>";
-    std::vector<std::string> args{"opensup_cli", "-i", path, "out.sup",
-                                  "--log-to-file", "-10"};
-    std::vector<std::string> warnings;
-    const auto opts = run_cli(args, warnings);
-    EXPECT_EQ(opts.log_to_file, 20);
-    ASSERT_EQ(warnings.size(), 1u);
-    EXPECT_EQ(warnings[0],
-              "Succint report not available in this build, using standard logging.");
-}
-
-TEST(CliParser, FileOutputWritesLoggerContent) {
-    const std::string path = "/tmp/opensup_cli_parser_filelog.log";
-    std::remove(path.c_str());
-    auto& log = common::logger_c::instance();
-    log.set_level(common::log_level_e::info);
-    log.set_file_output(path);
-    log.info("file-log-probe");
-    std::ifstream in(path);
-    const std::string body((std::istreambuf_iterator<char>(in)),
-                           std::istreambuf_iterator<char>());
-    EXPECT_NE(body.find("file-log-probe"), std::string::npos);
 }
 
 }  // namespace

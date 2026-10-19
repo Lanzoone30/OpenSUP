@@ -201,7 +201,6 @@ TEST(Bateria1CobjsParity, Base) {
     cfg.input_path = bdn;
     cfg.output_path = out;
     cfg.overwrite = true;
-    cfg.ignore_resolution = true;
     cfg.threads = 1;
     bdn_render_c render(cfg);
     const auto res = render.execute();
