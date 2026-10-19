@@ -11,6 +11,7 @@
 #include "opensup/common/logger.h"
 
 #include <pugixml.hpp>
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
 #include <cmath>
@@ -46,6 +47,44 @@ bdn_xml_event_c::load_image() const
 {
     if (!m_cached_image.empty())
         return m_cached_image;
+
+    if (m_graphics.size() > 1) {
+        // Union canvas: paste every graphic at its offset relative to the
+        // composed box (oracle filestreams.py:306-317).
+        m_cached_image.assign(
+            static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4, 0);
+        for (const auto& g : m_graphics) {
+            int gw = 0, gh = 0, gc = 0;
+            unsigned char* img = stbi_load(g.path.c_str(), &gw, &gh, &gc, 4);
+            if (!img) {
+                logger_c::instance().error("Failed to load image: " + g.path);
+                continue;
+            }
+            const int ox = g.x - m_x, oy = g.y - m_y;
+            const size_t sw = static_cast<size_t>(gw);
+            const size_t cw = static_cast<size_t>(m_width);
+            for (int y = 0; y < gh; ++y) {
+                const int dy = oy + y;
+                if (dy < 0 || dy >= m_height) continue;
+                for (int x = 0; x < gw; ++x) {
+                    const int dx = ox + x;
+                    if (dx < 0 || dx >= m_width) continue;
+                    const unsigned char* s =
+                        img + (static_cast<size_t>(y) * sw +
+                               static_cast<size_t>(x)) * 4;
+                    unsigned char* dt = m_cached_image.data() +
+                        (static_cast<size_t>(dy) * cw +
+                         static_cast<size_t>(dx)) * 4;
+                    dt[0] = s[0];
+                    dt[1] = s[1];
+                    dt[2] = s[2];
+                    dt[3] = s[3];
+                }
+            }
+            stbi_image_free(img);
+        }
+        return m_cached_image;
+    }
 
     int w = 0, h = 0, channels = 0;
     unsigned char* img = stbi_load(m_image_path.c_str(), &w, &h, &channels, 4);
@@ -155,31 +194,78 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         auto forced_attr = event_node.attribute("Forced").as_string();
         bool forced = (std::string(forced_attr) == "true");
 
-        auto graphic = event_node.child("Graphic");
-        if (!graphic) continue;
-
-        // use first Graphic's box, multi-Graphic events deferred
-        int gx = graphic.attribute("X").as_int(0);
-        int gy = graphic.attribute("Y").as_int(0);
-        int gw = graphic.attribute("Width").as_int(0);
-        int gh = graphic.attribute("Height").as_int(0);
-        auto gfx_file = graphic.child_value();
-
-        auto img_path = std::filesystem::path(m_folder) / gfx_file;
-
         auto tc_from_string = [this](const std::string& tc) -> common::tc_t {
             int h = 0, m = 0, s = 0, f = 0;
             std::sscanf(tc.c_str(), "%d:%d:%d:%d", &h, &m, &s, &f);
             return common::tc_t::from_hmsf(h, m, s, f, m_fps);
         };
 
+        // N <Graphic> = one event with a union canvas (oracle filestreams.py:224-239).
+        std::vector<bdn_graphic_t> graphics;
+        for (auto graphic : event_node.children("Graphic")) {
+            bdn_graphic_t g;
+            g.x = graphic.attribute("X").as_int(0);
+            g.y = graphic.attribute("Y").as_int(0);
+            g.width = graphic.attribute("Width").as_int(0);
+            g.height = graphic.attribute("Height").as_int(0);
+            g.path = (std::filesystem::path(m_folder) /
+                      graphic.child_value()).string();
+            graphics.push_back(std::move(g));
+        }
+        if (graphics.empty()) continue;
+
+        // US2: on a multi-<Graphic> canvas every declared box must match the
+        // real PNG and the graphics must not overlap (oracle asserts, 306-317).
+        if (graphics.size() > 1) {
+            for (const auto& g : graphics) {
+                int rw = 0, rh = 0, rc = 0;
+                if (!stbi_info(g.path.c_str(), &rw, &rh, &rc)) {
+                    logger_c::instance().error("Failed to read image: " + g.path);
+                    return false;
+                }
+                if (rw != g.width || rh != g.height) {
+                    logger_c::instance().error(
+                        "Declared <Graphic> " + std::to_string(g.width) + "x" +
+                        std::to_string(g.height) + " but " + g.path + " is " +
+                        std::to_string(rw) + "x" + std::to_string(rh));
+                    return false;
+                }
+            }
+            for (size_t a = 0; a < graphics.size(); ++a) {
+                for (size_t b = a + 1; b < graphics.size(); ++b) {
+                    const auto& p = graphics[a];
+                    const auto& q = graphics[b];
+                    const int ix0 = std::max(p.x, q.x), iy0 = std::max(p.y, q.y);
+                    const int ix1 = std::min(p.x + p.width, q.x + q.width);
+                    const int iy1 = std::min(p.y + p.height, q.y + q.height);
+                    if (ix1 > ix0 && iy1 > iy0) {
+                        logger_c::instance().error(
+                            "Overlapping <Graphic>s in event " +
+                            std::string(in_tc));
+                        return false;
+                    }
+                }
+            }
+        }
+
+        int ux = graphics[0].x, uy = graphics[0].y;
+        int ux2 = ux + graphics[0].width, uy2 = uy + graphics[0].height;
+        for (const auto& g : graphics) {
+            ux = std::min(ux, g.x);
+            uy = std::min(uy, g.y);
+            ux2 = std::max(ux2, g.x + g.width);
+            uy2 = std::max(uy2, g.y + g.height);
+        }
+
         common::tc_t tc_in = tc_from_string(in_tc);
         common::tc_t tc_out = tc_from_string(out_tc);
 
         if (tc_in.frames() >= tc_out.frames()) continue;
 
-        bdn_xml_event_c ev(tc_in, tc_out, gx, gy, gw, gh,
-                            img_path.string(), forced);
+        bdn_xml_event_c ev(tc_in, tc_out, ux, uy, ux2 - ux, uy2 - uy,
+                            graphics[0].path, forced);
+        if (graphics.size() > 1)
+            ev.set_graphics(std::move(graphics));
         m_events.push_back(std::move(ev));
     }
 

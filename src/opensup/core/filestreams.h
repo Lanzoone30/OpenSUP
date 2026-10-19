@@ -21,6 +21,12 @@
 namespace opensup {
 namespace core {
 
+/// One image inside a BDN event, with its declared box (X/Y/Width/Height).
+struct bdn_graphic_t {
+    int x = 0, y = 0, width = 0, height = 0;
+    std::string path;
+};
+
 /// One subtitle event from the BDN XML (timing, geometry, image path).
 class bdn_xml_event_c {
 public:
@@ -46,6 +52,15 @@ public:
     void set_tc_in(common::tc_t tc) noexcept { m_tc_in = tc; }
     void set_tc_out(common::tc_t tc) noexcept { m_tc_out = tc; }
 
+    /// Graphics of a multi-`<Graphic>` event. The event box is their union and
+    /// load_image() composes the canvas; empty for the single-Graphic fast path.
+    void set_graphics(std::vector<bdn_graphic_t> graphics) noexcept {
+        m_graphics = std::move(graphics);
+    }
+    [[nodiscard]] const std::vector<bdn_graphic_t>& graphics() const noexcept {
+        return m_graphics;
+    }
+
     [[nodiscard]] std::vector<uint8_t> load_image() const;
     void unload() const noexcept;
 
@@ -54,6 +69,7 @@ private:
     int m_x = 0, m_y = 0, m_width = 0, m_height = 0;
     bool m_forced = false;
     std::string m_image_path;
+    std::vector<bdn_graphic_t> m_graphics;
     mutable std::vector<uint8_t> m_cached_image;
 };
 

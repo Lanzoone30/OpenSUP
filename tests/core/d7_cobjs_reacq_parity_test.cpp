@@ -222,10 +222,9 @@ TEST(Bateria1CobjsParity, Base) {
     EXPECT_EQ(divergent, 0) << "DS divergentes=" << divergent << "\n" << rep.str();
 }
 
-// T006: display-set geometry (WDS bboxes + ODS sizes). ncbd diverges on
-// multi-Graphic re-acquisition; the divergence is owned by spec 033, so the
-// comparison stays active but a mismatch is reported as a documented skip, not
-// a pass.
+// T006: display-set geometry (WDS bboxes + ODS sizes). The ncbd fixture has
+// two <Graphic> per event; the parser composes their union canvas, so the port
+// geometry now matches the oracle byte-for-byte (no skip).
 TEST(DFGsReacqParity, Geometry) {
     const std::string nc = std::string(OPENDSUP_FIXTURES_DIR) + "/ncbdn";
     const std::string port = nc + "/nc_cpp_base.sup";
@@ -245,10 +244,7 @@ TEST(DFGsReacqParity, Geometry) {
         rep << "DS=" << k + 1 << " port " << fmt_geom(a[k]) << " oraculo "
             << fmt_geom(b[k]) << "\n";
     }
-    if (divergent > 0) {
-        GTEST_SKIP() << "divergencia multi-Graphic conocida: spec 033\n"
-                     << rep.str();
-    }
+    EXPECT_EQ(divergent, 0) << "DS divergentes=" << divergent << "\n" << rep.str();
 }
 
 }  // namespace core
