@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-18
 
-**Status**: Planificada — lista para implementar (pendiente kickoff de implementación)
+**Status**: Implementada (2026-10-19, vía research §4/D-034-1: pre-scan argv[1] + app inspector separada; T003 de tasks acotado por D-034-A)
 
 **Input**: Valor QA propio inspirado en funciones invocables del oráculo SUPer
 cidas sin superficie (`SUPFile`, `is_compliant`, `check_pts_dts_sanity`,
