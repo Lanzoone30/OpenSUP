@@ -81,7 +81,11 @@ libimagequant_t::quantize(const std::vector<uint8_t>& rgba,
     std::vector<uint8_t> indexed(w * h);
     if (liq_write_remapped_image(quant_result, img, indexed.data(),
                                   w * h) != LIQ_OK) {
+        liq_result_destroy(quant_result);
+        liq_image_destroy(img);
+        liq_attr_destroy(handle);
         logger_c::instance().error("libimagequant remap failed");
+        return quantize_result_t{};
     }
 
     result.indexed = std::move(indexed);
