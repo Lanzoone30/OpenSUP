@@ -68,6 +68,28 @@ TEST(LayoutEngine, TwoObjectsVerticalSplit) {
     EXPECT_LT(w0.y + w0.dy, w1.y) << "Top window should be above bottom window";
 }
 
+TEST(LayoutPad, RegionPadVertical) {
+    // Class C (DS 48-55): the lower window of a vertical split has dy < 8 and
+    // reaches the raw-region bottom, not just the 8px minimum.
+    layout_engine_c engine(1920, 1080);
+    std::vector<uint8_t> top(694 * 53, 255);
+    engine.add(328, 1002, top, 694, 53);
+    std::vector<uint8_t> bottom(12 * 7, 255);
+    engine.add(662, 1055, bottom, 12, 7);
+
+    auto [container, w0, w1, is_vertical] = engine.get_layout();
+
+    EXPECT_TRUE(is_vertical) << "Expected horizontal split (top/bottom)";
+    EXPECT_EQ(w0.x, 328);
+    EXPECT_EQ(w0.y, 1002);
+    EXPECT_EQ(w0.dx, 694);
+    EXPECT_EQ(w0.dy, 53);
+    EXPECT_EQ(w1.x, 662);
+    EXPECT_EQ(w1.y, 1055);
+    EXPECT_EQ(w1.dx, 12);
+    EXPECT_EQ(w1.dy, 14);
+}
+
 TEST(LayoutEngine, TwoObjectsHorizontalSplit) {
     // Two objects far apart horizontally should trigger vertical split (left/right)
     layout_engine_c engine(1920, 1080);

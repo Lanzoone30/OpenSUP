@@ -15,6 +15,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <queue>
 
@@ -119,6 +120,61 @@ crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay, int obj_w, int
         }
     }
     return out;
+}
+
+/// Recorta [x0,y0,x1,y1) (coords absolutas) al bbox de contenido no
+/// transparente (0xFF) del objeto indexado; false si no queda contenido.
+/// Emula el `_crop` del oráculo sobre la sub-matriz de la ventana. Defined
+/// here, used by overlap.cpp too.
+bool
+trim_indexed_rect(const std::vector<uint8_t>& indexed,
+                  int ax, int ay, int obj_w, int obj_h,
+                  int& x0, int& y0, int& x1, int& y1)
+{
+    const int sx = std::max(x0, ax), sy = std::max(y0, ay);
+    const int ex = std::min(x1, ax + obj_w), ey = std::min(y1, ay + obj_h);
+    int mnx = ex, mny = ey, mxx = sx - 1, mxy = sy - 1;
+    for (int y = sy; y < ey; ++y) {
+        for (int x = sx; x < ex; ++x) {
+            if (indexed[static_cast<size_t>(y - ay) * static_cast<size_t>(obj_w) +
+                        static_cast<size_t>(x - ax)] != 0xFF) {
+                mnx = std::min(mnx, x);
+                mxx = std::max(mxx, x);
+                mny = std::min(mny, y);
+                mxy = std::max(mxy, y);
+            }
+        }
+    }
+    if (mxx < mnx) return false;
+    x0 = mnx; y0 = mny; x1 = mxx + 1; y1 = mxy + 1;
+    return true;
+}
+
+/// Igual que trim_indexed_rect pero sobre RGBA (alpha>0). El indexed del
+/// pipeline overlap no remapea transparencia a 0xFF; el alpha es la fuente.
+bool
+trim_rgba_rect(const std::vector<uint8_t>& rgba,
+               int ax, int ay, int obj_w, int obj_h,
+               int& x0, int& y0, int& x1, int& y1)
+{
+    const int sx = std::max(x0, ax), sy = std::max(y0, ay);
+    const int ex = std::min(x1, ax + obj_w), ey = std::min(y1, ay + obj_h);
+    int mnx = ex, mny = ey, mxx = sx - 1, mxy = sy - 1;
+    for (int y = sy; y < ey; ++y) {
+        for (int x = sx; x < ex; ++x) {
+            const size_t pi = (static_cast<size_t>(y - ay) * static_cast<size_t>(obj_w) +
+                               static_cast<size_t>(x - ax)) * 4 + 3;
+            if (rgba[pi] > 0) {
+                mnx = std::min(mnx, x);
+                mxx = std::max(mxx, x);
+                mny = std::min(mny, y);
+                mxy = std::max(mxy, y);
+            }
+        }
+    }
+    if (mxx < mnx) return false;
+    x0 = mnx; y0 = mny; x1 = mxx + 1; y1 = mxy + 1;
+    return true;
 }
 
 acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
@@ -261,12 +317,38 @@ epoch_encoder_c::emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& o
     out.push_back(std::make_shared<ends_c>(std::move(clear_end)));
 }
 
-uint8_t
-epoch_encoder_c::next_ods_vn(uint16_t o_id)
+void
+epoch_encoder_c::reset_oid_phase(int nwin)
 {
-    if (m_ods_vn.size() <= o_id)
-        m_ods_vn.resize(static_cast<size_t>(o_id) + 1, 0);
-    return m_ods_vn[o_id]++;
+    if (nwin < 1) nwin = 1;
+    m_oid_db.assign(static_cast<size_t>(nwin), nwin);
+    m_oid_vn.assign(static_cast<size_t>(2 * nwin), 0);
+    m_window_oid.assign(static_cast<size_t>(nwin), 0xFFFF);
+}
+
+std::pair<uint16_t, uint8_t>
+epoch_encoder_c::next_oid(uint8_t window_id)
+{
+    if (m_oid_db.empty())
+        reset_oid_phase(m_windows.empty() ? 1 : static_cast<int>(m_windows.size()));
+    if (window_id >= m_oid_db.size())
+        return {window_id, 0};
+    const int nwin = static_cast<int>(m_oid_db.size());
+    int& db = m_oid_db[window_id];
+    db = std::abs(nwin - db);
+    const uint16_t oid = static_cast<uint16_t>(static_cast<int>(window_id) + db);
+    if (m_oid_vn.size() <= oid)
+        m_oid_vn.resize(static_cast<size_t>(oid) + 1, 0);
+    m_window_oid[window_id] = oid;
+    return {oid, static_cast<uint8_t>(m_oid_vn[oid]++)};
+}
+
+uint16_t
+epoch_encoder_c::current_oid(uint8_t window_id, uint16_t fallback) const
+{
+    if (window_id < m_window_oid.size() && m_window_oid[window_id] != 0xFFFF)
+        return m_window_oid[window_id];
+    return fallback;
 }
 
 uint8_t
@@ -294,11 +376,52 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
 
     // Build CObject: position = event position + crop offset
     std::vector<c_object_t> cobjects;
+    if (in.epoch_start)
+        reset_oid_phase(m_windows.empty() ? 1 : static_cast<int>(m_windows.size()));
+    // o_id/version come from the per-window double-buffer state, not from the
+    // caller: reused objects keep their last oid, new ODSs advance the phase.
+    uint16_t obj_id = in.obj_id;
+    uint8_t ods_vn = 0;
+    if (m_alternate_oids) {
+        // Legacy global 0/1 toggle supplied by the caller.
+        if (!in.reusable) {
+            if (m_oid_vn.size() <= in.obj_id)
+                m_oid_vn.resize(static_cast<size_t>(in.obj_id) + 1, 0);
+            ods_vn = static_cast<uint8_t>(m_oid_vn[in.obj_id]++);
+        }
+    } else if (in.reusable) {
+        obj_id = current_oid(in.window_id, in.obj_id);
+    } else {
+        const std::pair<uint16_t, uint8_t> next = next_oid(in.window_id);
+        obj_id = next.first;
+        ods_vn = next.second;
+    }
+    // ODS frame = epoch slot for this window. Content keeps its on-screen
+    // position; the frame is anchored to the content's right/bottom edge and
+    // clamped to the window origin, with transparent 0xFF padding.
+    const window_definition_t* slot_wd = nullptr;
+    for (const auto& wd : m_windows)
+        if (wd.window_id == in.window_id) slot_wd = &wd;
+    int frame_w = in.obj_w, frame_h = in.obj_h;
+    if (slot_wd) {
+        if (auto it = m_slots.find(in.window_id); it != m_slots.end()) {
+            frame_w = std::max(frame_w, it->second.w);
+            frame_h = std::max(frame_h, it->second.h);
+        }
+    }
+    int frame_x = in.ev_x + in.crop_x, frame_y = in.ev_y + in.crop_y;
+    frame_x += in.obj_w - frame_w;
+    frame_y += in.obj_h - frame_h;
+    if (slot_wd && frame_x < static_cast<int>(slot_wd->h_pos)) frame_x = slot_wd->h_pos;
+    if (slot_wd && frame_y < static_cast<int>(slot_wd->v_pos)) frame_y = slot_wd->v_pos;
+    const int paste_x = in.ev_x + in.crop_x - frame_x;
+    const int paste_y = in.ev_y + in.crop_y - frame_y;
+
     c_object_t obj;
-    obj.o_id = in.obj_id;
+    obj.o_id = obj_id;
     obj.window_id = in.window_id;
-    obj.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
-    obj.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
+    obj.h_pos = static_cast<uint16_t>(frame_x);
+    obj.v_pos = static_cast<uint16_t>(frame_y);
     obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
     cobjects.push_back(obj);
     // Normal case: the other window's object stays on screen as a CObject
@@ -306,7 +429,7 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     // decoded from that window's last ODS.
     if (in.normal_case_ref) {
         c_object_t ref;
-        ref.o_id = in.ref_obj_id;
+        ref.o_id = current_oid(in.ref_window_id, in.ref_obj_id);
         ref.window_id = in.ref_window_id;
         ref.h_pos = static_cast<uint16_t>(std::max(0, in.ref_x));
         ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
@@ -344,9 +467,13 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     tin.windows = wds_windows;
     tin.cobjects = cobjects;
     if (!in.reusable)
-        tin.ods = {{in.obj_id, static_cast<uint64_t>(in.obj_w) * static_cast<uint64_t>(in.obj_h)}};
-    const ds_timing_t dt = compute_ds_timing(tin);
-    const double obj_decode = dt.ods.empty() ? 0.0 : dt.ods.front().obj_decode;
+        // Key by the reassigned o_id: tin.cobjects carries obj_id, not in.obj_id.
+        tin.ods = {{obj_id, static_cast<uint64_t>(frame_w) * static_cast<uint64_t>(frame_h)}};
+    const ds_timing_t dt = in.ds_timing != nullptr ? *in.ds_timing : compute_ds_timing(tin);
+    const double obj_decode = in.ds_timing != nullptr
+        ? std::ceil(static_cast<double>(in.obj_w) * static_cast<double>(in.obj_h) *
+                    pg_decoder_t::FREQ / pg_decoder_t::RD) / pg_decoder_t::FREQ
+        : (dt.ods.empty() ? 0.0 : dt.ods.front().obj_decode);
     if (timing_out != nullptr) {
         timing_out->base_pts = in.timings.base_pts;
         timing_out->base_dts = dt.dts;
@@ -386,10 +513,20 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
 
         // Skipped for reused events — the object is already decoded.
         double ods_pts = dt.dts + obj_decode;
-        auto rle_data = encode_rle(in.indexed, in.obj_w, in.obj_h);
-        auto ods_list = ods_c::from_scratch(in.obj_id, next_ods_vn(in.obj_id),
-                                              static_cast<uint16_t>(in.obj_w),
-                                              static_cast<uint16_t>(in.obj_h),
+        std::vector<uint8_t> frame_idx;
+        const std::vector<uint8_t>* ods_idx = &in.indexed;
+        if (frame_w != in.obj_w || frame_h != in.obj_h) {
+            frame_idx.assign(static_cast<size_t>(frame_w) * static_cast<size_t>(frame_h), 0xFF);
+            for (int y = 0; y < in.obj_h; ++y)
+                std::copy_n(in.indexed.begin() + static_cast<ptrdiff_t>(y) * in.obj_w,
+                            in.obj_w,
+                            frame_idx.begin() + static_cast<ptrdiff_t>(y + paste_y) * frame_w + paste_x);
+            ods_idx = &frame_idx;
+        }
+        auto rle_data = encode_rle(*ods_idx, frame_w, frame_h);
+        auto ods_list = ods_c::from_scratch(obj_id, ods_vn,
+                                              static_cast<uint16_t>(frame_w),
+                                              static_cast<uint16_t>(frame_h),
                                               rle_data, ods_pts, dt.dts);
         for (auto& ods : ods_list)
             result.push_back(std::make_shared<ods_c>(std::move(ods)));
@@ -419,7 +556,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     std::vector<std::shared_ptr<pg_segment_c>> result;
     if (events.empty()) return result;
 
-    m_ods_vn.clear();
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
@@ -452,6 +588,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     m_palette_cache.clear();
     m_slots.clear();
     m_last_palette_id = 0xFF;
+    reset_oid_phase(m_windows.size() >= 2 ? static_cast<int>(m_windows.size()) : 1);
     // Overlap + two windows: acquisitions merge into the previous window's
     // nodes, so the whole epoch must be planned before emission (two-phase).
     // Default and single-window overlap keep the single-pass path below
@@ -459,6 +596,41 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     if (m_overlap && m_windows.size() == 2)
         return encode_epoch_overlap(events, redraw_flags, fps_enum,
                                     palette_id_counter);
+    // Epoch frame per window: max content bbox over all events of the epoch
+    // (oracle find_acqs min_boxes). ODS frames are emitted at this size.
+    for (const auto& ev : events) {
+        auto rgba = ev.load_image();
+        if (rgba.empty()) continue;
+        int tw = 0, th = 0, tx = 0, ty = 0;
+        std::vector<uint8_t> scratch;
+        trim_transparent_padding(rgba, ev.width(), ev.height(), scratch, tw, th, tx, ty);
+        const int w = tw > 0 ? tw : ev.width();
+        const int h = th > 0 ? th : ev.height();
+        const int cx = ev.x() + tx, cy = ev.y() + ty;
+        auto grow = [&](uint8_t wid, int ww, int hh) {
+            auto& s = m_slots[wid];
+            s.w = std::max({s.w, ww, 8});
+            s.h = std::max({s.h, hh, 8});
+        };
+        if (m_windows.empty()) {
+            grow(0, w, h);
+        } else {
+            for (const auto& wd : m_windows) {
+                const int ix0 = std::max(cx, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(cy, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(cx + w, static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(cy + h, static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0) {
+                    // La ventana puede recortar un evento más ancho: re-trim al
+                    // alpha>0 dentro de la ventana (oráculo `_crop`, no el rect).
+                    int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                    if (trim_rgba_rect(rgba, ev.x(), ev.y(), ev.width(), ev.height(),
+                                       tx0, ty0, tx1, ty1))
+                        grow(wd.window_id, tx1 - tx0, ty1 - ty0);
+                }
+            }
+        }
+    }
     // redraw_flags marks forced ACQUISITION points (periodic refresh)
     const std::vector<bool>& forced_acq = redraw_flags;
 
@@ -526,6 +698,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             clear_windows = m_windows;
             for (const auto& wd : clear_windows)
                 wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+        } else if (m_windows.size() == 1) {
+            // Single-window clear declares the epoch's ocbox (same window as the
+            // acquisition DS), not the previous object's bbox.
+            clear_windows = m_windows;
+            wipe_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
         } else {
             window_definition_t clear_wd;
             clear_wd.window_id = 0;
@@ -619,6 +796,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                       e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       false, fps_enum, e.own_palette, e.own_indexed,
                                       e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
                 auto segs = emit_event_segments(in, result);
                 for (auto& seg : segs) result.push_back(std::move(seg));
             }
@@ -648,6 +826,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                       e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       false, fps_enum, sol.palettes[0], sol.bitmap,
                                       e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
                 auto segs = emit_event_segments(in, result, &ds_t);
                 for (auto& seg : segs) result.push_back(std::move(seg));
             } else if (e.refresh) {
@@ -658,6 +837,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                                       window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y),
                                       palette_id, false, fps_enum,
                                       sol.palettes[i], sol.bitmap, e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
                 auto segs = emit_event_segments(in, result, &ds_t);
                 for (auto& seg : segs) result.push_back(std::move(seg));
             } else {
@@ -891,22 +1071,22 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // A periodic refresh re-sends the object even when its bitmap is unchanged.
     if (k < forced_acq.size() && forced_acq[k]) emit_reusable = false;
 
-        // Object ID assignment: per-window double buffering by default;
-        // --alternate-oids requests the legacy global 0/1 scheme.
-        uint16_t obj_id;
-        if (emit_reusable) {
-            obj_id = prev_obj_id;
-        } else if (m_alternate_oids) {
-            double_buffer = 1 - double_buffer;
-            obj_id = static_cast<uint16_t>(double_buffer);
-        } else if (m_windows.size() < 2) {
-            int& dbw = double_buffer_db[0];
-            dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
-            obj_id = static_cast<uint16_t>(dbw);
-        } else {
-            // Multi-window: advanced per window in the split loop below.
-            obj_id = prev_obj_id;
-        }
+    // Object ID assignment: per-window double buffering by default;
+    // --alternate-oids requests the legacy global 0/1 scheme.
+    uint16_t obj_id;
+    if (emit_reusable) {
+        obj_id = prev_obj_id;
+    } else if (m_alternate_oids) {
+        double_buffer = 1 - double_buffer;
+        obj_id = static_cast<uint16_t>(double_buffer);
+    } else if (m_windows.size() < 2) {
+        int& dbw = double_buffer_db[0];
+        dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
+        obj_id = static_cast<uint16_t>(dbw);
+    } else {
+        // Multi-window: advanced per window in the split loop below.
+        obj_id = prev_obj_id;
+    }
 
     // Composite tracking:
     // - fuse (reusable via SSIM): already updated via alpha_over in the SSIM block
@@ -1052,6 +1232,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         in.ref_obj_id = prev_obj_id;
         in.ref_x = prev_pos_x;
         in.ref_y = prev_pos_y;
+        in.epoch_start = (comp_state == pcs_c::composition_state_e::epoch_start);
         if (m_windows.size() < 2) {
             auto segs = emit_event_segments(in, result);
             for (auto& seg : segs)
@@ -1088,10 +1269,15 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 const bool covered = (ix1 > ix0 && iy1 > iy0);
                 std::vector<uint8_t> sub;
                 int ow, oh, ox, oy;
-                if (covered) {
-                    slot_touch(wd.window_id, ix0, iy0, ix1, iy1);
-                    sub = crop_indexed(indexed, ax, ay, obj_w, obj_h, ix0, iy0, ix1, iy1);
-                    ow = ix1 - ix0; oh = iy1 - iy0; ox = ix0 - wx; oy = iy0 - wy;
+                int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                // Re-trim al contenido dentro de la ventana (oráculo `_crop`).
+                const bool has_content = covered &&
+                    trim_indexed_rect(indexed, ax, ay, obj_w, obj_h,
+                                      tx0, ty0, tx1, ty1);
+                if (has_content) {
+                    sub = crop_indexed(indexed, ax, ay, obj_w, obj_h,
+                                       tx0, ty0, tx1, ty1);
+                    ow = tx1 - tx0; oh = ty1 - ty0; ox = tx0 - wx; oy = ty0 - wy;
                     window_objects[wi] = window_object_t{sub, ow, oh, ox, oy, true};
                 } else {
                     sub = window_objects[wi].indexed;
@@ -1122,6 +1308,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 win_in.ref_obj_id = in.ref_obj_id;
                 win_in.ref_x = in.ref_x;
                 win_in.ref_y = in.ref_y;
+                win_in.epoch_start = (comp_state == pcs_c::composition_state_e::epoch_start) &&
+                                     wi == emit_order.front();
                 auto wsegs = emit_event_segments(win_in, result);
                 for (auto& seg : wsegs)
                     ev_segs.push_back(std::move(seg));
@@ -1280,10 +1468,15 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         chain_active = false;
     }
     if (have_prev) {
+        // The end-of-epoch clear declares the epoch's ocbox in single-window
+        // epochs, so that area bounds the wipe budget.
+        int64_t clear_area = static_cast<int64_t>(prev_obj_w) * prev_obj_h;
+        if (m_windows.size() == 1)
+            clear_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
         // The end-of-epoch wipe fits only if the last event is long enough to
         // redraw the window; a short last event clears via a palette swap.
-        const double write_ticks = std::ceil(static_cast<double>(prev_obj_w) *
-            static_cast<double>(prev_obj_h) * pg_decoder_t::FREQ / pg_decoder_t::RC);
+        const double write_ticks = std::ceil(static_cast<double>(clear_area) *
+            pg_decoder_t::FREQ / pg_decoder_t::RC);
         const double last_frames = (prev_tc_out - prev_tc_in) * m_fps;
         const bool perform_wds_end = last_frames >=
             std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);

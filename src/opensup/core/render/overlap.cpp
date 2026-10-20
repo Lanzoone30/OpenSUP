@@ -23,6 +23,9 @@ void trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int h
 /// Defined in encode_epoch.cpp.
 std::vector<uint8_t> crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay,
                                   int obj_w, int obj_h, int x0, int y0, int x1, int y1);
+/// Defined in encode_epoch.cpp.
+bool trim_rgba_rect(const std::vector<uint8_t>& rgba, int ax, int ay,
+                    int obj_w, int obj_h, int& x0, int& y0, int& x1, int& y1);
 // Overlap pipeline: active only when m_overlap && m_windows.size() == 2.
 
 void epoch_encoder_c::shift_forward_overlay(
@@ -183,7 +186,6 @@ epoch_encoder_c::encode_epoch_overlap(
     std::vector<std::shared_ptr<pg_segment_c>> result;
     if (events.empty()) return result;
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
-    (void)nwin;
     std::vector<int> overlap_db(nwin, static_cast<int>(nwin));
     std::vector<epoch_node_t> nodes;
     nodes.reserve(events.size());
@@ -374,13 +376,43 @@ epoch_encoder_c::emit_epoch_from_nodes(
     // single-pass multi-window path: every acquisition re-lists the coupled
     // windows, so an untouched window keeps its object with a fresh oid.
     const size_t wen = m_windows.empty() ? 1 : m_windows.size();
-    std::vector<int> emit_db(wen, static_cast<int>(wen));
     struct em_win_obj_t {
         std::vector<uint8_t> indexed;
         int w = 0, h = 0, x = 0, y = 0;
         bool active = false;
     };
     std::vector<em_win_obj_t> em_win_objects(wen);
+    // Epoch frame per window: max content bbox over all nodes (find_acqs min_boxes).
+    m_slots.clear();
+    for (const auto& node : nodes) {
+        if (!node.has_object) continue;
+        const int ax = node.ev_x + node.crop_x, ay = node.ev_y + node.crop_y;
+        auto grow = [&](uint8_t wid, int ww, int hh) {
+            auto& s = m_slots[wid];
+            s.w = std::max({s.w, ww, 8});
+            s.h = std::max({s.h, hh, 8});
+        };
+        if (m_windows.empty()) {
+            grow(0, node.w, node.h);
+        } else {
+            for (const auto& wd : m_windows) {
+                const int ix0 = std::max(ax, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(ay, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(ax + node.w,
+                    static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + node.h,
+                    static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0) {
+                    // Re-trim al contenido dentro de la ventana (oráculo `_crop`):
+                    // el rect del evento puede cubrir más que su alpha.
+                    int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                    if (trim_rgba_rect(node.rgba, ax, ay, node.w, node.h,
+                                       tx0, ty0, tx1, ty1))
+                        grow(wd.window_id, tx1 - tx0, ty1 - ty0);
+                }
+            }
+        }
+    }
     for (size_t k = 0; k < nodes.size(); ++k) {
         const auto& node = nodes[k];
         if (!node.has_object)
@@ -394,6 +426,10 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 clear_windows = m_windows;
                 for (const auto& wd : clear_windows)
                     wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+            } else if (m_windows.size() == 1) {
+                // Single-window clear declares the epoch's ocbox.
+                clear_windows = m_windows;
+                wipe_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
             } else {
                 window_definition_t clear_wd;
                 clear_wd.window_id = 0;
@@ -444,6 +480,7 @@ epoch_encoder_c::emit_epoch_from_nodes(
             in.ref_obj_id = node.ref_obj_id;
             in.ref_x = node.ref_x;
             in.ref_y = node.ref_y;
+            in.epoch_start = (node.state == pcs_c::composition_state_e::epoch_start);
             auto segs = emit_event_segments(in, result);
             for (auto& seg : segs)
                 ev_segs.push_back(std::move(seg));
@@ -462,6 +499,36 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 if (ix1 > ix0 && iy1 > iy0)
                     emit_order.push_back(wi);
             }
+            // The merged DS must decode once for the whole composition: derive
+            // its timing from every emitted window instead of per-window.
+            ds_timing_t merged_timing;
+            const bool force_timing = emit_order.size() > 1;
+            if (force_timing) {
+                ds_timing_input_t ti;
+                ti.state = node.state;
+                ti.pal_flag = node.reusable;
+                ti.plane_area = static_cast<uint64_t>(m_width) * static_cast<uint64_t>(m_height);
+                ti.pts = node.timings.base_pts;
+                ti.windows = m_windows;
+                for (size_t wi : emit_order) {
+                    const auto& wd = m_windows[wi];
+                    const int ix1 = std::min(ax + node.w,
+                        static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                    const int iy1 = std::min(ay + node.h,
+                        static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                    const int ix0 = std::max(ax, static_cast<int>(wd.h_pos));
+                    const int iy0 = std::max(ay, static_cast<int>(wd.v_pos));
+                    const int ow = (ix1 > ix0) ? ix1 - ix0 : em_win_objects[wi].w;
+                    const int oh = (iy1 > iy0) ? iy1 - iy0 : em_win_objects[wi].h;
+                    c_object_t c;
+                    c.o_id = static_cast<uint16_t>(wi);
+                    c.window_id = static_cast<uint8_t>(wi);
+                    ti.cobjects.push_back(c);
+                    ti.ods.push_back({static_cast<uint16_t>(wi),
+                                      static_cast<uint64_t>(ow) * static_cast<uint64_t>(oh)});
+                }
+                merged_timing = compute_ds_timing(ti);
+            }
             for (size_t wi : emit_order) {
                 const auto& wd = m_windows[wi];
                 const int wx = wd.h_pos, wy = wd.v_pos;
@@ -471,33 +538,24 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 const bool covered = (ix1 > ix0 && iy1 > iy0);
                 std::vector<uint8_t> sub;
                 int ow, oh, ox, oy;
-                if (covered) {
+                int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                // Re-trim al contenido dentro de la ventana (oráculo `_crop`).
+                const bool has_content = covered &&
+                    trim_rgba_rect(node.rgba, ax, ay, node.w, node.h,
+                                   tx0, ty0, tx1, ty1);
+                if (has_content) {
                     sub = crop_indexed(node.indexed, ax, ay, node.w, node.h,
-                                       ix0, iy0, ix1, iy1);
-                    ow = ix1 - ix0; oh = iy1 - iy0; ox = ix0 - wx; oy = iy0 - wy;
+                                       tx0, ty0, tx1, ty1);
+                    ow = tx1 - tx0; oh = ty1 - ty0; ox = tx0 - wx; oy = ty0 - wy;
                     em_win_objects[wi] = em_win_obj_t{sub, ow, oh, ox, oy, true};
                 } else {
                     sub = em_win_objects[wi].indexed;
                     ow = em_win_objects[wi].w; oh = em_win_objects[wi].h;
                     ox = em_win_objects[wi].x; oy = em_win_objects[wi].y;
                 }
-                uint16_t win_oid;
-                if (wd.window_id == static_cast<uint8_t>(node.window_id)) {
-                    if (!node.reusable) {
-                        int& dbw = emit_db[wi];
-                        dbw = static_cast<int>(std::abs(
-                            static_cast<long long>(wen) - dbw));
-                    }
-                    win_oid = node.obj_id;
-                } else {
-                    int& dbw = emit_db[wi];
-                    dbw = static_cast<int>(std::abs(
-                        static_cast<long long>(wen) - dbw));
-                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + dbw);
-                }
                 event_emit_input_t win_in{
                     ow, oh, ox, oy, wx, wy, node.forced, node.state,
-                    win_oid, wd.window_id, palette_id, node.reusable, fps_enum,
+                    node.obj_id, wd.window_id, palette_id, node.reusable, fps_enum,
                     node.palette, sub, node.timings};
                 win_in.normal_case_ref =
                     node.normal_case_ref && wd.window_id != node.ref_window_id;
@@ -505,6 +563,9 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 win_in.ref_obj_id = node.ref_obj_id;
                 win_in.ref_x = node.ref_x;
                 win_in.ref_y = node.ref_y;
+                win_in.epoch_start = (node.state == pcs_c::composition_state_e::epoch_start) &&
+                                     wi == emit_order.front();
+                win_in.ds_timing = force_timing ? &merged_timing : nullptr;
                 auto wsegs = emit_event_segments(win_in, result);
                 for (auto& seg : wsegs)
                     ev_segs.push_back(std::move(seg));
@@ -581,6 +642,8 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 wipe_area = 0;
                 for (const auto& wd : m_windows)
                     wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+            } else if (m_windows.size() == 1) {
+                wipe_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
             }
             const double wipe_dur = std::ceil(static_cast<double>(wipe_area) *
                 pg_decoder_t::FREQ / pg_decoder_t::RC) / pg_decoder_t::FREQ;
@@ -602,7 +665,7 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     {}, pts, ddts);
                 result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
                 std::vector<window_definition_t> clear_windows;
-                if (m_windows.size() >= 2) {
+                if (!m_windows.empty()) {
                     clear_windows = m_windows;
                 } else {
                     window_definition_t clear_wd;

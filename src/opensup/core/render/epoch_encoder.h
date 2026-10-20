@@ -14,10 +14,12 @@
 #include <string>
 #include <algorithm>
 #include <map>
+#include <utility>
 
 #include "opensup/core/segments.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/core/render/sequence_quality_policy.h"
+#include "opensup/core/render/ds_timings.h"
 #include "opensup/media/optimizer.h"
 #include "opensup/media/palette.h"
 
@@ -109,6 +111,13 @@ struct event_emit_input_t {
     uint8_t ref_window_id = 0;
     uint16_t ref_obj_id = 0; // last ODS of the kept object
     int ref_x = 0, ref_y = 0;
+
+    // First emission of an epoch-start display set: restarts the o_id phase.
+    bool epoch_start = false;
+
+    // Multi-window merge: use the composition's full DS timing instead of
+    // re-deriving it per window (each window would ignore the other's decode).
+    const ds_timing_t* ds_timing = nullptr;
 };
 
 /// Encoder options for one epoch. Defaults here are the single source of truth.
@@ -164,7 +173,11 @@ private:
                         const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far,
                         epoch_timings_t* timing_out = nullptr);
 
-    uint8_t next_ods_vn(uint16_t o_id);
+    // o_id state machine (oracle render2.py:682-704): per-window double buffer
+    // toggled per ODS emission, version counter per oid.
+    void reset_oid_phase(int nwin);
+    std::pair<uint16_t, uint8_t> next_oid(uint8_t window_id);
+    uint16_t current_oid(uint8_t window_id, uint16_t fallback) const;
 
     /// Palette-wipe clear: PCS NORMAL with palette_update_flag, an
     /// all-transparent PDS and END, instead of a WDS wipe. Emitted when the
@@ -198,7 +211,9 @@ private:
     sequence_quality_policy_c m_quality;
     int m_composition_n = 1;
     int m_palette_vn = 0;
-    std::vector<uint8_t> m_ods_vn;   // per-oid ODS version counter
+    std::vector<int> m_oid_db;               // per-window double-buffer phase
+    std::vector<int> m_oid_vn;               // per-oid ODS version counter
+    std::vector<uint16_t> m_window_oid;      // last oid emitted per window
     int m_reuse_candidates = 0;
     std::vector<window_definition_t> m_windows;
     // The last epoch has no successor to bound it, so its end-of-epoch palette
@@ -212,27 +227,9 @@ private:
     std::map<uint8_t, media::palette_t> m_palette_cache;
     uint8_t m_last_palette_id = 0xFF;
 
-    /// Visible-area slot tracked per window, epoch-scoped.
-    struct slot_t { int x = 0, y = 0, w = 0, h = 0; };
+    /// Epoch frame per window: max content bbox over the epoch, min 8x8.
+    struct slot_t { int w = 0, h = 0; };
     std::map<uint8_t, slot_t> m_slots;
-
-    /// Accumulate the union of rect (x0,y0)-(x1,y1) into window_id's slot,
-    /// with a minimum extent of 8x8.
-    void slot_touch(uint8_t window_id, int x0, int y0, int x1, int y1) {
-        auto [it, inserted] = m_slots.try_emplace(
-            window_id, slot_t{x0, y0, x1 - x0, y1 - y0});
-        slot_t& s = it->second;
-        if (!inserted) {
-            const int rx = std::max(s.x + s.w, x1);
-            const int by = std::max(s.y + s.h, y1);
-            s.x = std::min(s.x, x0);
-            s.y = std::min(s.y, y0);
-            s.w = rx - s.x;
-            s.h = by - s.y;
-        }
-        s.w = std::max(s.w, 8);
-        s.h = std::max(s.h, 8);
-    }
 
     friend struct epoch_flags_test_access_t;
 

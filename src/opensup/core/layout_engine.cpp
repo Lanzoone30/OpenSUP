@@ -25,6 +25,7 @@ using media::pg_decoder_t;
 namespace {
 double decode_base(std::initializer_list<int> areas, int container_area);
 common::box_t pad_min8(const common::box_t& b, int cw, int ch);
+int pad_vertical(common::box_t& b, bool upper, const common::box_t& region);
 }
 
 layout_engine_c::layout_engine_c(int width, int height)
@@ -209,9 +210,25 @@ void layout_engine_c::brute_force_windows() {
         return;
     }
 
-    // Pad each candidate window to at least 8x8 (PaddingEngine._pad_any_box).
-    best0 = pad_min8(best0, m_shape.w, m_shape.h);
-    best1 = pad_min8(best1, m_shape.w, m_shape.h);
+    // PaddingEngine.directional_pad. Thin windows of a vertical split grow
+    // toward the raw-region edges; leftover pixels pad inward (merge below).
+    if (best_is_vertical) {
+        const common::box_t raw0 = best0, raw1 = best1;
+        int inter_margin = std::abs(raw0.y2() - raw1.y);
+        inter_margin -= pad_vertical(best0, true, region);
+        inter_margin -= pad_vertical(best1, false, region);
+        if (inter_margin < 0) {
+            const int y = std::min(raw0.y, raw1.y);
+            const int x = std::min(raw0.x, raw1.x);
+            best0 = common::box_t{y, std::max(raw0.y2(), raw1.y2()) - y,
+                                  x, std::max(raw0.x2(), raw1.x2()) - x};
+            best1 = best0;
+            best_is_vertical = false;
+        }
+    } else {
+        best0 = pad_min8(best0, m_shape.w, m_shape.h);
+        best1 = pad_min8(best1, m_shape.w, m_shape.h);
+    }
 
     // NORMAL preset orders the pair so the faster-to-decode window comes first.
     const int screen_area = m_shape.w * m_shape.h;
@@ -246,6 +263,34 @@ double decode_base(std::initializer_list<int> areas, int container_area) {
         dd = std::max(t_dec, dd) + std::ceil(pg_decoder_t::FREQ * a / pg_decoder_t::RC) / pg_decoder_t::FREQ;
     }
     return dd;
+}
+
+// PaddingEngine.directional_pad vertical branch. A thin window first reaches
+// the raw-region edge; a residual deficit pads inward and is returned so the
+// caller can detect the merge case.
+int pad_vertical(common::box_t& b, bool upper, const common::box_t& region) {
+    const int diff_x = std::max(0, 8 - b.dx);
+    const int left_pad = std::max(0, std::min(diff_x, b.x2() - region.x2() + diff_x));
+    const int right_pad = diff_x - left_pad;
+
+    const int diff_y = std::max(0, 8 - b.dy);
+    int top_pad = 0, bot_pad = 0, missing = 0;
+    if (diff_y > 0) {
+        if (upper) {
+            top_pad = b.y - region.y;
+            missing = std::max(0, diff_y - top_pad);
+            bot_pad = missing;
+        } else {
+            bot_pad = region.y2() - b.y2();
+            missing = std::max(0, diff_y - bot_pad);
+            top_pad = missing;
+        }
+    }
+    b.x -= left_pad;
+    b.dx += left_pad + right_pad;
+    b.y -= top_pad;
+    b.dy += top_pad + bot_pad;
+    return missing;
 }
 
 // Grow a window to at least 8px per axis, keeping it inside the screen (SUPer

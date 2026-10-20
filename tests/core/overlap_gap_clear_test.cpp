@@ -29,7 +29,8 @@ struct ds_t {
     uint8_t state = 0;
     std::vector<std::pair<uint16_t, uint8_t>> cobjs;      // (o_id, window_id)
     std::vector<std::array<uint16_t, 5>> wds;             // id,h_pos,v_pos,w,h
-    std::vector<std::pair<uint16_t, uint16_t>> ods_size;  // (w,h); o_id fuera (033)
+    std::vector<std::pair<uint16_t, uint16_t>> ods_size;  // (w,h) from payload[7:11]
+    std::vector<uint16_t> ods_oid;                        // object id, payload[0:2]
 };
 
 std::string fmt(const std::vector<std::pair<uint16_t, uint8_t>>& s) {
@@ -80,9 +81,10 @@ std::vector<ds_t> scan_sup(const std::string& path) {
                                    static_cast<uint16_t>((w[5] << 8) | w[6]),
                                    static_cast<uint16_t>((w[7] << 8) | w[8])});
             }
-        } else if (open && type == 0x15 && len >= 4) {
-            cur.ods_size.emplace_back(static_cast<uint16_t>((p[0] << 8) | p[1]),
-                                      static_cast<uint16_t>((p[2] << 8) | p[3]));
+        } else if (open && type == 0x15 && len >= 11) {
+            cur.ods_oid.emplace_back(static_cast<uint16_t>((p[0] << 8) | p[1]));
+            cur.ods_size.emplace_back(static_cast<uint16_t>((p[7] << 8) | p[8]),
+                                      static_cast<uint16_t>((p[9] << 8) | p[10]));
         } else if (type == 0x80) {
             if (open) sets.push_back(std::move(cur));
             open = false;
@@ -196,6 +198,46 @@ TEST(OverlapGapClear, WdsOdsGeometry) {
     if (divergent > 0)
         GTEST_SKIP() << "WDS/ODS divergen en " << divergent
                      << " DS (re-evaluado post-033: sin resolver), gap-clears intactos";
+}
+
+TEST(OverlapGapClear, ClearGeometry) {
+    if (!fixture_ready()) GTEST_SKIP() << "bateria 1 u oraculo no local";
+    const auto& port = port_sets("geometry");
+
+    // Single-window clears declare the epoch ocbox, not the previous object bbox.
+    struct clear_t { size_t ds; uint16_t h_pos, v_pos, w, h; };
+    const clear_t expected[] = {{85, 351, 1012, 648, 53},
+                                {88, 351, 1012, 648, 53},
+                                {164, 573, 1012, 203, 53}};
+    for (const auto& e : expected) {
+        ASSERT_LE(e.ds, port.size()) << "DS=" << e.ds << " fuera del stream";
+        const auto& s = port[e.ds - 1];
+        ASSERT_EQ(s.wds.size(), 1u) << "DS=" << e.ds << " no es single-window";
+        EXPECT_EQ(s.wds[0][1], e.h_pos) << "DS=" << e.ds;
+        EXPECT_EQ(s.wds[0][2], e.v_pos) << "DS=" << e.ds;
+        EXPECT_EQ(s.wds[0][3], e.w) << "DS=" << e.ds;
+        EXPECT_EQ(s.wds[0][4], e.h) << "DS=" << e.ds;
+        EXPECT_TRUE(s.ods_size.empty()) << "DS=" << e.ds << " clear con ODS";
+    }
+}
+
+TEST(OverlapGapClear, PostClearOidPhase) {
+    if (!fixture_ready()) GTEST_SKIP() << "bateria 1 u oraculo no local";
+    const auto& port = port_sets("geometry");
+    const auto orac = scan_sup(oracle_path());
+
+    // ACQ right after the 5076000 gap: the o_id phase restarts at 0.
+    const uint64_t acq_pts = 5079600;
+    const auto it = std::find_if(port.begin(), port.end(),
+                                 [acq_pts](const ds_t& s) { return s.pts == acq_pts; });
+    ASSERT_NE(it, port.end()) << "falta la ACQ post-gap en PTS " << acq_pts;
+    ASSERT_FALSE(it->ods_oid.empty()) << "ACQ sin ODS";
+    EXPECT_EQ(it->ods_oid.front(), 0);
+
+    const size_t k = static_cast<size_t>(std::distance(port.begin(), it));
+    ASSERT_LT(k, orac.size());
+    EXPECT_EQ(it->state, orac[k].state);
+    EXPECT_EQ(it->cobjs.size(), orac[k].cobjs.size());
 }
 
 }  // namespace
