@@ -534,6 +534,7 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 }
                 merged_timing = compute_ds_timing(ti);
             }
+            uint16_t legacy_bit = node.obj_id;
             for (size_t wi : emit_order) {
                 const auto& wd = m_windows[wi];
                 const int wx = wd.h_pos, wy = wd.v_pos;
@@ -558,9 +559,16 @@ epoch_encoder_c::emit_epoch_from_nodes(
                     ow = em_win_objects[wi].w; oh = em_win_objects[wi].h;
                     ox = em_win_objects[wi].x; oy = em_win_objects[wi].y;
                 }
+                uint16_t win_oid = node.obj_id;
+                if (m_alternate_oids && !node.reusable) {
+                    // Co-displayed windows take the alternate bit; the node
+                    // itself already consumed the first one during prepare.
+                    win_oid = legacy_bit;
+                    legacy_bit = static_cast<uint16_t>(legacy_bit ^ 1u);
+                }
                 event_emit_input_t win_in{
                     ow, oh, ox, oy, wx, wy, node.forced, node.state,
-                    node.obj_id, wd.window_id, palette_id, node.reusable, fps_enum,
+                    win_oid, wd.window_id, palette_id, node.reusable, fps_enum,
                     node.palette, sub, node.timings};
                 win_in.normal_case_ref =
                     node.normal_case_ref && wd.window_id != node.ref_window_id;

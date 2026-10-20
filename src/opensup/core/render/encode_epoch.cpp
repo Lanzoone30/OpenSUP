@@ -1086,7 +1086,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     uint16_t obj_id;
     if (emit_reusable) {
         obj_id = prev_obj_id;
-    } else if (m_alternate_oids) {
+    } else if (m_alternate_oids && m_windows.size() < 2) {
         double_buffer = 1 - double_buffer;
         obj_id = static_cast<uint16_t>(double_buffer);
     } else if (m_windows.size() < 2) {
@@ -1094,7 +1094,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
         obj_id = static_cast<uint16_t>(dbw);
     } else {
-        // Multi-window: advanced per window in the split loop below.
+        // Multi-window: assigned per window in the split loop below.
         obj_id = prev_obj_id;
     }
 
@@ -1250,11 +1250,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         } else {
             // Multi-window: split the event bbox per layout window, one emit each.
             const int ax = ev.x() + crop_x, ay = ev.y() + crop_y;
-            // Legacy --alternate-oids keeps the global {0,1} toggle across
-            // acquisitions (any window count). The default is per-window double
-            // buffering: oid = wid + buffer[wid] (render2.py:749-750), advanced
-            // once per window that emits.
-            const uint16_t legacy_bit = static_cast<uint16_t>(double_buffer);
+            // Legacy --alternate-oids keeps one global {0,1} bit, advanced on
+            // every ODS emission. The default is per-window double buffering:
+            // oid = wid + buffer[wid], advanced once per emitting window.
             // Windows the event actually covers, in layout order.
             std::vector<size_t> emit_order;
             for (size_t wi = 0; wi < m_windows.size(); ++wi) {
@@ -1296,7 +1294,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 }
                 uint16_t win_oid;
                 if (m_alternate_oids) {
-                    win_oid = legacy_bit;
+                    if (emit_reusable) {
+                        win_oid = obj_id;   // reused object keeps its decoded oid
+                    } else {
+                        double_buffer = 1 - double_buffer;
+                        win_oid = static_cast<uint16_t>(double_buffer);
+                    }
                 } else if (emit_reusable) {
                     win_oid = static_cast<uint16_t>(static_cast<int>(wi) + double_buffer_db[wi]);
                 } else {
