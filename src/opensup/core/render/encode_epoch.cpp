@@ -150,8 +150,7 @@ trim_indexed_rect(const std::vector<uint8_t>& indexed,
     return true;
 }
 
-/// Igual que trim_indexed_rect pero sobre RGBA (alpha>0). El indexed del
-/// pipeline overlap no remapea transparencia a 0xFF; el alpha es la fuente.
+/// Igual que trim_indexed_rect pero sobre RGBA (alpha>0).
 bool
 trim_rgba_rect(const std::vector<uint8_t>& rgba,
                int ax, int ay, int obj_w, int obj_h,
@@ -175,6 +174,31 @@ trim_rgba_rect(const std::vector<uint8_t>& rgba,
     if (mxx < mnx) return false;
     x0 = mnx; y0 = mny; x1 = mxx + 1; y1 = mxy + 1;
     return true;
+}
+
+/// Reserved slot 0xFF carries transparency: every alpha==0 palette entry is
+/// remapped there and dropped, so index 0 stays free (solve_group layout).
+/// Defined here, used by overlap.cpp too.
+void normalize_transparent_index(palette_t& palette, std::vector<uint8_t>& indexed)
+{
+    bool transparent[256] = {};
+    for (const auto& [idx, e] : palette.entries())
+        if (e.alpha == 0) transparent[idx] = true;
+    uint8_t remap[256];
+    int dropped = 0;
+    for (int i = 0; i < 256; i++) {
+        if (transparent[i]) {
+            remap[i] = 0xFF;
+            dropped++;
+        } else {
+            remap[i] = static_cast<uint8_t>(i + 1 - dropped);
+        }
+    }
+    for (auto& b : indexed) b = remap[b];
+    palette_t shifted;
+    for (const auto& [idx, e] : palette.entries())
+        if (!transparent[idx]) shifted.set(remap[idx], e);
+    palette = std::move(shifted);
 }
 
 acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
@@ -261,10 +285,12 @@ epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
 
 std::shared_ptr<pds_c>
 epoch_encoder_c::make_pds(const media::palette_t& palette, uint8_t palette_id,
-                          double pts, double dts)
+                          double pts, double dts, bool force_full)
 {
     auto p_vn = static_cast<uint8_t>(m_palette_vn++);
-    bool full = m_full_palette || palette_id != m_last_palette_id ||
+    // Decoders drop the CLUT on every non-NORMAL composition, so a delta there
+    // would leave the omitted indices undefined.
+    bool full = force_full || m_full_palette || palette_id != m_last_palette_id ||
                 m_palette_cache.find(palette_id) == m_palette_cache.end();
 
     std::shared_ptr<pds_c> pds;
@@ -508,8 +534,10 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
             pds_dts = prev_ends->dts();
         }
     }
+    const bool palette_forced = in.comp_state != pcs_c::composition_state_e::normal;
     if (!in.reusable) {
-        result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts));
+        result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts,
+                                  palette_forced));
 
         // Skipped for reused events — the object is already decoded.
         double ods_pts = dt.dts + obj_decode;
@@ -535,6 +563,10 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         auto end = ends_c::from_scratch(ods_pts, ods_pts);
         result.push_back(std::make_shared<ends_c>(std::move(end)));
     } else {
+        // A non-NORMAL composition wipes the decoder CLUT; resend the palette
+        // even though the object itself is reused.
+        if (in.comp_state != pcs_c::composition_state_e::normal)
+            result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts, true));
         // ENDS: PTS = DTS = presentation time of the reused composition.
         // Uses the recomputed decode start so it never predates the PCS DTS.
         auto end = ends_c::from_scratch(dt.dts, dt.dts);
@@ -856,7 +888,10 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                             pds_dts = prev->dts();
                         }
                     }
-                    diff_pds = make_pds(sol.palettes[i], palette_id, pds_pts, pds_dts);
+                    // Non-NORMAL states already carry a full PDS from the DS
+                    // builder; only NORMAL needs the explicit palette delta.
+                    if (e.comp_state == pcs_c::composition_state_e::normal)
+                        diff_pds = make_pds(sol.palettes[i], palette_id, pds_pts, pds_dts);
                 }
                 for (auto& seg : segs) {
                     if (diff_pds && dynamic_cast<ends_c*>(seg.get()) != nullptr)
@@ -969,34 +1004,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         std::vector<uint8_t> indexed;
         bool quant_ok = quantize_image(trimmed_rgba, obj_w, obj_h, palette, indexed);
         if (quant_ok) {
-            // Oracle parity: transparency decided by palette entries with
-            // alpha==0; index 0 stays free, the reserved entry maps to 0xFF
-            // and is dropped from the palette (same layout as solve_group).
-            int t = -1;
-            for (const auto& [idx, e] : palette.entries()) {
-                if (e.alpha == 0) { t = static_cast<int>(idx); break; }
-            }
-            if (t >= 0) {
-                for (size_t i = 0; i < indexed.size(); i++) {
-                    uint8_t b = indexed[i];
-                    if (b == t) {
-                        indexed[i] = 0xFF;
-                    } else if (b < t) {
-                        indexed[i] = static_cast<uint8_t>(b + 1);
-                    }
-                }
-            } else {
-                for (size_t i = 0; i < indexed.size(); i++) {
-                    indexed[i] = static_cast<uint8_t>(indexed[i] + 1);
-                }
-            }
-            palette_t shifted;
-            for (const auto& [idx, e] : palette.entries()) {
-                if (static_cast<int>(idx) == t) continue;
-                shifted.set(t == -1 || idx < t ? static_cast<uint8_t>(idx + 1)
-                                               : idx, e);
-            }
-            palette = std::move(shifted);
+            // Transparent entries: index 0 stays free, every alpha==0 slot maps
+            // to 0xFF and is dropped from the palette (same layout as solve_group).
+            normalize_transparent_index(palette, indexed);
         } else {
             logger_c::instance().warn("Quantization failed for event " + std::to_string(k));
             continue;

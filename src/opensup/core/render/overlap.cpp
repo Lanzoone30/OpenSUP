@@ -26,6 +26,8 @@ std::vector<uint8_t> crop_indexed(const std::vector<uint8_t>& indexed, int ax, i
 /// Defined in encode_epoch.cpp.
 bool trim_rgba_rect(const std::vector<uint8_t>& rgba, int ax, int ay,
                     int obj_w, int obj_h, int& x0, int& y0, int& x1, int& y1);
+/// Defined in encode_epoch.cpp.
+void normalize_transparent_index(media::palette_t& palette, std::vector<uint8_t>& indexed);
 // Overlap pipeline: active only when m_overlap && m_windows.size() == 2.
 
 void epoch_encoder_c::shift_forward_overlay(
@@ -253,6 +255,9 @@ epoch_encoder_c::encode_epoch_overlap(
         media::palette_t pal;
         std::vector<uint8_t> idx;
         if (quantize_image(trimmed_rgba, node.w, node.h, pal, idx)) {
+            // Same layout as the single-pass path: transparency lives at 0xFF,
+            // never at a colour index (else a decoder paints it as content).
+            normalize_transparent_index(pal, idx);
             node.palette = std::move(pal);
             node.indexed = std::move(idx);
         }

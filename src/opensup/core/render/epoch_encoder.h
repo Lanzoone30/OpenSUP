@@ -191,7 +191,8 @@ private:
     /// full-palette mode is active; otherwise a delta against the last palette
     /// sent for the same id.
     std::shared_ptr<pds_c> make_pds(const media::palette_t& palette,
-                                    uint8_t palette_id, double pts, double dts);
+                                    uint8_t palette_id, double pts, double dts,
+                                    bool force_full = false);
 
     double m_fps;
     int m_width, m_height;
