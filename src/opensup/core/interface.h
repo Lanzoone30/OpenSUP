@@ -51,6 +51,7 @@ struct encode_config_t {
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
+    bool tight_ods = false;        // ODS box = event content, not the window slot
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;

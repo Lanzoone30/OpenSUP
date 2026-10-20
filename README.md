@@ -182,6 +182,7 @@ The CLI shares the exact same engine as the GUI.
 | `--overlap`           | Allow palette update buffering                                        |
 | `--alternate-oids`    | Alternate per-window object ids (multi-window)                        |
 | `--ignore-resolution` | Accept non-standard video resolutions (experimental)                  |
+| `--tight-ods`         | Crop each event's ODS box tight to its text (default: off)            |
 | `--redraw-period`     | Anchor interval in seconds (0 = disable, minimum 1)                   |
 | `-m, --max-kbps`      | Validate against a max bitrate in Kbps [0-48000, 0 = off] (default 0) |
 | `-j, --threads`       | Parallel epoch workers [0 = auto, 1 = sequential] (default 0)         |

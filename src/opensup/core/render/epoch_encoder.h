@@ -135,6 +135,7 @@ struct epoch_render_options_t {
     double ssim_tol = 0.0;         // ssim_tol/100 (per-resolution threshold adjust)
     int insert_acquisitions = 2;   // extra_acq (min palette updates to force acq)
     bool alternate_oids = false;
+    bool tight_ods = false;   // ODS box = event content instead of the window slot
     std::string bt_matrix = "bt709";
     bool is_last_epoch = false;
     int liq_quality = 95;
@@ -208,6 +209,7 @@ private:
     bool m_overlap = false;
     bool m_full_palette = false;
     bool m_alternate_oids = false;
+    bool m_tight_ods = false;
     media::liq_options_t m_liq_options;
     sequence_quality_policy_c m_quality;
     int m_composition_n = 1;

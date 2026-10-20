@@ -35,6 +35,7 @@ add_executable(opensup_test_core
   engine_options_qa_test.cpp
   acquisition_palette_test.cpp
   ignore_resolution_test.cpp
+  tight_ods_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 

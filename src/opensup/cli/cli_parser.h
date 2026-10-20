@@ -26,6 +26,7 @@ struct cli_options_t {
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
+    bool tight_ods = false;        // ODS box = event content, not the window slot
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
     int threads = 0;         // 0 = auto (physical cores)

@@ -61,6 +61,9 @@ parse_args(int argc, char** argv)
     app.add_flag("--alternate-oids", opts.alternate_oids,
                   "Force legacy global 0/1 object ids (default is per-window oids).");
 
+    app.add_flag("--tight-ods", opts.tight_ods,
+                  "Crop each ODS box to its event content instead of the window slot.");
+
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
 
@@ -236,6 +239,7 @@ options_to_config(const cli_options_t& opts)
     }
     cfg.overlap = opts.overlap;
     cfg.alternate_oids = opts.alternate_oids;
+    cfg.tight_ods = opts.tight_ods;
     cfg.bt_matrix = canonical_bt_matrix(opts.bt_matrix);
     if (cfg.bt_matrix.empty()) {
         common::logger_c::instance().warn(

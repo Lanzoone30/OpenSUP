@@ -224,6 +224,7 @@ epoch_encoder_c::epoch_encoder_c(const epoch_render_options_t& opts)
     , m_overlap(opts.overlap)
     , m_full_palette(opts.full_palette)
     , m_alternate_oids(opts.alternate_oids)
+    , m_tight_ods(opts.tight_ods)
     , m_liq_options{opts.liq_quality, opts.liq_speed, opts.liq_dither_pct}
     , m_quality(sequence_quality_policy_c::options_t{
           opts.quality_factor, opts.refresh_rate, opts.ssim_tol,
@@ -425,21 +426,24 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
     // ODS frame = epoch slot for this window. Content keeps its on-screen
     // position; the frame is anchored to the content's right/bottom edge and
     // clamped to the window origin, with transparent 0xFF padding.
+    // With tight_ods the frame is the content box itself, top-left anchored.
     const window_definition_t* slot_wd = nullptr;
     for (const auto& wd : m_windows)
         if (wd.window_id == in.window_id) slot_wd = &wd;
     int frame_w = in.obj_w, frame_h = in.obj_h;
-    if (slot_wd) {
+    if (!m_tight_ods && slot_wd) {
         if (auto it = m_slots.find(in.window_id); it != m_slots.end()) {
             frame_w = std::max(frame_w, it->second.w);
             frame_h = std::max(frame_h, it->second.h);
         }
     }
     int frame_x = in.ev_x + in.crop_x, frame_y = in.ev_y + in.crop_y;
-    frame_x += in.obj_w - frame_w;
-    frame_y += in.obj_h - frame_h;
-    if (slot_wd && frame_x < static_cast<int>(slot_wd->h_pos)) frame_x = slot_wd->h_pos;
-    if (slot_wd && frame_y < static_cast<int>(slot_wd->v_pos)) frame_y = slot_wd->v_pos;
+    if (!m_tight_ods) {
+        frame_x += in.obj_w - frame_w;
+        frame_y += in.obj_h - frame_h;
+        if (slot_wd && frame_x < static_cast<int>(slot_wd->h_pos)) frame_x = slot_wd->h_pos;
+        if (slot_wd && frame_y < static_cast<int>(slot_wd->v_pos)) frame_y = slot_wd->v_pos;
+    }
     const int paste_x = in.ev_x + in.crop_x - frame_x;
     const int paste_y = in.ev_y + in.crop_y - frame_y;
 
