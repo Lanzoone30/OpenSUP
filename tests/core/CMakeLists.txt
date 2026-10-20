@@ -33,6 +33,7 @@ add_executable(opensup_test_core
   sup_reader_test.cpp
   inspector_test.cpp
   engine_options_qa_test.cpp
+  ignore_resolution_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 

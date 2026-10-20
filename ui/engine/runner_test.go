@@ -108,6 +108,7 @@ func TestBuildArgs_EngineOptionFlagMapping(t *testing.T) {
 		{"prefer normal", EncodeConfig{PreferNormalCase: true}, []string{"-k"}},
 		{"both formats", EncodeConfig{BothFormats: true}, []string{"-w"}},
 		{"alternate oids", EncodeConfig{AlternateOids: true}, []string{"--alternate-oids"}},
+		{"ignore resolution", EncodeConfig{IgnoreResolution: true}, []string{"--ignore-resolution"}},
 		// The GUI forces allow-normal while prefer-normal is on, so both flags
 		// reach the engine together (CLI also force-enables -n).
 		{"prefer with forced allow", EncodeConfig{PreferNormalCase: true, AllowNormalCase: true}, []string{"-k", "-n"}},

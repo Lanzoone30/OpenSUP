@@ -35,6 +35,7 @@ export namespace engine {
 	    Quantizer: number;
 	    BTMatrix: string;
 	    Overwrite: boolean;
+	    IgnoreResolution: boolean;
 	    BothFormats: boolean;
 	    FullPalette: boolean;
 	    AllowNormalCase: boolean;
@@ -60,6 +61,7 @@ export namespace engine {
 	        this.Quantizer = source["Quantizer"];
 	        this.BTMatrix = source["BTMatrix"];
 	        this.Overwrite = source["Overwrite"];
+	        this.IgnoreResolution = source["IgnoreResolution"];
 	        this.BothFormats = source["BothFormats"];
 	        this.FullPalette = source["FullPalette"];
 	        this.AllowNormalCase = source["AllowNormalCase"];

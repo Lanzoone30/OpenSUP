@@ -80,7 +80,8 @@ class bdn_xml_c {
 public:
     bdn_xml_c() = default;
     /// Parse a BDN XML file; throws parse_error_x on malformed input.
-    bool parse(const std::string& filepath);
+    /// ignore_resolution accepts non-Blu-ray canvas sizes with a warning.
+    bool parse(const std::string& filepath, bool ignore_resolution = false);
 
     [[nodiscard]] const std::vector<bdn_xml_event_c>& events() const noexcept { return m_events; }
     [[nodiscard]] common::fps_e fps() const noexcept { return m_fps; }

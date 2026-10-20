@@ -19,6 +19,7 @@ struct cli_options_t {
     int quantizer = 3;       // SUPer ids: 2 = HexTree, 3 = LIQ (def); 0/1/4 reserved
     std::string bt_matrix = "bt709";
     bool overwrite = false;
+    bool ignore_resolution = false;
     bool both_formats = false;
     bool full_palette = false;
     bool allow_normal_case = false;

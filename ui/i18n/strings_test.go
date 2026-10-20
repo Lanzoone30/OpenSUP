@@ -8,7 +8,7 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 67)
+	assert.Len(t, Table, 68)
 }
 
 func TestEngineSurfaceKeys(t *testing.T) {

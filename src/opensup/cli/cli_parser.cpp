@@ -41,6 +41,9 @@ parse_args(int argc, char** argv)
     app.add_flag("-y,--yes", opts.overwrite,
                   "Overwrite existing output file");
 
+    app.add_flag("--ignore-resolution", opts.ignore_resolution,
+                  "Ignore Resolution Validation (Experimental)");
+
     app.add_flag("-w,--withsup", opts.both_formats,
                   "Generate both SUP and PES+MUI files.");
 
@@ -222,6 +225,7 @@ options_to_config(const cli_options_t& opts)
         std::exit(1);
     }
     cfg.overwrite = opts.overwrite;
+    cfg.ignore_resolution = opts.ignore_resolution;
     cfg.both_formats = opts.both_formats;
     cfg.allow_normal_case = opts.allow_normal_case;
     cfg.prefer_normal_case = opts.prefer_normal_case;

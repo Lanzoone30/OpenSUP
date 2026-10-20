@@ -37,6 +37,7 @@ type EncodeConfig struct {
 	Quantizer        int
 	BTMatrix         string
 	Overwrite        bool
+	IgnoreResolution bool
 	BothFormats      bool
 	FullPalette      bool
 	AllowNormalCase  bool
@@ -299,6 +300,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.Overwrite {
 		args = append(args, "-y")
 	}
+	if cfg.IgnoreResolution {
+		args = append(args, "--ignore-resolution")
+	}
 	if cfg.BothFormats {
 		args = append(args, "-w")
 	}
@@ -347,9 +351,9 @@ func drainStderr(r io.Reader) {
 	}
 }
 
-func floatToStr(f float64) string  { return strconvFloat(f) }
-func intToStr(i int) string        { return strconvInt(i) }
+func floatToStr(f float64) string { return strconvFloat(f) }
+func intToStr(i int) string       { return strconvInt(i) }
 
 // thin wrappers around strconv to keep the import block tight above.
-func strconvFloat(f float64) string  { return fmt.Sprintf("%g", f) }
-func strconvInt(i int) string        { return fmt.Sprintf("%d", i) }
+func strconvFloat(f float64) string { return fmt.Sprintf("%g", f) }
+func strconvInt(i int) string       { return fmt.Sprintf("%d", i) }

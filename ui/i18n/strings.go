@@ -57,14 +57,15 @@ var Table = map[string][2]string{
 	"extraAcqTip":     {"Force acquisition after N palette updates. 2 recommended (default). 0 = disabled.", "Forzar adquisición tras N actualizaciones de paleta. Recomendado 2 (por defecto). 0 = desactivado."},
 
 	// -- Engine Options --
-	"engineOpts":     {"Engine Options", "Opciones del Motor"},
-	"allowNormal":    {"Allow normal case object redefinition.", "Permitir redefinición normal case"},
-	"preferNormal":   {"Prefer normal case object redefinition.", "Preferir redefinición normal case"},
-	"fullPalette":    {"Write the full palette.", "Escribir la paleta completa."},
-	"bothFormatsTip": {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
-	"bothFormats":    {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
-	"overlapBuf":     {"Allow palette update buffering.", "Permitir buffering de paleta"},
-	"alternateOids":  {"Force legacy global object ids (0/1).", "Forzar ids de objeto globales legacy (0/1)."},
+	"engineOpts":       {"Engine Options", "Opciones del Motor"},
+	"allowNormal":      {"Allow normal case object redefinition.", "Permitir redefinición normal case"},
+	"preferNormal":     {"Prefer normal case object redefinition.", "Preferir redefinición normal case"},
+	"fullPalette":      {"Write the full palette.", "Escribir la paleta completa."},
+	"bothFormatsTip":   {"Generate both .sup and .pes/.mui output formats.", "Generar formatos .sup y .pes/.mui."},
+	"bothFormats":      {"Generate both SUP and PES+MUI files.", "SUP + PES/MUI"},
+	"overlapBuf":       {"Allow palette update buffering.", "Permitir buffering de paleta"},
+	"alternateOids":    {"Force legacy global object ids (0/1).", "Forzar ids de objeto globales legacy (0/1)."},
+	"ignoreResolution": {"Ignore resolution validation.", "Ignorar validación de resolución."},
 
 	// -- Activity Log --
 	"activityLog": {"ACTIVITY LOG", "REGISTRO DE ACTIVIDAD"},

@@ -51,6 +51,7 @@ const Table = {
   bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "SUP + PES/MUI" },
   overlapBuf:     { en: "Allow palette update buffering.",  es: "Permitir buffering de paleta" },
   alternateOids:  { en: "Force legacy global object ids (0/1).", es: "Forzar ids de objeto globales legacy (0/1)." },
+  ignoreResolution: { en: "Ignore resolution validation.", es: "Ignorar validación de resolución." },
 
   // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },

@@ -35,6 +35,7 @@ export function startEncode() {
     BTMatrix:        $("combo_colorspace").value,
     Overwrite:       true,
     BothFormats:     $("chk_both_formats").checked,
+    IgnoreResolution:  $("chk_ignore_resolution").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
     PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
