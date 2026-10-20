@@ -35,7 +35,7 @@
   vertical-align: middle;
 }
 
-/* ── Compact numeric input (Anchor interval) ── */
+/* ── Compact numeric input (Redraw period) ── */
 .input-num {
   width: 64px;
   padding: 6px 10px;
@@ -311,10 +311,16 @@ details[open]>summary.card-title::before {
 .adv {
   border: 1px solid var(--border);
   border-radius: var(--r-card);
-  padding: 6px 10px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0; /* explicit row margins: gap is unreliable on <details> content */
+}
+
+/* Every advanced row breathes, including the first one after the summary. */
+.adv>.adv-title+.param-row,
+.adv>.param-row+.param-row {
+  margin-top: 12px;
 }
 
 .adv-title {

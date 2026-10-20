@@ -8,6 +8,15 @@ export namespace config {
 	    params_open: boolean;
 	    engine_open: boolean;
 	    advanced_open: boolean;
+	    allow_normal: boolean;
+	    prefer_normal: boolean;
+	    overlap: boolean;
+	    full_palette: boolean;
+	    alternate_oids: boolean;
+	    both_formats: boolean;
+	    ignore_resolution: boolean;
+	    tight_ods: boolean;
+	    quantizer: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -22,6 +31,15 @@ export namespace config {
 	        this.params_open = source["params_open"];
 	        this.engine_open = source["engine_open"];
 	        this.advanced_open = source["advanced_open"];
+	        this.allow_normal = source["allow_normal"];
+	        this.prefer_normal = source["prefer_normal"];
+	        this.overlap = source["overlap"];
+	        this.full_palette = source["full_palette"];
+	        this.alternate_oids = source["alternate_oids"];
+	        this.both_formats = source["both_formats"];
+	        this.ignore_resolution = source["ignore_resolution"];
+	        this.tight_ods = source["tight_ods"];
+	        this.quantizer = source["quantizer"];
 	    }
 	}
 
@@ -42,6 +60,7 @@ export namespace engine {
 	    PreferNormalCase: boolean;
 	    Overlap: boolean;
 	    AlternateOids: boolean;
+	    TightOds: boolean;
 	    RedrawPeriod: number;
 	    MaxKbps: number;
 	    Threads: number;
@@ -68,6 +87,7 @@ export namespace engine {
 	        this.PreferNormalCase = source["PreferNormalCase"];
 	        this.Overlap = source["Overlap"];
 	        this.AlternateOids = source["AlternateOids"];
+	        this.TightOds = source["TightOds"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
 	        this.MaxKbps = source["MaxKbps"];
 	        this.Threads = source["Threads"];

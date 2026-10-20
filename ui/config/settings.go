@@ -34,16 +34,26 @@ const (
 // Settings holds every persistent key. The JSON keys match the
 // original QSettings names so a future migration is lossless.
 type Settings struct {
-	Language    Language `json:"language"`
-	Theme       Theme    `json:"theme"`
-	LastBDNDir  string   `json:"last_bdn_dir"`
-	LastOutDir  string   `json:"last_output_dir"`
+	Language   Language `json:"language"`
+	Theme      Theme    `json:"theme"`
+	LastBDNDir string   `json:"last_bdn_dir"`
+	LastOutDir string   `json:"last_output_dir"`
 	// Legacy collapsible-card state. No longer written by the UI (cards
 	// always start at their markup default: Parameters/Engine expanded,
 	// Advanced collapsed). Kept only so older settings.json files decode.
 	ParamsOpen   bool `json:"params_open"`
 	EngineOpen   bool `json:"engine_open"`
 	AdvancedOpen bool `json:"advanced_open"`
+	// Engine Options, persisted from the left panel so they survive restarts.
+	AllowNormal      bool `json:"allow_normal"`
+	PreferNormal     bool `json:"prefer_normal"`
+	Overlap          bool `json:"overlap"`
+	FullPalette      bool `json:"full_palette"`
+	AlternateOids    bool `json:"alternate_oids"`
+	BothFormats      bool `json:"both_formats"`
+	IgnoreResolution bool `json:"ignore_resolution"`
+	TightOds         bool `json:"tight_ods"`
+	Quantizer        int  `json:"quantizer"`
 }
 
 func defaults() Settings {
@@ -52,6 +62,7 @@ func defaults() Settings {
 		Theme:      ThemeSystem,
 		LastBDNDir: "",
 		LastOutDir: "",
+		Quantizer:  3, // PNGQ/LIQ, matches the markup default
 	}
 }
 

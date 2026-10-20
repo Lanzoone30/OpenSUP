@@ -8,7 +8,7 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 68)
+	assert.Len(t, Table, 71)
 }
 
 func TestEngineSurfaceKeys(t *testing.T) {
@@ -18,7 +18,7 @@ func TestEngineSurfaceKeys(t *testing.T) {
 		assert.NotEmpty(t, Get(EN, key), "EN %s", key)
 		assert.NotEmpty(t, Get(ES, key), "ES %s", key)
 	}
-	assert.Equal(t, "Force legacy global object ids (0/1).", Get(EN, "alternateOids"))
+	assert.Equal(t, "Use global object IDs 0/1 (interoperability)", Get(EN, "alternateOids"))
 	assert.NotEqual(t, Get(EN, "alternateOids"), Get(ES, "alternateOids"))
 }
 

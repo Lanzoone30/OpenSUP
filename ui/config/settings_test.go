@@ -19,6 +19,16 @@ func TestDefaults(t *testing.T) {
 	assert.False(t, d.ParamsOpen)
 	assert.False(t, d.EngineOpen)
 	assert.False(t, d.AdvancedOpen)
+	// Engine Options default to the markup: all unchecked, quantizer 3.
+	assert.False(t, d.AllowNormal)
+	assert.False(t, d.PreferNormal)
+	assert.False(t, d.Overlap)
+	assert.False(t, d.FullPalette)
+	assert.False(t, d.AlternateOids)
+	assert.False(t, d.BothFormats)
+	assert.False(t, d.IgnoreResolution)
+	assert.False(t, d.TightOds)
+	assert.Equal(t, 3, d.Quantizer)
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -27,10 +37,19 @@ func TestRoundTrip(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	s := Settings{
-		Language:   Spanish,
-		Theme:      ThemeDark,
-		LastBDNDir: "/home/test/bdn",
-		LastOutDir: "/home/test/out",
+		Language:         Spanish,
+		Theme:            ThemeDark,
+		LastBDNDir:       "/home/test/bdn",
+		LastOutDir:       "/home/test/out",
+		AllowNormal:      true,
+		PreferNormal:     true,
+		Overlap:          true,
+		FullPalette:      true,
+		AlternateOids:    true,
+		BothFormats:      true,
+		IgnoreResolution: true,
+		TightOds:         true,
+		Quantizer:        2,
 	}
 	require.NoError(t, Save(s))
 

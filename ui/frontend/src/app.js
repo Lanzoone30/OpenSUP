@@ -40,6 +40,8 @@ function applyI18n() {
     chk_both_formats: "tipBothFormats",
     chk_overlap: "tipOverlapBuf",
     chk_alternate_oids: "tipAlternateOids",
+    chk_tight_ods: "tipTightOds",
+    chk_ignore_resolution: "tipIgnoreResolution",
   };
   for (const [id, key] of Object.entries(tips)) {
     const el = $(id);

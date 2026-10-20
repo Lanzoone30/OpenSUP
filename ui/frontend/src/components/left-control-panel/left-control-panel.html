@@ -38,7 +38,7 @@
           </div>
         </div>
         <div class="param-row param-row-gap">
-          <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color Space</label>
+          <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color space</label>
           <select id="combo_colorspace">
             <option value="bt709">BT.709</option>
             <option value="bt601">BT.601</option>
@@ -58,7 +58,7 @@
           </span>
         </div>
         <div class="param-row">
-          <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Anchor interval</label>
+          <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Redraw period</label>
           <span class="redraw-group">
             <input id="input_redraw" class="input-num" type="number" min="0" step="0.1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="redrawPeriodTip"></span>
@@ -79,21 +79,21 @@
           </span>
         </div>
         <div class="param-row">
-          <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acq. Rate</label>
+          <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acquisition rate</label>
           <span class="redraw-group">
             <input id="input_acqrate" class="input-num" type="number" min="0" max="100" step="1" value="100"/>
             <span class="help-tip" tabindex="0" data-i18n="acqrateTip"></span>
           </span>
         </div>
         <div class="param-row">
-          <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM Tol.</label>
+          <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM tolerance</label>
           <span class="redraw-group">
             <input id="input_ssim_tol" class="input-num" type="number" min="-100" max="100" step="1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="ssimTolTip"></span>
           </span>
         </div>
         <div class="param-row">
-          <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra Acq</label>
+          <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra acquisition</label>
           <span class="redraw-group">
             <input id="input_extra_acq" class="input-num" type="number" min="0" max="100" step="1" value="2"/>
             <span class="help-tip" tabindex="0" data-i18n="extraAcqTip"></span>
@@ -123,8 +123,12 @@
             <span data-i18n="fullPalette">Write full palette.</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="chk_tight_ods"/>
+            <span data-i18n="tightOds">Fit ODS box to text</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="chk_alternate_oids"/>
-            <span data-i18n="alternateOids">Alternate per-window object ids (multi-window).</span>
+            <span data-i18n="alternateOids">Use global object IDs 0/1 (interoperability)</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_both_formats"/>

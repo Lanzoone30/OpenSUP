@@ -7,6 +7,7 @@ import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
 import { appendLog } from "../log-panel/log-panel.js";
 import { selectBDN, setOutput, revealOutputFolder, updateOutputActions } from "../left-control-panel/left-control-panel.js";
+import { saveSettings } from "../../shared/settings.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
@@ -41,6 +42,7 @@ export function startEncode() {
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
     AlternateOids:   $("chk_alternate_oids").checked,
+    TightOds:        $("chk_tight_ods").checked,
     RedrawPeriod:    numOr($("input_redraw"), 0),
     MaxKbps:         numOr($("input_max_kbps"), 0),
     Threads:         numOr($("combo_threads"), 0),
@@ -61,6 +63,8 @@ export function startEncode() {
   const area = $("txt_log");
   if (area) area.removeAttribute("data-empty");
 
+  // Persist the checkbox/quantizer state on each run: there is no settings dialog.
+  saveSettings();
   app.StartEncode(cfg).then(() => {
     // Normal completion: the engine:done event handles the UI state.
   }).catch((err) => {
