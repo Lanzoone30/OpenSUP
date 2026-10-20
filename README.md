@@ -180,7 +180,7 @@ The CLI shares the exact same engine as the GUI.
 | `-p, --palette`       | Write full palette for all epochs                                     |
 | `--allow-normal`      | Allow normal-case object redefinition                                 |
 | `--overlap`           | Allow palette update buffering                                        |
-| `--alternate-oids`    | Alternate per-window object ids (multi-window)                        |
+| `--alternate-oids`    | Force legacy global object ids 0/1 (default: per-window ids)          |
 | `--ignore-resolution` | Accept non-standard video resolutions (experimental)                  |
 | `--tight-ods`         | Crop each event's ODS box tight to its text (default: off)            |
 | `--redraw-period`     | Anchor interval in seconds (0 = disable, minimum 1)                   |

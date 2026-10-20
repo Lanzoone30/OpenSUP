@@ -33,7 +33,7 @@ parse_args(int argc, char** argv)
         ->required();
 
     app.add_option("-q,--quantizer", opts.quantizer,
-                    "Set image quantizer. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ, 4: pngquant] (def: 3)");
+                    "Set image quantizer. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ] (def: 3)");
 
     app.add_option("-b,--bt", opts.bt_matrix,
                     "Color Space [BT.709, BT.601, BT.2020] (def: BT.709)");

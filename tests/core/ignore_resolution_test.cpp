@@ -45,7 +45,8 @@ TEST(IgnoreResolution, RejectByDefault) {
 
     EXPECT_FALSE(parsed);
     ASSERT_EQ(errors.size(), 1u);
-    EXPECT_EQ(errors[0], "Non-standard Blu-ray resolution 1350x1080.");
+    EXPECT_EQ(errors[0], "Non-standard Blu-ray resolution 1350x1080. "
+                         "Use --ignore-resolution or the checkbox in the GUI.");
 }
 
 TEST(IgnoreResolution, AcceptWithFlag) {

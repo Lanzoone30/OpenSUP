@@ -181,7 +181,8 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         if (!ignore_resolution) {
             logger_c::instance().error(
                 "Non-standard Blu-ray resolution " +
-                std::to_string(m_width) + "x" + std::to_string(m_height) + ".");
+                std::to_string(m_width) + "x" + std::to_string(m_height) +
+                ". Use --ignore-resolution or the checkbox in the GUI.");
             return false;
         }
         // Emitted once per file, before the event loop.
