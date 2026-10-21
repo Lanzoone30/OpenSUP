@@ -13,10 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`--tight-ods` engine flag with a "Fit ODS box to text" checkbox**: the
   object box now fits the subtitle content instead of the whole window slot.
-- **`--ignore-resolution` engine flag with an "Ignore resolution validation"
-  checkbox**: encodes BDN files with non-standard (non-Blu-ray) canvas sizes.
-  The engine warns instead of failing, and rejects zero or negative dimensions
-  so a bad BDN cannot produce an unplayable stream.
 - **SUP inspector**: new `inspect`, `validate`, and `stats` subcommands read
   finished `.sup` streams, with human or `--json` output per display set,
   compliance checks (PTS/DTS ordering, bitrate, truncation), and a segment
