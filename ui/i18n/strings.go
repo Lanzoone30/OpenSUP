@@ -13,7 +13,7 @@ const (
 )
 
 // Version is concatenated into the windowTitle and version keys.
-const Version = "2.0.0"
+const Version = "2.1.0"
 
 // Table maps each key to a pair (EN, ES).
 var Table = map[string][2]string{
