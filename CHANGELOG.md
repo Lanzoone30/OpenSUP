@@ -7,36 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0]
+
+### Added
+
+- **`--tight-ods` engine flag with a "Fit ODS box to text" checkbox**: the
+  object box now fits the subtitle content instead of the whole window slot.
+- **`--ignore-resolution` engine flag with an "Ignore resolution validation"
+  checkbox**: encodes BDN files with non-standard (non-Blu-ray) canvas sizes.
+  The engine warns instead of failing, and rejects zero or negative dimensions
+  so a bad BDN cannot produce an unplayable stream.
+- **SUP inspector**: new `inspect`, `validate`, and `stats` subcommands read
+  finished `.sup` streams, with human or `--json` output per display set,
+  compliance checks (PTS/DTS ordering, bitrate, truncation), and a segment
+  census.
+- **Engine Options persistence**: the eight checkboxes save to and restore
+  from the settings file. "Prefer normal case" turns on "Allow normal case"
+  when you check it first, like the original GUI behavior.
+- **`-k/--prefer-normal` flag and CLI surface parity**: quantizer IDs
+  (`-q 0..4`) fail fast for backends not built in, plus new short flags and
+  aliases.
+
 ### Changed
 
-- **Per-window ODS emission in multi-window epochs (spec 027)**: windows with relevant
-  intersection now get their own ODS/palette per event (cropped from a shared packed
-  palette solve instead of one full-event bounding box), OIDs follow the oracle
-  interleaved scheme (`o_id = window ordinal + DB flip × N`, single-window `{0,1}`
-  unchanged), and the WDS declares every window even when no object covers it.
-- **DS timing parity (D3)**: wipe duration is now the ceiling of the summed window
-  areas (was sum of per-window ceilings) and the WDS PTS half-tick nudge was replaced
-  by the oracle's decode+1 guard.
-- **Buffer guard (DB1)**: splits whose post-pad window areas exceed the 16-entry
-  bitmap buffer ceiling (`(1<<20)-150`) degrade to a single window in
-  `determine_windows` and `encode_epoch`, matching the oracle's
-  `may_not_fit_buffer → base_box` fallback.
+- **Per-window objects in multi-window events**: each window now gets its own
+  graphic object and palette cropped from a shared palette solve, instead of
+  one box for the whole event. Object IDs interleave per window, and
+  single-window events keep their old scheme.
+- **Wipe and clear timing**: wipe durations use the ceiling of summed window
+  areas (was the sum of per-window ceilings), the WDS timestamp guard prevents
+  half-tick drift, and clears during overlap gaps and at the end of an epoch
+  declare the full epoch layout, so subtitles no longer linger on screen
+  between events.
+- **Buffer-guard fallback**: splits whose padded windows would exceed the
+  16-entry bitmap buffer limit fall back to a single window.
+- **Geometry parity**: vertical padding follows the reference branch, and
+  per-window object buffers double-buffer with an epoch-start reset, so
+  re-acquired epochs keep stable IDs.
 
 ### Fixed
 
-- **Single-pass multi-window display set parity (spec 028)**: the multi-window merge in
-  the single-pass route now emits one display set per event (unique ENDS, per-window
-  PDS/ODS with window OIDs, no extra acquisitions), and intermediate multi-window epochs
-  end in a WDS clear instead of a palette-end wipe, matching the oracle exactly
-  (324/168/156/0, 43 ACQUISITIONs); ghost epochs without PCS are eliminated (52 → 0).
-- **MUI PTS/DTS writer (spec 029, D6)**: MUI records rebuild a 39-bit timestamp and
-  re-shift it `>>6`; the writer now emits `PTS<<6` so `from_mui` round-trips exactly
-  (SUP → MUI → from_mui produces readable, exact PTS/DTS and `check_integrity()` passes).
-- **Acquisition PCS cobject re-acquisition (spec 029, D7)**: epoch s with a re-acquired
-  palette now re-emits ODS/PDS per window (spec-027 interleaved OIDs, D-029-2 numbering
-  by window) and the multi-window single-pass route clears windows via WDS instead of a
-  palette-end wipe. Known debt: 11 display sets of the ENIGMA-1080p battery still over-
-  list retained windows in the acquisition PCS (tracked in spec 030).
+- **Palettes in hard cases**: full palettes are written in non-normal display
+  sets and palette rebakes, so players that empty their palette on normal
+  events no longer show invisible text.
+- **Multi-window and overlap streams**: one merged PDS per display set with
+  re-anchored ODS/ENDS timestamps, and windows keep their object IDs across
+  re-acquisitions.
+- **Multi-Graphic BDN files**: events built from several `<Graphic>` blocks now
+  compute a union canvas, and acquisition display sets list only the windows
+  the event actually paints, so windows without content stop re-acquiring
+  objects every event.
+- **MUI timestamps round-trip exactly**: the writer emits `PTS<<6`, which
+  reconstructs the original 39-bit PTS/DTS values.
+- **libimagequant**: handles are released when remapping fails, instead of
+  leaking on error paths.
+- **CLI error messages**: a non-standard-resolution BDN is rejected with a
+  clear explanation, and the quantizer help no longer lists backends
+  unavailable in that build.
 
 ## [2.0.0] - 2026-09-19
 
@@ -80,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Qt6 GUI**, replaced by Wails v2.
 - **`--prefer-normal`**: dropped from the CLI, UI and bindings. It behaved as a no-op; the C++
-  plumbing stays reserved for the faithful implementation (spec 013).
+  plumbing stays reserved for a faithful future implementation.
 - Simplified **pgraphics** to the RLE encoder (`encode_rle`); the unused decoder, object buffer,
   prospective object and palette manager were deleted.
 - Removed the reuse tests and their fixtures.
@@ -93,5 +120,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log level read outside the lock.
 - Engine logs redirected to **stderr** so they no longer pollute the NDJSON stdout.
 
-[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Lanzoone30/OpenSUP/compare/v1.1.0...v2.0.0
