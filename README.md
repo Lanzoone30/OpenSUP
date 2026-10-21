@@ -184,7 +184,7 @@ The CLI shares the exact same engine as the GUI.
 | `-k, --prefer-normal` | Prefer normal-case redefinition (implies `-n`)                        |
 | `-d, --ahead`         | Allow palette update buffering (alias `--overlap`, deprecated)        |
 | `--alternate-oids`    | Force legacy global object ids 0/1 (default: per-window ids)          |
-| `--ignore-resolution` | Accept non-standard video resolutions (experimental)                  |
+| `--ignore-resolution` | Accept non-standard video resolutions                                  |
 | `--tight-ods`         | Crop each event's ODS box tight to its text (default: off)            |
 | `--redraw-period`     | Anchor interval in seconds (0 = disable, minimum 1)                   |
 | `-m, --max-kbps`      | Validate against a max bitrate in Kbps [0-48000, 0 = off] (default 0) |
