@@ -42,6 +42,21 @@ func TestParse_DoneSuccess(t *testing.T) {
 	assert.Equal(t, int64(1234), ev.Done.DurationMs)
 }
 
+func TestParse_DoneStreamCensus(t *testing.T) {
+	// 034/US3: the engine appends a stream census to the done event.
+	line := `{"type":"done","success":true,"events":2,"epochs":1,"segments":17,` +
+		`"duration_ms":1536,"es":1,"acq":1,"nc":1,"nc_ods":0,"pu":0,"pu_buffered":0,` +
+		`"display_sets":3,"reuse_candidates":0}`
+	ev, err := Parse(line)
+	require.NoError(t, err)
+	require.NotNil(t, ev.Done)
+	assert.Equal(t, 1, ev.Done.ES)
+	assert.Equal(t, 1, ev.Done.ACQ)
+	assert.Equal(t, 1, ev.Done.NC)
+	assert.Equal(t, 3, ev.Done.DisplaySets)
+	assert.Equal(t, 0, ev.Done.ReuseCandidates)
+}
+
 func TestParse_DoneFailure(t *testing.T) {
 	line := `{"type":"done","success":false,"error":"output exists"}`
 	ev, err := Parse(line)

@@ -26,26 +26,26 @@
         <div class="param-row">
           <label for="combo_quantizer" class="param-label" data-i18n="quantizer">Quantizer</label>
           <div class="dropdown" id="dd_quantizer">
-            <button type="button" class="dd-btn">libimagequant</button>
+            <button type="button" class="dd-btn">libimage (best, fast)</button>
             <ul class="dd-list" role="listbox">
-              <li role="option" data-val="0" title="libimagequant (best, fast)"><span>libimagequant (best, fast)</span></li>
-              <li role="option" data-val="1" title="HexTree (good, very fast)"><span>HexTree (good, very fast)</span></li>
+              <li role="option" data-val="3" title="libimage (best, fast)"><span data-i18n="quantPiliq">libimage (best, fast)</span></li>
+              <li role="option" data-val="2" title="HexTree (good, very fast)"><span data-i18n="quantHexTree">HexTree (good, very fast)</span></li>
             </ul>
             <select id="combo_quantizer" class="seg-source">
-              <option value="0">libimagequant</option>
-              <option value="1">HexTree</option>
+              <option value="3" selected>libimage</option>
+              <option value="2">HexTree</option>
             </select>
           </div>
         </div>
         <div class="param-row param-row-gap">
-          <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color Space</label>
+          <label for="combo_colorspace" class="param-label" data-i18n="colorSpace">Color space</label>
           <select id="combo_colorspace">
             <option value="bt709">BT.709</option>
             <option value="bt601">BT.601</option>
             <option value="bt2020">BT.2020</option>
           </select>
         </div>
-        <details class="adv" id="dd_advanced" open>
+        <details class="adv" id="dd_advanced">
         <summary class="adv-title" data-i18n="advancedOptions">Advanced Options</summary>
         <div class="param-row">
           <label for="combo_threads" class="param-label" data-i18n="threads">Threads</label>
@@ -58,7 +58,7 @@
           </span>
         </div>
         <div class="param-row">
-          <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Anchor interval</label>
+          <label for="input_redraw" class="param-label" data-i18n="redrawPeriod">Redraw period</label>
           <span class="redraw-group">
             <input id="input_redraw" class="input-num" type="number" min="0" step="0.1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="redrawPeriodTip"></span>
@@ -79,21 +79,21 @@
           </span>
         </div>
         <div class="param-row">
-          <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acq. Rate</label>
+          <label for="input_acqrate" class="param-label" data-i18n="acqrate">Acquisition rate</label>
           <span class="redraw-group">
             <input id="input_acqrate" class="input-num" type="number" min="0" max="100" step="1" value="100"/>
             <span class="help-tip" tabindex="0" data-i18n="acqrateTip"></span>
           </span>
         </div>
         <div class="param-row">
-          <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM Tol.</label>
+          <label for="input_ssim_tol" class="param-label" data-i18n="ssimTol">SSIM tolerance</label>
           <span class="redraw-group">
             <input id="input_ssim_tol" class="input-num" type="number" min="-100" max="100" step="1" value="0"/>
             <span class="help-tip" tabindex="0" data-i18n="ssimTolTip"></span>
           </span>
         </div>
         <div class="param-row">
-          <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra Acq</label>
+          <label for="input_extra_acq" class="param-label" data-i18n="extraAcq">Extra acquisition</label>
           <span class="redraw-group">
             <input id="input_extra_acq" class="input-num" type="number" min="0" max="100" step="1" value="2"/>
             <span class="help-tip" tabindex="0" data-i18n="extraAcqTip"></span>
@@ -111,6 +111,10 @@
             <span data-i18n="allowNormal">Allow normal case object redefinition.</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="chk_prefer_normal"/>
+            <span data-i18n="preferNormal">Prefer normal case object redefinition.</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="chk_overlap"/>
             <span data-i18n="overlapBuf">Allow palette update buffering.</span>
           </label>
@@ -119,16 +123,20 @@
             <span data-i18n="fullPalette">Write full palette.</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="chk_tight_ods"/>
+            <span data-i18n="tightOds">Fit ODS box to text</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="chk_alternate_oids"/>
-            <span data-i18n="alternateOids">Alternate per-window object ids (multi-window).</span>
+            <span data-i18n="alternateOids">Use global object IDs 0/1 (interoperability)</span>
           </label>
           <label class="check">
             <input type="checkbox" id="chk_both_formats"/>
             <span data-i18n="bothFormats">Generate both SUP and PES+MUI files.</span>
           </label>
           <label class="check">
-            <input type="checkbox" id="chk_ignore_res"/>
-            <span data-i18n="ignoreRes">Ignore Resolution Validation</span>
+            <input type="checkbox" id="chk_ignore_resolution"/>
+            <span data-i18n="ignoreResolution">Ignore resolution validation.</span>
           </label>
         </div>
       </details>

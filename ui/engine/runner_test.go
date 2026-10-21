@@ -55,45 +55,110 @@ func TestBuildArgs_DefaultsAlwaysJSON(t *testing.T) {
 
 func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	cfg := EncodeConfig{
-		InputPath:       "in.xml",
-		OutputPath:      "out.sup",
-		Quantizer:       1,
-		BTMatrix:        "bt2020",
-		Overwrite:       true,
-		IgnoreRes:       true,
-		BothFormats:     true,
-		FullPalette:     true,
-		AllowNormalCase: true,
-		Overlap:         true,
-		AlternateOids:   true,
-		RedrawPeriod:    0.5,
-		MaxKbps:         48000,
-		Threads:         4,
-		Compression:     75,
-		Acqrate:         90,
-		SsimTol:         10,
-		ExtraAcq:        3,
+		InputPath:        "in.xml",
+		OutputPath:       "out.sup",
+		Quantizer:        2,
+		BTMatrix:         "bt2020",
+		Overwrite:        true,
+		BothFormats:      true,
+		FullPalette:      true,
+		AllowNormalCase:  true,
+		PreferNormalCase: true,
+		Overlap:          true,
+		AlternateOids:    true,
+		RedrawPeriod:     0.5,
+		MaxKbps:          48000,
+		Threads:          4,
+		Compression:      75,
+		Acqrate:          90,
+		SsimTol:          10,
+		ExtraAcq:         3,
 	}
 	args := buildArgs(cfg)
 	want := map[string]bool{
 		"--json": true, "-i": true, "in.xml": true, "out.sup": true,
-		"-q": true, "1": true, "-b": true, "bt2020": true,
+		"-q": true, "2": true, "-b": true, "bt2020": true,
 		"-y": true,
-		"--ignore-resolution": true, "-w": true, "-p": true,
-		"--allow-normal": true,
-		"--overlap": true, "--alternate-oids": true,
+		"-w": true, "-p": true,
+		"-n": true, "-k": true,
+		"-d": true, "--alternate-oids": true,
 		"--redraw-period": true, "0.5": true,
 		"-m": true, "48000": true,
-		"-j": true, "4": true,
+		"-t": true, "4": true,
 		"-c": true, "75": true,
 		"-a": true, "90": true,
-		"-t": true, "10": true,
+		"--ssim-tol": true, "10": true,
 		"-e": true, "3": true,
 	}
 	for _, a := range args {
 		delete(want, a)
 	}
 	assert.Empty(t, want, "missing args: %v", want)
+}
+
+func TestBuildArgs_EngineOptionFlagMapping(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  EncodeConfig
+		want []string
+	}{
+		{"overlap", EncodeConfig{Overlap: true}, []string{"-d"}},
+		{"full palette", EncodeConfig{FullPalette: true}, []string{"-p"}},
+		{"allow normal", EncodeConfig{AllowNormalCase: true}, []string{"-n"}},
+		{"prefer normal", EncodeConfig{PreferNormalCase: true}, []string{"-k"}},
+		{"both formats", EncodeConfig{BothFormats: true}, []string{"-w"}},
+		{"alternate oids", EncodeConfig{AlternateOids: true}, []string{"--alternate-oids"}},
+		{"ignore resolution", EncodeConfig{IgnoreResolution: true}, []string{"--ignore-resolution"}},
+		{"tight ods", EncodeConfig{TightOds: true}, []string{"--tight-ods"}},
+		// The GUI forces allow-normal while prefer-normal is on, so both flags
+		// reach the engine together (CLI also force-enables -n).
+		{"prefer with forced allow", EncodeConfig{PreferNormalCase: true, AllowNormalCase: true}, []string{"-k", "-n"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.cfg.InputPath = "in.xml"
+			tt.cfg.OutputPath = "out.sup"
+			args := buildArgs(tt.cfg)
+			for _, flag := range tt.want {
+				assert.Contains(t, args, flag)
+			}
+		})
+	}
+}
+
+func argValue(args []string, flag string) (string, bool) {
+	for i, a := range args {
+		if a == flag && i+1 < len(args) {
+			return args[i+1], true
+		}
+	}
+	return "", false
+}
+
+func TestBuildArgs_ZeroQualityFlagsForwarded(t *testing.T) {
+	args := buildArgs(EncodeConfig{InputPath: "in.xml", OutputPath: "out.sup"})
+	// 0 is meaningful for these flags (force acquisitions / min refreshes / off),
+	// so it must reach the engine instead of falling back to a CLI default.
+	for _, flag := range []string{"-c", "-a", "-e"} {
+		v, ok := argValue(args, flag)
+		require.True(t, ok, "%s must be present", flag)
+		assert.Equal(t, "0", v)
+	}
+	// ssim-tol keeps its neutral-zero guard; threads stays on auto.
+	assert.NotContains(t, args, "--ssim-tol")
+	assert.NotContains(t, args, "-t")
+}
+
+func TestBuildArgs_QualityValuesForwarded(t *testing.T) {
+	args := buildArgs(EncodeConfig{
+		InputPath: "in.xml", OutputPath: "out.sup",
+		Compression: 80, Acqrate: 100, ExtraAcq: 2,
+	})
+	for flag, want := range map[string]string{"-c": "80", "-a": "100", "-e": "2"} {
+		v, ok := argValue(args, flag)
+		require.True(t, ok, "%s must be present", flag)
+		assert.Equal(t, want, v)
+	}
 }
 
 func TestPickBinary_FindsEmbedded(t *testing.T) {

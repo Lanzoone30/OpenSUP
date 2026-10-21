@@ -45,5 +45,5 @@ private:
                                      int w, int h, const common::box_t& box);
 };
 
-}  // namespace core
-}  // namespace opensup
+}
+}

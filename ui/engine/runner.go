@@ -37,12 +37,14 @@ type EncodeConfig struct {
 	Quantizer        int
 	BTMatrix         string
 	Overwrite        bool
-	IgnoreRes        bool
+	IgnoreResolution bool
 	BothFormats      bool
 	FullPalette      bool
 	AllowNormalCase  bool
+	PreferNormalCase bool
 	Overlap          bool
 	AlternateOids    bool
+	TightOds         bool
 	RedrawPeriod     float64
 	MaxKbps          int
 	Threads          int
@@ -290,7 +292,7 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.OutputPath != "" {
 		args = append(args, cfg.OutputPath)
 	}
-	if cfg.Quantizer != 0 {
+	if cfg.Quantizer != 0 && cfg.Quantizer != 3 { // 3 = LIQ, the engine default
 		args = append(args, "-q", intToStr(cfg.Quantizer))
 	}
 	if cfg.BTMatrix != "" {
@@ -299,7 +301,7 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.Overwrite {
 		args = append(args, "-y")
 	}
-	if cfg.IgnoreRes {
+	if cfg.IgnoreResolution {
 		args = append(args, "--ignore-resolution")
 	}
 	if cfg.BothFormats {
@@ -309,13 +311,19 @@ func buildArgs(cfg EncodeConfig) []string {
 		args = append(args, "-p")
 	}
 	if cfg.AllowNormalCase {
-		args = append(args, "--allow-normal")
+		args = append(args, "-n")
+	}
+	if cfg.PreferNormalCase {
+		args = append(args, "-k")
 	}
 	if cfg.Overlap {
-		args = append(args, "--overlap")
+		args = append(args, "-d")
 	}
 	if cfg.AlternateOids {
 		args = append(args, "--alternate-oids")
+	}
+	if cfg.TightOds {
+		args = append(args, "--tight-ods")
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))
@@ -324,20 +332,16 @@ func buildArgs(cfg EncodeConfig) []string {
 		args = append(args, "-m", intToStr(cfg.MaxKbps))
 	}
 	if cfg.Threads != 0 {
-		args = append(args, "-j", intToStr(cfg.Threads))
+		args = append(args, "-t", intToStr(cfg.Threads))
 	}
-	if cfg.Compression != 0 {
-		args = append(args, "-c", intToStr(cfg.Compression))
-	}
-	if cfg.Acqrate != 0 {
-		args = append(args, "-a", intToStr(cfg.Acqrate))
-	}
+	// Compression/acqrate/extra-acq treat 0 as a meaningful value, so they are
+	// always sent; the UI resolves their defaults (80/100/2) before this.
+	args = append(args, "-c", intToStr(cfg.Compression))
+	args = append(args, "-a", intToStr(cfg.Acqrate))
 	if cfg.SsimTol != 0 {
-		args = append(args, "-t", intToStr(cfg.SsimTol))
+		args = append(args, "--ssim-tol", intToStr(cfg.SsimTol))
 	}
-	if cfg.ExtraAcq != 0 {
-		args = append(args, "-e", intToStr(cfg.ExtraAcq))
-	}
+	args = append(args, "-e", intToStr(cfg.ExtraAcq))
 	return args
 }
 
@@ -351,9 +355,9 @@ func drainStderr(r io.Reader) {
 	}
 }
 
-func floatToStr(f float64) string  { return strconvFloat(f) }
-func intToStr(i int) string        { return strconvInt(i) }
+func floatToStr(f float64) string { return strconvFloat(f) }
+func intToStr(i int) string       { return strconvInt(i) }
 
 // thin wrappers around strconv to keep the import block tight above.
-func strconvFloat(f float64) string  { return fmt.Sprintf("%g", f) }
-func strconvInt(i int) string        { return fmt.Sprintf("%d", i) }
+func strconvFloat(f float64) string { return fmt.Sprintf("%g", f) }
+func strconvInt(i int) string       { return fmt.Sprintf("%d", i) }

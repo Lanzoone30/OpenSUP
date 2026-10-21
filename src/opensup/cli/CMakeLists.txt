@@ -2,11 +2,13 @@ add_executable(opensup_cli
   main.cpp
   cli_parser.cpp
   json_emitter.cpp
+  inspector.cpp
 )
 
 target_link_libraries(opensup_cli
   PRIVATE
     opensup_core
+    opensup_read
     CLI11::CLI11
 )
 

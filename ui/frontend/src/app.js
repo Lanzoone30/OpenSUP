@@ -35,11 +35,13 @@ function applyI18n() {
   // Tooltips for checkboxes
   const tips = {
     chk_allow_normal: "tipAllowNormal",
+    chk_prefer_normal: "tipPreferNormal",
     chk_full_palette: "tipFullPalette",
     chk_both_formats: "tipBothFormats",
     chk_overlap: "tipOverlapBuf",
     chk_alternate_oids: "tipAlternateOids",
-    chk_ignore_res: "tipIgnoreRes",
+    chk_tight_ods: "tipTightOds",
+    chk_ignore_resolution: "tipIgnoreResolution",
   };
   for (const [id, key] of Object.entries(tips)) {
     const el = $(id);

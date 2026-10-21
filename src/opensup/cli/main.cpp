@@ -5,6 +5,7 @@
 
 #include "opensup/pch.h"
 #include "opensup/cli/cli_parser.h"
+#include "opensup/cli/inspector.h"
 #include "opensup/cli/json_emitter.h"
 #include "opensup/core/interface.h"
 #include "opensup/common/logger.h"
@@ -13,6 +14,7 @@
 #include <iostream>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #ifdef _WIN32
 #include <io.h>
 #define TTY_STDERR _isatty(_fileno(stderr))
@@ -24,9 +26,31 @@
 using namespace opensup;
 using namespace std::chrono;
 
+namespace {
+
+// Palette warnings arrive from the core as "palette: kind=<k> count=<n>";
+// route them into a structured warn event, every other log stays a log line.
+void emit_log_or_warn(const std::string& msg, int level) {
+    if (level == static_cast<int>(common::log_level_e::warn) &&
+        msg.rfind("palette: kind=", 0) == 0) {
+        const auto k0 = msg.find('=') + 1;
+        const auto k1 = msg.find(' ', k0);
+        const auto c0 = msg.find("count=", k1) + 6;
+        cli::emit_warn(msg.substr(k0, k1 - k0),
+                       std::strtoull(msg.c_str() + c0, nullptr, 10));
+        return;
+    }
+    cli::emit_log_event(level, msg);
+}
+
+}
+
 int
 main(int argc, char** argv)
 {
+    // Read-only inspection modes take over before the encode parser runs.
+    if (cli::is_inspect_subcommand(argc, argv)) return cli::run_inspector(argc, argv);
+
     auto opts = cli::parse_args(argc, argv);
 
     if (opts.output_path.find('.') == std::string::npos) {
@@ -36,15 +60,9 @@ main(int argc, char** argv)
 
     auto config = cli::options_to_config(opts);
 
-    common::logger_c::instance().set_level(
-        opts.debug ? common::log_level_e::ldebug : common::log_level_e::info);
-
     if (opts.json_mode) {
         common::logger_c::instance().set_quiet(true);
-        common::logger_c::instance().set_callback(
-            [](const std::string& msg, int level) {
-                cli::emit_log_event(level, msg);
-            });
+        common::logger_c::instance().set_callback(emit_log_or_warn);
 
         config.progress_cb = [](int percent, int epoch, int total) {
             cli::emit_progress_event(percent, epoch, total);
@@ -77,6 +95,9 @@ main(int argc, char** argv)
 
     core::bdn_render_c renderer(config);
     auto result = renderer.execute();
+    // 034/US3: census of the stream we just wrote, same counters as `stats`.
+    result.counters = core::count_pg_segments(renderer.segments());
+    result.reuse_candidates = renderer.reuse_candidates();
 
     if (opts.json_mode) {
         cli::emit_done_event(result);

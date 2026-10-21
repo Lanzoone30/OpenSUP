@@ -15,7 +15,8 @@
 #include <functional>
 
 #include "opensup/core/filestreams.h"
-#include "opensup/core/renderer.h"
+#include "opensup/core/pgstats.h"
+#include "opensup/core/render/epoch_encoder.h"
 
 namespace opensup {
 namespace core {
@@ -28,6 +29,9 @@ struct encode_result_t {
     int epochs = 0;
     int segments = 0;
     int64_t duration_ms = 0;
+    /// 034/US3: census of the emitted stream (filled from the renderer).
+    pg_counters_t counters {};
+    int reuse_candidates = 0;
 };
 
 /// Input parameters for a single encode run.
@@ -37,16 +41,17 @@ struct encode_config_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 0;  // 0 = libimagequant, 1 = hextree
+    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ
     bool overwrite = false;
-    bool ignore_resolution = false;
+    bool ignore_resolution = false;  // accept non-Blu-ray canvas sizes (experimental)
     bool both_formats = false;
     bool allow_normal_case = false;
-    // Reserved for the faithful prefer_normal_case implementation
-    // (specs/013-prefer-normal-case). No CLI/UI surface exposes it yet.
+    // 032/D-032-5: surface flag is stored but the core rule is deferred to a
+    // behaviour spec (needs the decode-node buffer chain, render2.py:544).
     bool prefer_normal_case = false;
     bool overlap = false;
-    bool alternate_oids = false;   // Per-window oid alternation (double buffering)
+    bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
+    bool tight_ods = false;        // ODS box = event content, not the window slot
     std::string bt_matrix = "bt709";
     bool full_palette = false;
     double redraw_period = 0.0;
@@ -55,7 +60,7 @@ struct encode_config_t {
                              // runs sequential and deterministic. The CLI always
                              // passes -j (0 = auto), so production defaults to auto.
 
-    // Drought / quality parameters (parity with the original)
+    // Drought / quality parameters
     int compression = 80;    // quality_factor: 0-100 (def 80). 0 = force all ACQUISITION
     int acqrate = 100;       // refresh_rate: 0-100 (def 100). Scales drought increment.
     int ssim_tol = 0;        // SSIM tolerance: -100..100 (def 0). Adjusts threshold per resolution.
@@ -64,6 +69,14 @@ struct encode_config_t {
     std::atomic<bool>* abort_flag = nullptr; // set by caller, checked in execute() loop
     // Called after each epoch: (percent 0-100, epoch index 1-based, total epochs).
     std::function<void(int, int, int)> progress_cb;
+
+    // Optional hook to override the post-encode compliance decision.
+    // Primarily for tests; when empty the default logic applies.
+    std::function<bool()> post_encode_compliance_hook;
+
+    int liq_quality = 95;      // libimagequant quality ceiling, single bitmap
+    int liq_speed = 4;
+    int liq_dither_pct = 95;   // dithering percent (oracle config.ini [PILIQ] parity)
 };
 
 /**
@@ -93,5 +106,5 @@ private:
     int m_reuse_candidates = 0;
 };
 
-} // namespace core
-} // namespace opensup
+}
+}

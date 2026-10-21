@@ -76,5 +76,5 @@ matrix_name(color_matrix_e mat) noexcept
     return "bt709";
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

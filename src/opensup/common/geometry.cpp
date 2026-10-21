@@ -116,5 +116,5 @@ bool operator!=(const box_t& a, const box_t& b) noexcept
     return !(a == b);
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

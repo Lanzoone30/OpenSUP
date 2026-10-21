@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(OpenSUP
-  VERSION 2.0.0
+  VERSION 2.1.0
   DESCRIPTION "PGS subtitle encoder for Blu-ray"
   LANGUAGES CXX C
 )
@@ -152,6 +152,7 @@ FetchContent_MakeAvailable(cli11_proj)
 add_subdirectory(src/opensup/common)
 add_subdirectory(src/opensup/media)
 add_subdirectory(src/opensup/core)
+add_subdirectory(src/opensup/read)
 add_subdirectory(src/opensup/cli)
 
 if(BUILD_TESTS)

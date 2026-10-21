@@ -8,10 +8,12 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "opensup/media/palette.h"
@@ -24,6 +26,17 @@ struct quantize_result_t {
     std::vector<uint8_t> indexed;  // palette index per pixel
 };
 
+/// libimagequant tuning. Defaults reproduce the legacy hardcoded values.
+struct liq_options_t {
+    int quality = 95;
+    int speed = 4;
+    int dither_pct = 95;
+};
+
+/// Sequence co-quantization scaling (oracle config.ini [PILIQ] parity).
+inline int liq_seq_quality(int base) { return static_cast<int>(std::lround(base * 0.975)); }
+inline float liq_seq_dither(int base_pct) { return static_cast<float>(base_pct) * 0.9f / 100.0f; }
+
 /**
  * @brief Contract for color quantization backends.
  *
@@ -34,10 +47,16 @@ struct quantize_result_t {
 class quantizer_base_c {
 public:
     virtual ~quantizer_base_c() = default;
-    /// @param dither Apply error diffusion (off for sequence co-quantization).
+    /// @param single_bitmap Single image: full quality/dithering. When false
+    ///        (sequence co-quantization) quality and dithering are scaled
+    ///        down to keep the union palette compact.
+    /// @param matrix YCbCr conversion matrix (bt601|bt709|bt2020).
+    /// @param opts libimagequant tuning; ignored by backends that do not use it.
     virtual quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                        int width, int height, int max_colors,
-                                       bool dither = true) = 0;
+                                       bool single_bitmap = true,
+                                       std::string_view matrix = "bt709",
+                                       const liq_options_t& opts = {}) = 0;
     virtual std::string name() const = 0;
 };
 
@@ -46,7 +65,9 @@ class libimagequant_t : public quantizer_base_c {
 public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                int width, int height, int max_colors,
-                               bool dither = true) override;
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
     std::string name() const override { return "libimagequant"; }
 };
 
@@ -55,7 +76,9 @@ class hextree_t : public quantizer_base_c {
 public:
     quantize_result_t quantize(const std::vector<uint8_t>& rgba,
                                int width, int height, int max_colors,
-                               bool dither = true) override;
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
     std::string name() const override { return "HexTree"; }
 };
 
@@ -83,10 +106,14 @@ struct group_solution_t {
  * @param frames     Frames of the group, in display order.
  * @param max_colors Maximum number of non-transparent sequences (<=255).
  * @param out        Bitmap + per-frame palette diffs (frame 0 carries all).
+ * @param matrix     YCbCr conversion matrix (bt601|bt709|bt2020).
+ * @param opts       libimagequant tuning forwarded to the backend.
  * @return true on success.
  */
 [[nodiscard]] bool solve_group(const std::vector<group_frame_t>& frames,
-                               int max_colors, group_solution_t& out);
+                               int max_colors, group_solution_t& out,
+                               std::string_view matrix = "bt709",
+                               const liq_options_t& opts = {});
 
 /**
  * @brief Factory of quantizers available in this build.
@@ -96,7 +123,11 @@ struct group_solution_t {
 class optimiser_c {
 public:
     static std::vector<std::unique_ptr<quantizer_base_c>> get_available();
+
+    /// SUPer quantizer id (2 = HexTree, 3 = LIQ) -> get_available() index,
+    /// or -1 when the backend is not compiled into this build.
+    static int index_for(int quantizer_id) noexcept;
 };
 
-} // namespace media
-} // namespace opensup
+}
+}

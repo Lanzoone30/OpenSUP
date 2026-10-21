@@ -7,6 +7,7 @@ import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
 import { appendLog } from "../log-panel/log-panel.js";
 import { selectBDN, setOutput, revealOutputFolder, updateOutputActions } from "../left-control-panel/left-control-panel.js";
+import { saveSettings } from "../../shared/settings.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
@@ -34,12 +35,14 @@ export function startEncode() {
     Quantizer:       parseInt($("combo_quantizer").value),
     BTMatrix:        $("combo_colorspace").value,
     Overwrite:       true,
-    IgnoreRes:       $("chk_ignore_res").checked,
     BothFormats:     $("chk_both_formats").checked,
+    IgnoreResolution:  $("chk_ignore_resolution").checked,
     AllowNormalCase: $("chk_allow_normal").checked,
+    PreferNormalCase: $("chk_prefer_normal").checked,
     FullPalette:     $("chk_full_palette").checked,
     Overlap:         $("chk_overlap").checked,
     AlternateOids:   $("chk_alternate_oids").checked,
+    TightOds:        $("chk_tight_ods").checked,
     RedrawPeriod:    numOr($("input_redraw"), 0),
     MaxKbps:         numOr($("input_max_kbps"), 0),
     Threads:         numOr($("combo_threads"), 0),
@@ -60,6 +63,8 @@ export function startEncode() {
   const area = $("txt_log");
   if (area) area.removeAttribute("data-empty");
 
+  // Persist the checkbox/quantizer state on each run: there is no settings dialog.
+  saveSettings();
   app.StartEncode(cfg).then(() => {
     // Normal completion: the engine:done event handles the UI state.
   }).catch((err) => {
@@ -95,23 +100,35 @@ export function wireButtons() {
   $("btn_abort").addEventListener("click", abortEncode);
 }
 
+let allowBeforePrefer = false;
+
 // Wire the option checkboxes that gate encode readiness.
 export function wireOptions() {
-  // Both-formats output requires full palette; unchecking only re-enables
-  // Full Palette without touching its own value.
-  $("chk_both_formats").addEventListener("change", (e) => {
+  $("chk_prefer_normal").addEventListener("change", (e) => {
     if (e.target.checked) {
-      $("chk_full_palette").checked = true;
-      $("chk_full_palette").disabled = true;
-    } else if (!state.outputPath.toLowerCase().endsWith(".pes")) {
-      $("chk_full_palette").disabled = false;
+      allowBeforePrefer = $("chk_allow_normal").checked;
+      $("chk_allow_normal").checked = true;
+      $("chk_allow_normal").disabled = true;
+    } else {
+      $("chk_allow_normal").disabled = false;
+      $("chk_allow_normal").checked = allowBeforePrefer;
     }
+    updateReadyState();
+  });
+
+  // Both-formats and .pes destinations require full palette; the re-enable is
+  // re-evaluated on both triggers so no disabled state survives.
+  $("chk_both_formats").addEventListener("change", () => {
+    const forced =
+      $("chk_both_formats").checked || state.outputPath.toLowerCase().endsWith(".pes");
+    if (forced) $("chk_full_palette").checked = true;
+    $("chk_full_palette").disabled = forced;
     updateReadyState();
   });
 
   // Re-evaluate encode readiness if options change (button gate: paths only).
   ["chk_allow_normal", "chk_full_palette",
-   "chk_both_formats", "chk_overlap", "chk_alternate_oids", "chk_ignore_res"]
+   "chk_both_formats", "chk_overlap", "chk_alternate_oids"]
     .forEach((id) => {
       $(id).addEventListener("change", updateReadyState);
     });

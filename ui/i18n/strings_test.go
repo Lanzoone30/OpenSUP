@@ -8,7 +8,18 @@ import (
 )
 
 func TestTableComplete(t *testing.T) {
-	assert.Len(t, Table, 66)
+	assert.Len(t, Table, 71)
+}
+
+func TestEngineSurfaceKeys(t *testing.T) {
+	// 032: new engine-parity keys must exist in both languages.
+	for _, key := range []string{"preferNormal"} {
+		require.Contains(t, Table, key)
+		assert.NotEmpty(t, Get(EN, key), "EN %s", key)
+		assert.NotEmpty(t, Get(ES, key), "ES %s", key)
+	}
+	assert.Equal(t, "Use global object IDs 0/1 (interoperability)", Get(EN, "alternateOids"))
+	assert.NotEqual(t, Get(EN, "alternateOids"), Get(ES, "alternateOids"))
 }
 
 func TestGetUnknownKeyReturnsItself(t *testing.T) {
@@ -56,7 +67,7 @@ func TestFormat(t *testing.T) {
 func TestMultilineTooltipsLiterals(t *testing.T) {
 	en := Get(EN, "tipAllowNormal")
 	require.NotEmpty(t, en)
-	assert.Contains(t, en, "shall NOT be Built")
+	assert.Contains(t, en, "0.6% of the inner 8 palette rows")
 
 	es := Get(ES, "tipOverlapBuf")
 	require.NotEmpty(t, es)

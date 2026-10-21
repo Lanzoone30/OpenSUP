@@ -11,6 +11,7 @@
 #include "opensup/common/logger.h"
 
 #include <pugixml.hpp>
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
 #include <cmath>
@@ -32,12 +33,11 @@ namespace core {
 
 using common::logger_c;
 
-// ── BDN XML Event ──
-bdn_xml_event_c::bdn_xml_event_c(double tc_in_sec, double tc_out_sec,
+bdn_xml_event_c::bdn_xml_event_c(common::tc_t tc_in, common::tc_t tc_out,
                                    int x_, int y_, int width_, int height_,
                                    std::string image_path_,
-                                   bool forced_, double /*fps*/)
-    : m_tc_in(tc_in_sec), m_tc_out(tc_out_sec)
+                                   bool forced_)
+    : m_tc_in(tc_in), m_tc_out(tc_out)
     , m_x(x_), m_y(y_), m_width(width_), m_height(height_)
     , m_forced(forced_), m_image_path(std::move(image_path_))
 {}
@@ -47,6 +47,44 @@ bdn_xml_event_c::load_image() const
 {
     if (!m_cached_image.empty())
         return m_cached_image;
+
+    if (m_graphics.size() > 1) {
+        // Union canvas: paste every graphic at its offset relative to the
+        // composed box (oracle filestreams.py:306-317).
+        m_cached_image.assign(
+            static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4, 0);
+        for (const auto& g : m_graphics) {
+            int gw = 0, gh = 0, gc = 0;
+            unsigned char* img = stbi_load(g.path.c_str(), &gw, &gh, &gc, 4);
+            if (!img) {
+                logger_c::instance().error("Failed to load image: " + g.path);
+                continue;
+            }
+            const int ox = g.x - m_x, oy = g.y - m_y;
+            const size_t sw = static_cast<size_t>(gw);
+            const size_t cw = static_cast<size_t>(m_width);
+            for (int y = 0; y < gh; ++y) {
+                const int dy = oy + y;
+                if (dy < 0 || dy >= m_height) continue;
+                for (int x = 0; x < gw; ++x) {
+                    const int dx = ox + x;
+                    if (dx < 0 || dx >= m_width) continue;
+                    const unsigned char* s =
+                        img + (static_cast<size_t>(y) * sw +
+                               static_cast<size_t>(x)) * 4;
+                    unsigned char* dt = m_cached_image.data() +
+                        (static_cast<size_t>(dy) * cw +
+                         static_cast<size_t>(dx)) * 4;
+                    dt[0] = s[0];
+                    dt[1] = s[1];
+                    dt[2] = s[2];
+                    dt[3] = s[3];
+                }
+            }
+            stbi_image_free(img);
+        }
+        return m_cached_image;
+    }
 
     int w = 0, h = 0, channels = 0;
     unsigned char* img = stbi_load(m_image_path.c_str(), &w, &h, &channels, 4);
@@ -67,7 +105,6 @@ bdn_xml_event_c::unload() const noexcept
     m_cached_image.shrink_to_fit();
 }
 
-// ── BDN XML ──
 static bool
 is_standard_resolution(int w, int h)
 {
@@ -96,7 +133,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 
     auto fps_str = header.attribute("FrameRate").as_string();
     m_dropframe = std::string(header.attribute("DropFrame").as_string()) == "true";
-    // Parse FrameRate: may be "24", "24000/1001", "25/1", etc.
+    // FrameRate may be "24", "24000/1001", "25/1", etc.
     // Untrusted attribute: reject the file when it does not parse cleanly.
     double fps_val;
     auto fps_s = std::string(fps_str);
@@ -131,25 +168,32 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         m_height = 1080;
     }
 
+    // Untrusted size: an arbitrary resolution is still a positive one.
+    if (m_width <= 0 || m_height <= 0) {
+        logger_c::instance().error(
+            "Invalid video resolution " + std::to_string(m_width) + "x" +
+            std::to_string(m_height) + ".");
+        return false;
+    }
+
     // Validate Blu-ray standard resolution
     if (!is_standard_resolution(m_width, m_height)) {
-        auto msg = "Non-standard Blu-ray resolution " +
-                   std::to_string(m_width) + "x" + std::to_string(m_height) +
-                   ". Use --ignore-resolution or the checkbox in the GUI.";
         if (!ignore_resolution) {
-            logger_c::instance().error(msg);
+            logger_c::instance().error(
+                "Non-standard Blu-ray resolution " +
+                std::to_string(m_width) + "x" + std::to_string(m_height) +
+                ". Use --ignore-resolution or the checkbox in the GUI.");
             return false;
         }
+        // Emitted once per file, before the event loop.
         logger_c::instance().warn(
             "Non-standard resolution " + std::to_string(m_width) + "x" +
             std::to_string(m_height) + ", continuing anyway.");
     }
 
-    // Determine folder
     auto path = std::filesystem::path(filepath);
     m_folder = path.parent_path().string();
 
-    // Parse events
     auto events_node = root.child("Events");
     if (!events_node) return false;
 
@@ -159,34 +203,78 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         auto forced_attr = event_node.attribute("Forced").as_string();
         bool forced = (std::string(forced_attr) == "true");
 
-        auto graphic = event_node.child("Graphic");
-        if (!graphic) continue;
-
-        // use first Graphic's box, multi-Graphic events deferred
-        int gx = graphic.attribute("X").as_int(0);
-        int gy = graphic.attribute("Y").as_int(0);
-        int gw = graphic.attribute("Width").as_int(0);
-        int gh = graphic.attribute("Height").as_int(0);
-        auto gfx_file = graphic.child_value();
-
-        auto img_path = std::filesystem::path(m_folder) / gfx_file;
-
-        // Parse TC strings → seconds
-        auto tc_to_sec = [this](const std::string& tc) -> double {
-            // HH:MM:SS:FF format
+        auto tc_from_string = [this](const std::string& tc) -> common::tc_t {
             int h = 0, m = 0, s = 0, f = 0;
             std::sscanf(tc.c_str(), "%d:%d:%d:%d", &h, &m, &s, &f);
-            return static_cast<double>(h * 3600 + m * 60 + s) +
-                   static_cast<double>(f) / m_fps.to_double();
+            return common::tc_t::from_hmsf(h, m, s, f, m_fps);
         };
 
-        double tc_in = tc_to_sec(in_tc);
-        double tc_out = tc_to_sec(out_tc);
+        // N <Graphic> = one event with a union canvas (oracle filestreams.py:224-239).
+        std::vector<bdn_graphic_t> graphics;
+        for (auto graphic : event_node.children("Graphic")) {
+            bdn_graphic_t g;
+            g.x = graphic.attribute("X").as_int(0);
+            g.y = graphic.attribute("Y").as_int(0);
+            g.width = graphic.attribute("Width").as_int(0);
+            g.height = graphic.attribute("Height").as_int(0);
+            g.path = (std::filesystem::path(m_folder) /
+                      graphic.child_value()).string();
+            graphics.push_back(std::move(g));
+        }
+        if (graphics.empty()) continue;
 
-        if (tc_in >= tc_out) continue;
+        // US2: on a multi-<Graphic> canvas every declared box must match the
+        // real PNG and the graphics must not overlap (oracle asserts, 306-317).
+        if (graphics.size() > 1) {
+            for (const auto& g : graphics) {
+                int rw = 0, rh = 0, rc = 0;
+                if (!stbi_info(g.path.c_str(), &rw, &rh, &rc)) {
+                    logger_c::instance().error("Failed to read image: " + g.path);
+                    return false;
+                }
+                if (rw != g.width || rh != g.height) {
+                    logger_c::instance().error(
+                        "Declared <Graphic> " + std::to_string(g.width) + "x" +
+                        std::to_string(g.height) + " but " + g.path + " is " +
+                        std::to_string(rw) + "x" + std::to_string(rh));
+                    return false;
+                }
+            }
+            for (size_t a = 0; a < graphics.size(); ++a) {
+                for (size_t b = a + 1; b < graphics.size(); ++b) {
+                    const auto& p = graphics[a];
+                    const auto& q = graphics[b];
+                    const int ix0 = std::max(p.x, q.x), iy0 = std::max(p.y, q.y);
+                    const int ix1 = std::min(p.x + p.width, q.x + q.width);
+                    const int iy1 = std::min(p.y + p.height, q.y + q.height);
+                    if (ix1 > ix0 && iy1 > iy0) {
+                        logger_c::instance().error(
+                            "Overlapping <Graphic>s in event " +
+                            std::string(in_tc));
+                        return false;
+                    }
+                }
+            }
+        }
 
-        bdn_xml_event_c ev(tc_in, tc_out, gx, gy, gw, gh,
-                            img_path.string(), forced, m_fps.to_double());
+        int ux = graphics[0].x, uy = graphics[0].y;
+        int ux2 = ux + graphics[0].width, uy2 = uy + graphics[0].height;
+        for (const auto& g : graphics) {
+            ux = std::min(ux, g.x);
+            uy = std::min(uy, g.y);
+            ux2 = std::max(ux2, g.x + g.width);
+            uy2 = std::max(uy2, g.y + g.height);
+        }
+
+        common::tc_t tc_in = tc_from_string(in_tc);
+        common::tc_t tc_out = tc_from_string(out_tc);
+
+        if (tc_in.frames() >= tc_out.frames()) continue;
+
+        bdn_xml_event_c ev(tc_in, tc_out, ux, uy, ux2 - ux, uy2 - uy,
+                            graphics[0].path, forced);
+        if (graphics.size() > 1)
+            ev.set_graphics(std::move(graphics));
         m_events.push_back(std::move(ev));
     }
 
@@ -198,7 +286,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
 }
 
 std::vector<std::vector<bdn_xml_event_c>>
-bdn_xml_c::groups(double dt_split) const
+bdn_xml_c::groups(double join_tol) const
 {
     std::vector<std::vector<bdn_xml_event_c>> result;
     std::vector<bdn_xml_event_c> current;
@@ -209,10 +297,9 @@ bdn_xml_c::groups(double dt_split) const
             continue;
         }
         double td = ev.tc_in() - current.back().tc_out();
-        // A new event joins the current epoch while the previous one is still
-        // on screen (overlap, td < 0) or starts within the split threshold.
-        // Only a td >= dt_split opens a new epoch.
-        if (td < dt_split) {
+        // Events join the current epoch while their gap is shorter than the split
+        // threshold (proportional to the full-screen decode cost).
+        if (td < join_tol) {
             current.push_back(ev);
         } else {
             result.push_back(std::move(current));
@@ -225,7 +312,6 @@ bdn_xml_c::groups(double dt_split) const
     return result;
 }
 
-// ── SUP File ──
 sup_file_c::sup_file_c(const std::string& filepath)
     : m_filepath(filepath)
 {
@@ -295,7 +381,6 @@ sup_file_c::write_sup(const std::string& path,
     }
 }
 
-// ── PES/MUI Writer ──
 // PES strips 13-byte PG header, MUI stores timestamps in 54MHz custom format
 static constexpr uint64_t MUI_TS_OFFSET = 54'000'000;
 
@@ -329,6 +414,8 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
         uint32_t raw_pts = seg->tpts();
         uint64_t mui_dts = static_cast<uint64_t>(raw_dts) + MUI_TS_OFFSET;
         uint64_t mui_pts = static_cast<uint64_t>(raw_pts) + MUI_TS_OFFSET;
+        // from_mui rebuilds a 39-bit PTS then shifts it >>6: emit PTS<<6.
+        uint64_t mui_pts_field = (mui_pts << 6) & 0x7F'FFFFFFFFULL;
 
         uint8_t mui_entry[14];
         // Entry header: segment type + block length (length + 3 for MUI prefix)
@@ -345,11 +432,11 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
         mui_entry[7]  = static_cast<uint8_t>((mui_dts >> 9) & 0xFF);   // DTS[16:9]
         mui_entry[8]  = static_cast<uint8_t>((mui_dts >> 1) & 0xFF);   // DTS[8:1]
         mui_entry[9]  = static_cast<uint8_t>((mui_dts & 1) << 7);      // DTS[0] in MSB
-        mui_entry[9] |= static_cast<uint8_t>((mui_pts >> 32) & 0x7F);  // PTS[38:32]
-        mui_entry[10] = static_cast<uint8_t>((mui_pts >> 24) & 0xFF);  // PTS[31:24]
-        mui_entry[11] = static_cast<uint8_t>((mui_pts >> 16) & 0xFF);  // PTS[23:16]
-        mui_entry[12] = static_cast<uint8_t>((mui_pts >> 8) & 0xFF);   // PTS[15:8]
-        mui_entry[13] = static_cast<uint8_t>(mui_pts & 0xFF);          // PTS[7:0]
+        mui_entry[9] |= static_cast<uint8_t>((mui_pts_field >> 32) & 0x7F);  // PTS[38:32]
+        mui_entry[10] = static_cast<uint8_t>((mui_pts_field >> 24) & 0xFF);  // PTS[31:24]
+        mui_entry[11] = static_cast<uint8_t>((mui_pts_field >> 16) & 0xFF);  // PTS[23:16]
+        mui_entry[12] = static_cast<uint8_t>((mui_pts_field >> 8) & 0xFF);   // PTS[15:8]
+        mui_entry[13] = static_cast<uint8_t>(mui_pts_field & 0xFF);          // PTS[7:0]
 
         fmui.write(reinterpret_cast<const char*>(mui_entry), 14);
     }
@@ -359,51 +446,40 @@ sup_file_c::write_pes_mui(const std::string& pes_path,
     fmui.write(reinterpret_cast<const char*>(mui_tail), 14);
 }
 
-// ── Event helpers ──
 std::vector<bdn_xml_event_c>
 remove_dupes(std::vector<bdn_xml_event_c>& events)
 {
+    if (events.empty()) return {};
+
     std::vector<bdn_xml_event_c> result;
-    if (events.empty()) return result;
-
     result.push_back(events[0]);
-    for (size_t i = 1; i < events.size() - 1; i++) {
-        auto& prev = events[i];
-        auto& next = events[i + 1];
-        bool same_pos = (next.x() == prev.x() && next.y() == prev.y());
-        bool same_shape = (next.width() == prev.width() && next.height() == prev.height());
-
-        if (same_pos && same_shape) {
-            // simple dupe check without full pixel comparison
-            result.back().set_tc_out(next.tc_out());
-        } else {
+    for (size_t i = 0; i + 1 < events.size(); i++) {
+        const auto& cur = events[i];
+        const auto& next = events[i + 1];
+        const bool same_geom =
+            next.x() == cur.x() && next.y() == cur.y() &&
+            next.width() == cur.width() && next.height() == cur.height();
+        const bool same_image = same_geom && next.load_image() == cur.load_image();
+        // Only a contiguous, identical successor is folded into the previous span.
+        const bool contiguous = result.back().out_tc().frames() == next.in_tc().frames();
+        if (!same_image || !contiguous)
             result.push_back(next);
-        }
-    }
-    if (events.size() >= 2)
-        result.push_back(events.back());
-
-    auto& first = events.front();
-    auto& last = events.back();
-    auto& rfirst = result.front();
-    auto& rlast = result.back();
-    if (std::abs(rfirst.tc_in() - first.tc_in()) > 0.001 ||
-        std::abs(rlast.tc_out() - last.tc_out()) > 0.001) {
-        logger_c::instance().log(common::log_level_e::hdebug, "Deduplication range mismatch");
+        else
+            result.back().set_tc_out(next.out_tc());
     }
 
-    logger_c::instance().log(common::log_level_e::hdebug, "Removed " + std::to_string(events.size() - result.size()) +
-                               " duplicate event(s).");
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "Removed " + std::to_string(events.size() - result.size()) + " duplicate event(s).");
     return result;
 }
 
 std::pair<std::vector<bdn_xml_event_c>, std::vector<bool>>
-add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, double period)
+add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, common::fps_e fps, double period)
 {
     std::vector<bdn_xml_event_c> new_events;
     std::vector<bool> redraw_flags;
 
-    int frame_period = static_cast<int>(std::round(period * fps));
+    int frame_period = static_cast<int>(std::round(period * fps.to_double()));
     if (frame_period < 1) {
         for (auto& ev : events) {
             new_events.push_back(ev);
@@ -416,21 +492,21 @@ add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, d
         new_events.push_back(ev);
         redraw_flags.push_back(false);
 
-        double frames_dur = (ev.tc_out() - ev.tc_in()) * fps;
+        // Integer frame arithmetic: the duration must not round through seconds.
+        int64_t frames_dur = ev.frame_out() - ev.frame_in();
         int count = static_cast<int>(frames_dur / frame_period) - 1;
 
         if (count >= 1) {
-            auto final_tc_out = ev.tc_out();
-            double frame_dur = 1.0 / fps;
-            double prev_tc_out = ev.tc_in() + frame_dur * frame_period;
+            common::tc_t final_tc_out = ev.out_tc();
+            int64_t prev_frame = ev.frame_in() + frame_period;
 
-            new_events.back().set_tc_out(prev_tc_out);
+            new_events.back().set_tc_out(common::tc_t::from_frames(prev_frame, fps));
 
             for (int k = 0; k < count; k++) {
                 bdn_xml_event_c copy = ev;
-                copy.set_tc_in(prev_tc_out);
-                prev_tc_out += frame_dur * frame_period;
-                copy.set_tc_out(prev_tc_out);
+                copy.set_tc_in(common::tc_t::from_frames(prev_frame, fps));
+                prev_frame += frame_period;
+                copy.set_tc_out(common::tc_t::from_frames(prev_frame, fps));
                 new_events.push_back(std::move(copy));
                 redraw_flags.push_back(true);
             }
@@ -440,5 +516,5 @@ add_periodic_refreshes(const std::vector<bdn_xml_event_c>& events, double fps, d
     return {new_events, redraw_flags};
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

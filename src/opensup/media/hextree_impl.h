@@ -29,5 +29,5 @@ bool hextree_quantize_core(const uint8_t* rgba, size_t len, uint32_t width,
                            std::vector<uint8_t>& indexed_out,
                            int& pal_count_out);
 
-} // namespace media
-} // namespace opensup
+}
+}

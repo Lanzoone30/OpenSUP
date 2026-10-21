@@ -7,6 +7,7 @@
 
 #include "opensup/pch.h"
 #include "opensup/core/segments.h"
+#include "opensup/common/logger.h"
 
 #include <cstring>
 #include <algorithm>
@@ -15,7 +16,6 @@
 namespace opensup {
 namespace core {
 
-// ── Big-endian helpers ──
 uint16_t read_u16_be(const uint8_t* data) noexcept {
     return (static_cast<uint16_t>(data[0]) << 8) | data[1];
 }
@@ -60,7 +60,6 @@ segment_type_e segment_type_from_byte(uint8_t b) {
     }
 }
 
-// ── Window Definition ──
 std::vector<uint8_t> window_definition_t::to_bytes() const {
     std::vector<uint8_t> out(9);
     out[0] = window_id;
@@ -81,7 +80,6 @@ window_definition_t window_definition_t::from_bytes(const uint8_t* data) {
     return wd;
 }
 
-// ── CObject ──
 void c_object_t::set_forced(bool f) noexcept {
     flags = static_cast<uint8_t>((flags & ~forced) | (f ? forced : 0));
 }
@@ -126,7 +124,6 @@ c_object_t c_object_t::from_bytes(const uint8_t* data, bool cropped) {
     return obj;
 }
 
-// ── PGSegment ──
 pg_segment_c::pg_segment_c(const std::vector<uint8_t>& data)
     : m_data(data)
 {
@@ -201,7 +198,6 @@ std::vector<uint8_t> pg_segment_c::make_header(segment_type_e type) {
     return hdr;
 }
 
-// ── PCS ──
 pcs_c::pcs_c(const std::vector<uint8_t>& data)
     : pg_segment_c(data)
 {
@@ -312,7 +308,6 @@ pcs_c pcs_c::from_scratch(uint16_t width, uint16_t height, uint8_t fps,
     return seg;
 }
 
-// ── WDS ──
 wds_c::wds_c(const std::vector<uint8_t>& data)
     : pg_segment_c(data)
 {
@@ -366,7 +361,6 @@ wds_c wds_c::from_scratch(const std::vector<window_definition_t>& windows_,
     return seg;
 }
 
-// ── PDS ──
 pds_c::pds_c(const std::vector<uint8_t>& data)
     : pg_segment_c(data) {}
 
@@ -391,6 +385,21 @@ void pds_c::set_palette(const media::palette_t& pal) {
     update_length();
 }
 
+pds_c::palette_warn_t pds_c::validate_palette(const media::palette_t& palette) noexcept
+{
+    palette_warn_t w;
+    for (const auto& [idx, e] : palette.entries()) {
+        if (e.y < 16 || e.y > 235 || e.cb < 16 || e.cb > 240 ||
+            e.cr < 16 || e.cr > 240) {
+            ++w.out_of_range;
+        }
+        if (idx == 0xFF && e.alpha != 0) {
+            ++w.reserved_alpha;
+        }
+    }
+    return w;
+}
+
 pds_c pds_c::from_scratch(const media::palette_t& palette,
                            uint8_t p_vn, uint8_t p_id,
                            double pts, double dts, int offset)
@@ -402,6 +411,15 @@ pds_c pds_c::from_scratch(const media::palette_t& palette,
     seg.m_data.push_back(p_vn);
     auto pal = palette;
     if (offset > 0) pal.offset(offset);
+    const auto warn = validate_palette(pal);
+    if (warn.out_of_range > 0) {
+        common::logger_c::instance().warn("palette: kind=out-of-range count="
+                                          + std::to_string(warn.out_of_range));
+    }
+    if (warn.reserved_alpha > 0) {
+        common::logger_c::instance().warn("palette: kind=reserved-alpha count="
+                                          + std::to_string(warn.reserved_alpha));
+    }
     auto pal_bytes = pal.to_bytes();
     seg.m_data.insert(seg.m_data.end(), pal_bytes.begin(), pal_bytes.end());
     seg.set_pts(pts);
@@ -410,7 +428,6 @@ pds_c pds_c::from_scratch(const media::palette_t& palette,
     return seg;
 }
 
-// ── ODS ──
 ods_c::ods_c(const std::vector<uint8_t>& data)
     : pg_segment_c(data) {}
 
@@ -537,7 +554,6 @@ std::vector<ods_c> ods_c::from_scratch(uint16_t o_id, uint8_t o_vn,
     return result;
 }
 
-// ── ENDS ──
 ends_c::ends_c(const std::vector<uint8_t>& data)
     : pg_segment_c(data) {}
 
@@ -551,7 +567,6 @@ ends_c ends_c::from_scratch(double pts, double dts) {
     return seg;
 }
 
-// ── Display Set ──
 display_set_t::display_set_t(std::vector<std::shared_ptr<pg_segment_c>> segs)
     : segments(std::move(segs)) {}
 
@@ -657,5 +672,5 @@ display_set_t display_set_t::from_bytes(const std::vector<uint8_t>& data) {
     return display_set_t(segs);
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

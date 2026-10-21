@@ -1,9 +1,13 @@
 add_library(opensup_core
   segments.cpp
   filestreams.cpp
-  renderer.cpp
+  render/ds_timings.cpp
+  render/encode_epoch.cpp
+  render/overlap.cpp
+  render/sequence_quality_policy.cpp
   interface.cpp
   pgstream.cpp
+  pgstats.cpp
   layout_engine.cpp
   ctu.cpp
 )

@@ -53,9 +53,10 @@ docs/
 *.rej
 .github/
 extern/
-build/
+build*/
 /temp
 /specs
+!tests/fixtures/ncbdn/**
 .specify/
 .impeccable/
 my-project/
@@ -67,3 +68,4 @@ ui/engine/bin/**/opensup_engine
 ui/engine/bin/**/opensup_engine.exe
 ui/frontend/dist/
 ui/frontend/node_modules/
+__pycache__/

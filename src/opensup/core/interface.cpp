@@ -7,18 +7,24 @@
 
 #include "opensup/pch.h"
 #include "opensup/core/interface.h"
-#include "opensup/core/renderer.h"
+#include "opensup/core/render/epoch_encoder.h"
+#include "opensup/core/render/ds_timings.h"
 #include "opensup/core/filestreams.h"
 #include "opensup/core/pgstream.h"
 #include "opensup/core/layout_engine.h"
+#include "opensup/media/pgraphics.h"
 #include "opensup/common/logger.h"
 
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <chrono>
 #include <future>
 #include <mutex>
+#include <set>
+#include <cstdlib>
 #include <thread>
+#include <utility>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX  // interface.cpp uses std::max/min; keep <windows.h> from redefining them
@@ -54,7 +60,23 @@ int physical_core_count() {
     }
     return cores > 0 ? cores : static_cast<int>(std::thread::hardware_concurrency());
 #else
-    return static_cast<int>(std::thread::hardware_concurrency());
+    // /proc/cpuinfo: one entry per unique (physical id, core id) pair.
+    std::ifstream cpuinfo("/proc/cpuinfo");
+    if (cpuinfo) {
+        std::set<std::pair<int, int>> cores;
+        int phys = 0;
+        std::string line;
+        while (std::getline(cpuinfo, line)) {
+            if (line.rfind("physical id", 0) == 0)
+                phys = std::atoi(line.c_str() + line.find(':') + 1);
+            else if (line.rfind("core id", 0) == 0)
+                cores.emplace(phys, std::atoi(line.c_str() + line.find(':') + 1));
+        }
+        if (!cores.empty()) return static_cast<int>(cores.size());
+    }
+    // Topology fields absent (e.g. ARM): assume SMT doubles the core count.
+    const int logical = static_cast<int>(std::thread::hardware_concurrency());
+    return logical > 1 ? logical / 2 : 1;
 #endif
 }
 
@@ -69,24 +91,7 @@ static std::vector<uint8_t> extract_alpha(const std::vector<uint8_t>& rgba, int 
 }
 
 static std::vector<window_definition_t>
-determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
-    layout_engine_c layout_engine(width, height);
-    
-    for (const auto& event : events) {
-        auto rgba = event.load_image();
-        if (rgba.empty()) continue;
-        
-        int ew = event.width();
-        int eh = event.height();
-        if (ew <= 0 || eh <= 0) continue;
-        
-        auto alpha = extract_alpha(rgba, ew, eh);
-        layout_engine.add(event.x(), event.y(), alpha, ew, eh);
-        event.unload();  // free memory after use
-    }
-    
-    auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
-    
+windows_from_boxes(const common::box_t& w0, const common::box_t& w1) {
     std::vector<window_definition_t> windows;
     window_definition_t wd0;
     wd0.window_id = 0;
@@ -95,7 +100,7 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     wd0.width = static_cast<uint16_t>(w0.dx);
     wd0.height = static_cast<uint16_t>(w0.dy);
     windows.push_back(wd0);
-    
+
     if (w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) {
         window_definition_t wd1;
         wd1.window_id = 1;
@@ -105,11 +110,65 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
         wd1.height = static_cast<uint16_t>(w1.dy);
         windows.push_back(wd1);
     }
-    
+
     return windows;
 }
 
-// ── BDN Render ──
+static std::vector<window_definition_t>
+determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
+    layout_engine_c layout_engine(width, height);
+
+    for (const auto& event : events) {
+        auto rgba = event.load_image();
+        if (rgba.empty()) continue;
+
+        int ew = event.width();
+        int eh = event.height();
+        if (ew <= 0 || eh <= 0) continue;
+
+        auto alpha = extract_alpha(rgba, ew, eh);
+        layout_engine.add(event.x(), event.y(), alpha, ew, eh);
+        event.unload();  // free memory after use
+    }
+
+    auto [container, w0, w1, is_vertical] = layout_engine.get_layout();
+    (void)is_vertical;
+    // Buffer holds 16 entries (1<<20 bytes); a window at/above 1MB-150B cannot fit,
+    // so collapse the split into the single container window.
+    if ((w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) &&
+        (w0.area() >= (1 << 20) - 150 || w1.area() >= (1 << 20) - 150)) {
+        return windows_from_boxes(container, container);
+    }
+    return windows_from_boxes(w0, w1);
+}
+
+// Split a coarse epoch while the gap between consecutive events exceeds the
+// decode base of the epoch being closed; events accumulate from the end so the
+// closing layout is known before the boundary is decided.
+static std::vector<std::vector<bdn_xml_event_c>>
+split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width, int height) {
+    const uint64_t container_area = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
+    std::vector<std::vector<bdn_xml_event_c>> epochs;
+    std::vector<bdn_xml_event_c> running;
+
+    for (size_t i = group.size(); i-- > 0; ) {
+        const auto& event = group[i];
+        if (!running.empty() && event.tc_out() != running.front().tc_in()) {
+            const double base = decode_base(determine_windows(running, width, height), container_area);
+            if (event.tc_out() + base + 1e-8 < running.front().tc_in()) {
+                epochs.push_back(std::move(running));
+                running.clear();
+            }
+        }
+        running.insert(running.begin(), event);
+    }
+    if (!running.empty())
+        epochs.push_back(std::move(running));
+
+    std::reverse(epochs.begin(), epochs.end());
+    return epochs;
+}
+
 bdn_render_c::bdn_render_c(const encode_config_t& config)
     : m_config(config) {}
 
@@ -119,7 +178,6 @@ bdn_render_c::execute()
     encode_result_t result;
     auto start_time = std::chrono::steady_clock::now();
 
-    // Parse BDN XML
     bdn_xml_c xml;
     if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
         result.error = "Failed to parse BDN XML: " + m_config.input_path;
@@ -136,8 +194,22 @@ bdn_render_c::execute()
                                std::to_string(m_config.height) +
                                " @" + std::to_string(m_config.fps) + " fps");
 
-    // Split events into epochs (group by proximity: 1s gap threshold)
-    auto event_groups = xml.groups(1.0);
+    // Split events into epochs: a gap shorter than a full-screen epoch start
+    // (write + decode + write) keeps the events in one epoch, so back-to-back or
+    // tightly-gapped displays share a layout instead of paying a re-acquisition.
+    const double screen_area = static_cast<double>(m_config.width) *
+                               static_cast<double>(m_config.height);
+    const double copy_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RC) / media::pg_decoder_t::FREQ;
+    const double decode_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RD) / media::pg_decoder_t::FREQ;
+    const double dt_split = std::max(copy_dur, decode_dur) + copy_dur;
+    auto coarse_groups = xml.groups(dt_split);
+    // Each coarse group is split further by the layout-driven decode-base check.
+    std::vector<std::vector<bdn_xml_event_c>> event_groups;
+    for (const auto& group : coarse_groups) {
+        auto sub = split_group_by_decode_base(group, m_config.width, m_config.height);
+        for (auto& epoch : sub)
+            event_groups.push_back(std::move(epoch));
+    }
     result.events = static_cast<int>(xml.events().size());
     result.epochs = static_cast<int>(event_groups.size());
 
@@ -151,9 +223,9 @@ bdn_render_c::execute()
         return result;
     }
 
-    // Encode epochs in parallel. Each epoch is independent (parity with the original:
-    // palette ids restart at 0 per epoch) so results are deterministically
-    // assembled by epoch index after all workers finish.
+    // Encode epochs in parallel. Each epoch is independent (palette ids restart
+    // at 0 per epoch) so results are deterministically assembled by epoch index
+    // after all workers finish.
     const int total_epochs = static_cast<int>(event_groups.size());
     auto fps_enum = xml.fps();
 
@@ -176,10 +248,11 @@ bdn_render_c::execute()
 
     auto encode_one = [&](int epoch_index) {
         auto& group = event_groups[static_cast<size_t>(epoch_index)];
+        group = remove_dupes(group);
         std::vector<bool> no_redraw;
 
         if (m_config.redraw_period > 0.0) {
-            auto [expanded, flags] = add_periodic_refreshes(group, m_config.fps, m_config.redraw_period);
+            auto [expanded, flags] = add_periodic_refreshes(group, fps_enum, m_config.redraw_period);
             group = std::move(expanded);
             no_redraw = std::move(flags);
         }
@@ -187,17 +260,27 @@ bdn_render_c::execute()
         // Determine window layout for this epoch (before encoding)
         auto windows = determine_windows(group, m_config.width, m_config.height);
 
-        // Encode (palette ids restart at 0 per epoch, threaded parity with the original)
-        epoch_encoder_c encoder(m_config.fps, m_config.width, m_config.height,
-                                m_config.quantizer_id,
-                                m_config.allow_normal_case, m_config.overlap,
-                                m_config.full_palette,
-                                m_config.prefer_normal_case,
-                                m_config.compression / 100.0,
-                                m_config.acqrate / 100.0,
-                                m_config.ssim_tol / 100.0,
-                                m_config.extra_acq,
-                                m_config.alternate_oids);
+        epoch_render_options_t opts;
+        opts.fps = m_config.fps;
+        opts.width = m_config.width;
+        opts.height = m_config.height;
+        opts.quantizer_id = m_config.quantizer_id;
+        opts.allow_normal_case = m_config.allow_normal_case;
+        opts.overlap = m_config.overlap;
+        opts.full_palette = m_config.full_palette;
+        opts.prefer_normal_case = m_config.prefer_normal_case;
+        opts.quality_factor = m_config.compression / 100.0;
+        opts.refresh_rate = m_config.acqrate / 100.0;
+        opts.ssim_tol = m_config.ssim_tol / 100.0;
+        opts.insert_acquisitions = m_config.extra_acq;
+        opts.alternate_oids = m_config.alternate_oids;
+        opts.tight_ods = m_config.tight_ods;
+        opts.bt_matrix = m_config.bt_matrix;
+        opts.liq_quality = m_config.liq_quality;
+        opts.liq_speed = m_config.liq_speed;
+        opts.liq_dither_pct = m_config.liq_dither_pct;
+        opts.is_last_epoch = epoch_index == total_epochs - 1;
+        epoch_encoder_c encoder(opts);
         int palette_base = 0;
         auto segs = encoder.encode_epoch(group, no_redraw, fps_enum, palette_base, windows);
         total_segments += static_cast<int>(segs.size());
@@ -256,16 +339,22 @@ bdn_render_c::execute()
 
     // Optional stream bitrate validation (max_kbps path).
     // Warns on decoder-buffer underflow; never fails the encode.
+    bool compliant = true;
     if (m_config.max_kbps > 0) {
         logger_c::instance().info("Checking PGS bitrate and buffer usage w.r.t user max bitrate: " +
                                   std::to_string(m_config.max_kbps) + " Kbps...");
-        // Result intentionally unused: underflow only warns, never fails (parity with the original).
-        (void)test_rx_bitrate(m_segments,
-                              static_cast<int64_t>(m_config.max_kbps) * 1000 / 8);
+        if (!test_rx_bitrate(m_segments,
+                             static_cast<int64_t>(m_config.max_kbps) * 1000 / 8)) {
+            logger_c::instance().warn(
+                "Detected buffer underflow(s) given the provided test bitrate.");
+            compliant = false;
+        }
     }
+    if (m_config.post_encode_compliance_hook)
+        compliant = m_config.post_encode_compliance_hook();
 
-    sup_file_c::write_sup(m_config.output_path, m_segments);
-
+    auto pes_path = std::string{};
+    auto mui_path = std::string{};
     if (m_config.both_formats) {
         auto sup = m_config.output_path;
         auto pes = sup;
@@ -275,8 +364,27 @@ bdn_render_c::execute()
         else
             pes = pes + ".pes";
         auto mui = pes + ".mui";
-        logger_c::instance().info("Both formats: " + sup + " + " + pes + " + " + mui);
-        sup_file_c::write_pes_mui(pes, mui, m_segments);
+
+        if (!m_config.overwrite && (std::filesystem::exists(pes) || std::filesystem::exists(mui))) {
+            result.error = "PES/MUI files exist, use -y to overwrite";
+            logger_c::instance().error(result.error);
+            return result;
+        }
+
+        pes_path = std::move(pes);
+        mui_path = std::move(mui);
+    }
+
+    sup_file_c::write_sup(m_config.output_path, m_segments);
+
+    if (m_config.both_formats) {
+        if (!compliant) {
+            logger_c::instance().warn("PES+MUI skipped (stream not compliant)");
+        } else {
+            logger_c::instance().info("Both formats: " + m_config.output_path +
+                                      " + " + pes_path + " + " + mui_path);
+            sup_file_c::write_pes_mui(pes_path, mui_path, m_segments);
+        }
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -295,5 +403,5 @@ bdn_render_c::execute()
     return result;
 }
 
-} // namespace core
-} // namespace opensup
+}
+}

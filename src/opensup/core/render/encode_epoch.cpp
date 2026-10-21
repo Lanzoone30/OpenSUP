@@ -1,0 +1,1551 @@
+// Copyright (C) 2024-2026 Lanzoone30
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenSUP - PGS Encoder
+//
+// Adapted from SUPer by cubicibo (https://github.com/cubicibo/SUPer), GPL-3.0-or-later.
+
+#include "opensup/pch.h"
+#include "opensup/core/render/epoch_encoder.h"
+#include "opensup/core/render/ds_timings.h"
+#include "opensup/media/pgraphics.h"
+#include "opensup/common/logger.h"
+#include "opensup/common/ssim.h"
+#include "opensup/core/ctu.h"
+
+#include <cmath>
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <queue>
+
+namespace opensup {
+namespace core {
+
+using common::logger_c;
+using common::fps_e;
+using media::pg_decoder_t;
+using media::encode_rle;
+using media::palette_t;
+using media::palette_entry_t;
+using media::optimiser_c;
+
+/// Trim fully-transparent borders from an RGBA image (defined below).
+void trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
+                              std::vector<uint8_t>& out, int& out_w, int& out_h,
+                              int& offset_x, int& offset_y);
+
+void
+trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
+                         std::vector<uint8_t>& out, int& out_w, int& out_h,
+                         int& offset_x, int& offset_y)
+{
+    int min_x = width, min_y = height, max_x = 0, max_y = 0;
+    bool found = false;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            size_t idx = static_cast<size_t>(y * width + x) * 4;
+            if (rgba[idx + 3] > 0) {  // alpha > 0
+                min_x = std::min(min_x, x);
+                max_x = std::max(max_x, x);
+                min_y = std::min(min_y, y);
+                max_y = std::max(max_y, y);
+                found = true;
+            }
+        }
+    }
+    if (!found) {
+        min_x = 0; min_y = 0; max_x = 0; max_y = 0;
+    }
+    out_w = max_x - min_x + 1;
+    out_h = max_y - min_y + 1;
+    offset_x = min_x;
+    offset_y = min_y;
+    out.clear();
+    if (found) {
+        out.reserve(static_cast<size_t>(out_w) * static_cast<size_t>(out_h) * 4);
+        for (int y = min_y; y <= max_y; y++) {
+            auto src_start = rgba.begin() + static_cast<ptrdiff_t>((y * width + min_x) * 4);
+            auto src_end = src_start + static_cast<ptrdiff_t>(out_w * 4);
+            out.insert(out.end(), src_start, src_end);
+        }
+    }
+}
+
+/// Straight-alpha compositing: dst = over(dst, src) — like PIL.Image.alpha_composite.
+/// Both src and dst must have same dimensions and 4 channels (RGBA).
+static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width, int height)
+{
+    const size_t np = static_cast<size_t>(width) * static_cast<size_t>(height);
+    for (size_t i = 0; i < np; ++i) {
+        const size_t idx = i * 4;
+        const uint8_t sa = src[idx + 3];
+        if (sa == 0) continue;
+        const uint8_t da = dst[idx + 3];
+        const int sa_i = static_cast<int>(sa);
+        const int da_i = static_cast<int>(da);
+        const uint16_t oa = static_cast<uint16_t>(sa_i + da_i * (255 - sa_i) / 255);
+        if (oa == 0) {
+            dst[idx + 3] = 0;
+            continue;
+        }
+        const double sfa = static_cast<double>(sa) / static_cast<double>(oa);
+        const double dfa = (1.0 - sfa) * static_cast<double>(da) / static_cast<double>(oa);
+        dst[idx + 0] = static_cast<uint8_t>(std::clamp(
+            static_cast<double>(src[idx + 0]) * sfa + static_cast<double>(dst[idx + 0]) * dfa + 0.5, 0.0, 255.0));
+        dst[idx + 1] = static_cast<uint8_t>(std::clamp(
+            static_cast<double>(src[idx + 1]) * sfa + static_cast<double>(dst[idx + 1]) * dfa + 0.5, 0.0, 255.0));
+        dst[idx + 2] = static_cast<uint8_t>(std::clamp(
+            static_cast<double>(src[idx + 2]) * sfa + static_cast<double>(dst[idx + 2]) * dfa + 0.5, 0.0, 255.0));
+        dst[idx + 3] = static_cast<uint8_t>(oa);
+    }
+}
+
+/// Sub-recorte del indexed del evento a la ventana [x0,y0,x1,y1) en coords
+/// absolutas: resta el origen (ax,ay) del bbox del evento; píxeles fuera del
+/// evento quedan 0xFF (transparente). Defined here, used by overlap.cpp too.
+std::vector<uint8_t>
+crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay, int obj_w, int obj_h,
+             int x0, int y0, int x1, int y1)
+{
+    if (x1 <= x0 || y1 <= y0)
+        return {};
+    std::vector<uint8_t> out;
+    out.reserve(static_cast<size_t>(x1 - x0) * static_cast<size_t>(y1 - y0));
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            const int rx = x - ax, ry = y - ay;
+            const bool inside = rx >= 0 && rx < obj_w && ry >= 0 && ry < obj_h;
+            out.push_back(inside ? indexed[static_cast<size_t>(ry) * static_cast<size_t>(obj_w) + static_cast<size_t>(rx)] : 0xFF);
+        }
+    }
+    return out;
+}
+
+/// Recorta [x0,y0,x1,y1) (coords absolutas) al bbox de contenido no
+/// transparente (0xFF) del objeto indexado; false si no queda contenido.
+/// Emula el `_crop` del oráculo sobre la sub-matriz de la ventana. Defined
+/// here, used by overlap.cpp too.
+bool
+trim_indexed_rect(const std::vector<uint8_t>& indexed,
+                  int ax, int ay, int obj_w, int obj_h,
+                  int& x0, int& y0, int& x1, int& y1)
+{
+    const int sx = std::max(x0, ax), sy = std::max(y0, ay);
+    const int ex = std::min(x1, ax + obj_w), ey = std::min(y1, ay + obj_h);
+    int mnx = ex, mny = ey, mxx = sx - 1, mxy = sy - 1;
+    for (int y = sy; y < ey; ++y) {
+        for (int x = sx; x < ex; ++x) {
+            if (indexed[static_cast<size_t>(y - ay) * static_cast<size_t>(obj_w) +
+                        static_cast<size_t>(x - ax)] != 0xFF) {
+                mnx = std::min(mnx, x);
+                mxx = std::max(mxx, x);
+                mny = std::min(mny, y);
+                mxy = std::max(mxy, y);
+            }
+        }
+    }
+    if (mxx < mnx) return false;
+    x0 = mnx; y0 = mny; x1 = mxx + 1; y1 = mxy + 1;
+    return true;
+}
+
+/// Igual que trim_indexed_rect pero sobre RGBA (alpha>0).
+bool
+trim_rgba_rect(const std::vector<uint8_t>& rgba,
+               int ax, int ay, int obj_w, int obj_h,
+               int& x0, int& y0, int& x1, int& y1)
+{
+    const int sx = std::max(x0, ax), sy = std::max(y0, ay);
+    const int ex = std::min(x1, ax + obj_w), ey = std::min(y1, ay + obj_h);
+    int mnx = ex, mny = ey, mxx = sx - 1, mxy = sy - 1;
+    for (int y = sy; y < ey; ++y) {
+        for (int x = sx; x < ex; ++x) {
+            const size_t pi = (static_cast<size_t>(y - ay) * static_cast<size_t>(obj_w) +
+                               static_cast<size_t>(x - ax)) * 4 + 3;
+            if (rgba[pi] > 0) {
+                mnx = std::min(mnx, x);
+                mxx = std::max(mxx, x);
+                mny = std::min(mny, y);
+                mxy = std::max(mxy, y);
+            }
+        }
+    }
+    if (mxx < mnx) return false;
+    x0 = mnx; y0 = mny; x1 = mxx + 1; y1 = mxy + 1;
+    return true;
+}
+
+/// Reserved slot 0xFF carries transparency: every alpha==0 palette entry is
+/// remapped there and dropped, so index 0 stays free (solve_group layout).
+/// Defined here, used by overlap.cpp too.
+void normalize_transparent_index(palette_t& palette, std::vector<uint8_t>& indexed)
+{
+    bool transparent[256] = {};
+    for (const auto& [idx, e] : palette.entries())
+        if (e.alpha == 0) transparent[idx] = true;
+    uint8_t remap[256];
+    int dropped = 0;
+    for (int i = 0; i < 256; i++) {
+        if (transparent[i]) {
+            remap[i] = 0xFF;
+            dropped++;
+        } else {
+            remap[i] = static_cast<uint8_t>(i + 1 - dropped);
+        }
+    }
+    for (auto& b : indexed) b = remap[b];
+    palette_t shifted;
+    for (const auto& [idx, e] : palette.entries())
+        if (!transparent[idx]) shifted.set(remap[idx], e);
+    palette = std::move(shifted);
+}
+
+acq_signals_t find_acqs_signals(double dts, double prev_dts_end,
+                                double pts, double prev_pts,
+                                double write_duration, double margin)
+{
+    // Decode starts after the previous decode end and the PTS gap exceeds the
+    // epoch write duration.
+    acq_signals_t sig;
+    sig.valid = (dts > prev_dts_end) && (pts - prev_pts > write_duration);
+    // Decode slack normalized by the previous node duration; invalid timings
+    // map to -1 (the first node never reaches here).
+    sig.dtl = sig.valid ? (dts - prev_dts_end) / margin : -1.0;
+    return sig;
+}
+
+epoch_encoder_c::epoch_encoder_c(const epoch_render_options_t& opts)
+    : m_fps(opts.fps), m_width(opts.width), m_height(opts.height)
+    , m_quantizer_id(opts.quantizer_id)
+    , m_bt_matrix(opts.bt_matrix)
+    , m_allow_normal_case(opts.allow_normal_case)
+    , m_prefer_normal_case(opts.prefer_normal_case)
+    , m_overlap(opts.overlap)
+    , m_full_palette(opts.full_palette)
+    , m_alternate_oids(opts.alternate_oids)
+    , m_tight_ods(opts.tight_ods)
+    , m_liq_options{opts.liq_quality, opts.liq_speed, opts.liq_dither_pct}
+    , m_quality(sequence_quality_policy_c::options_t{
+          opts.quality_factor, opts.refresh_rate, opts.ssim_tol,
+          opts.insert_acquisitions, opts.height})
+    , m_is_last_epoch(opts.is_last_epoch) {}
+
+bool
+epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int height,
+                                media::palette_t& out_palette,
+                                std::vector<uint8_t>& out_indexed) const
+{
+    auto opt = media::optimiser_c::get_available();
+    if (opt.empty()) return false;
+
+    auto try_quantize = [&](size_t id) -> bool {
+        if (id >= opt.size()) return false;
+        // Palette slot 0xFF is reserved for transparent pixels; keep 254 usable
+        // entries regardless of the PDS emission mode.
+        const int max_colors = 254;
+        auto result = opt[id]->quantize(rgba, width, height, max_colors, true,
+                                        m_bt_matrix, m_liq_options);
+        if (result.palette.empty() || result.indexed.empty()) return false;
+        out_palette = std::move(result.palette);
+        out_indexed = std::move(result.indexed);
+        return true;
+    };
+
+    // Default (id 3) maps to the LIQ backend at index 0, keeping the stream
+    // byte-identical to the pre-032 encoding.
+    int idx = media::optimiser_c::index_for(m_quantizer_id);
+    size_t qid = idx < 0 ? 0u : static_cast<size_t>(idx);
+    if (try_quantize(qid)) return true;
+
+    // Fall back to the other backend when the preferred one failed.
+    size_t fallback_id = qid ^ 1u;
+    return fallback_id < opt.size() && try_quantize(fallback_id);
+}
+
+epoch_timings_t
+epoch_encoder_c::compute_timings(double base_pts, uint64_t area) const
+{
+    // Decode duration: full-screen composition rate (epoch-start model).
+    // +1 tick margin so PTS-DTS delta strictly exceeds wipe_duration
+    // (check_pts_dts_sanity requires delta > wipe_duration, exact tie fails).
+    double screen_area = static_cast<double>(m_width) * static_cast<double>(m_height);
+    double decode_duration = (std::ceil(screen_area * pg_decoder_t::FREQ / pg_decoder_t::RC) + 1.0) /
+                             pg_decoder_t::FREQ;
+
+    epoch_timings_t t;
+    t.base_pts = base_pts;
+    t.base_dts = base_pts - decode_duration;
+    t.obj_decode_time = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RD)
+                        / pg_decoder_t::FREQ;
+    t.wipe_dur = std::ceil(static_cast<double>(area) * pg_decoder_t::FREQ / pg_decoder_t::RC)
+                 / pg_decoder_t::FREQ;
+    t.decode_duration = decode_duration;
+    return t;
+}
+
+std::shared_ptr<pds_c>
+epoch_encoder_c::make_pds(const media::palette_t& palette, uint8_t palette_id,
+                          double pts, double dts, bool force_full)
+{
+    auto p_vn = static_cast<uint8_t>(m_palette_vn++);
+    // Decoders drop the CLUT on every non-NORMAL composition, so a delta there
+    // would leave the omitted indices undefined.
+    bool full = force_full || m_full_palette || palette_id != m_last_palette_id ||
+                m_palette_cache.find(palette_id) == m_palette_cache.end();
+
+    std::shared_ptr<pds_c> pds;
+    if (full) {
+        pds = std::make_shared<pds_c>(
+            pds_c::from_scratch(palette, p_vn, palette_id, pts, dts));
+    } else {
+        const auto& prev = m_palette_cache[palette_id];
+        media::palette_t delta = prev.diff(palette);
+        if (delta.empty()) {
+            // No entries changed: send a full palette to keep a valid PDS.
+            pds = std::make_shared<pds_c>(
+                pds_c::from_scratch(palette, p_vn, palette_id, pts, dts));
+        } else {
+            pds = std::make_shared<pds_c>(
+                pds_c::from_scratch(delta, p_vn, palette_id, pts, dts));
+        }
+    }
+
+    m_palette_cache[palette_id] = palette;
+    m_last_palette_id = palette_id;
+    return pds;
+}
+
+void
+epoch_encoder_c::emit_palette_wipe(std::vector<std::shared_ptr<pg_segment_c>>& out,
+                                   uint8_t pcsfps, double pts, double dts,
+                                   uint8_t palette_id)
+{
+    // PCS keeps the current composition and flags a palette update; the PDS
+    // sets every slot transparent (Y=16, C=128, alpha=0), blanking the screen
+    // without a WDS.
+    auto clear_pcs = pcs_c::from_scratch(
+        static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height), pcsfps,
+        static_cast<uint16_t>(m_composition_n++),
+        pcs_c::composition_state_e::normal, true, palette_id, m_last_cobjs,
+        pts, dts);
+    out.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+
+    media::palette_t clear_pal;
+    for (uint16_t k = 0; k < 255; ++k)
+        clear_pal.set(static_cast<uint8_t>(k), media::palette_entry_t(16, 128, 128, 0));
+    auto clear_pds = pds_c::from_scratch(clear_pal, static_cast<uint8_t>(m_palette_vn++),
+                                         palette_id, dts, dts);
+    out.push_back(std::make_shared<pds_c>(std::move(clear_pds)));
+    m_palette_cache[palette_id] = clear_pal;
+    m_last_palette_id = palette_id;
+
+    auto clear_end = ends_c::from_scratch(dts, dts);
+    out.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+}
+
+void
+epoch_encoder_c::reset_oid_phase(int nwin)
+{
+    if (nwin < 1) nwin = 1;
+    m_oid_db.assign(static_cast<size_t>(nwin), nwin);
+    m_oid_vn.assign(static_cast<size_t>(2 * nwin), 0);
+    m_window_oid.assign(static_cast<size_t>(nwin), 0xFFFF);
+}
+
+std::pair<uint16_t, uint8_t>
+epoch_encoder_c::next_oid(uint8_t window_id)
+{
+    if (m_oid_db.empty())
+        reset_oid_phase(m_windows.empty() ? 1 : static_cast<int>(m_windows.size()));
+    if (window_id >= m_oid_db.size())
+        return {window_id, 0};
+    const int nwin = static_cast<int>(m_oid_db.size());
+    int& db = m_oid_db[window_id];
+    db = std::abs(nwin - db);
+    const uint16_t oid = static_cast<uint16_t>(static_cast<int>(window_id) + db);
+    if (m_oid_vn.size() <= oid)
+        m_oid_vn.resize(static_cast<size_t>(oid) + 1, 0);
+    m_window_oid[window_id] = oid;
+    return {oid, static_cast<uint8_t>(m_oid_vn[oid]++)};
+}
+
+uint16_t
+epoch_encoder_c::current_oid(uint8_t window_id, uint16_t fallback) const
+{
+    if (window_id < m_window_oid.size() && m_window_oid[window_id] != 0xFFFF)
+        return m_window_oid[window_id];
+    return fallback;
+}
+
+uint8_t
+epoch_encoder_c::window_for(int ev_x, int ev_y, int crop_x, int crop_y) const noexcept
+{
+    // Single-window mode (no layout windows): everything lives in window 0.
+    if (m_windows.size() < 2) return 0;
+    const int px = ev_x + crop_x;
+    const int py = ev_y + crop_y;
+    for (const auto& wd : m_windows) {
+        if (px >= wd.h_pos && px < wd.h_pos + wd.width &&
+            py >= wd.v_pos && py < wd.v_pos + wd.height)
+            return wd.window_id;
+    }
+    return 0;
+}
+
+std::vector<std::shared_ptr<pg_segment_c>>
+epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
+                                     const std::vector<std::shared_ptr<pg_segment_c>>& result_so_far,
+                                     epoch_timings_t* timing_out)
+{
+    std::vector<std::shared_ptr<pg_segment_c>> result;
+    auto palette_id = in.palette_id;
+
+    // Build CObject: position = event position + crop offset
+    std::vector<c_object_t> cobjects;
+    if (in.epoch_start)
+        reset_oid_phase(m_windows.empty() ? 1 : static_cast<int>(m_windows.size()));
+    // o_id/version come from the per-window double-buffer state, not from the
+    // caller: reused objects keep their last oid, new ODSs advance the phase.
+    uint16_t obj_id = in.obj_id;
+    uint8_t ods_vn = 0;
+    if (m_alternate_oids) {
+        // Legacy global 0/1 toggle supplied by the caller.
+        if (!in.reusable) {
+            if (m_oid_vn.size() <= in.obj_id)
+                m_oid_vn.resize(static_cast<size_t>(in.obj_id) + 1, 0);
+            ods_vn = static_cast<uint8_t>(m_oid_vn[in.obj_id]++);
+        }
+    } else if (in.reusable) {
+        obj_id = current_oid(in.window_id, in.obj_id);
+    } else {
+        const std::pair<uint16_t, uint8_t> next = next_oid(in.window_id);
+        obj_id = next.first;
+        ods_vn = next.second;
+    }
+    // ODS frame = epoch slot for this window. Content keeps its on-screen
+    // position; the frame is anchored to the content's right/bottom edge and
+    // clamped to the window origin, with transparent 0xFF padding.
+    // With tight_ods the frame is the content box itself, top-left anchored.
+    const window_definition_t* slot_wd = nullptr;
+    for (const auto& wd : m_windows)
+        if (wd.window_id == in.window_id) slot_wd = &wd;
+    int frame_w = in.obj_w, frame_h = in.obj_h;
+    if (!m_tight_ods && slot_wd) {
+        if (auto it = m_slots.find(in.window_id); it != m_slots.end()) {
+            frame_w = std::max(frame_w, it->second.w);
+            frame_h = std::max(frame_h, it->second.h);
+        }
+    }
+    int frame_x = in.ev_x + in.crop_x, frame_y = in.ev_y + in.crop_y;
+    if (!m_tight_ods) {
+        frame_x += in.obj_w - frame_w;
+        frame_y += in.obj_h - frame_h;
+        if (slot_wd && frame_x < static_cast<int>(slot_wd->h_pos)) frame_x = slot_wd->h_pos;
+        if (slot_wd && frame_y < static_cast<int>(slot_wd->v_pos)) frame_y = slot_wd->v_pos;
+    }
+    const int paste_x = in.ev_x + in.crop_x - frame_x;
+    const int paste_y = in.ev_y + in.crop_y - frame_y;
+
+    c_object_t obj;
+    obj.o_id = obj_id;
+    obj.window_id = in.window_id;
+    obj.h_pos = static_cast<uint16_t>(frame_x);
+    obj.v_pos = static_cast<uint16_t>(frame_y);
+    obj.flags = in.ev_forced ? c_object_t::forced : c_object_t::standard;
+    cobjects.push_back(obj);
+    // Normal case: the other window's object stays on screen as a CObject
+    // reference without a new ODS. Its palette/image are the one already
+    // decoded from that window's last ODS.
+    if (in.normal_case_ref) {
+        c_object_t ref;
+        ref.o_id = current_oid(in.ref_window_id, in.ref_obj_id);
+        ref.window_id = in.ref_window_id;
+        ref.h_pos = static_cast<uint16_t>(std::max(0, in.ref_x));
+        ref.v_pos = static_cast<uint16_t>(std::max(0, in.ref_y));
+        ref.flags = c_object_t::standard;
+        // The kept (id_skipped) CObject must be listed FIRST in the
+        // composition: the refreshed object has to come first — always, with
+        // or without alternate_oids; the on-screen oid is reused.
+        cobjects.insert(cobjects.begin(), ref);
+    }
+    m_last_cobjs = cobjects;
+
+    // WDS windows: the full epoch layout, ordered by window_id, is re-declared
+    // on every display set (a window may not change mid-epoch); single-window
+    // emission falls back to the object rectangle.
+    std::vector<window_definition_t> wds_windows;
+    if (!m_windows.empty()) {
+        wds_windows = m_windows;
+    } else {
+        window_definition_t wd;
+        wd.window_id = in.window_id;
+        wd.h_pos = static_cast<uint16_t>(in.ev_x + in.crop_x);
+        wd.v_pos = static_cast<uint16_t>(in.ev_y + in.crop_y);
+        wd.width = static_cast<uint16_t>(in.obj_w);
+        wd.height = static_cast<uint16_t>(in.obj_h);
+        wds_windows.push_back(wd);
+    }
+
+    // Per-segment timestamps: decode duration derives from the composition
+    // state, the WDS windows and the object transfer times.
+    ds_timing_input_t tin;
+    tin.state = in.comp_state;
+    tin.pal_flag = in.reusable;
+    tin.plane_area = static_cast<uint64_t>(m_width) * static_cast<uint64_t>(m_height);
+    tin.pts = in.timings.base_pts;
+    tin.windows = wds_windows;
+    tin.cobjects = cobjects;
+    if (!in.reusable)
+        // Key by the reassigned o_id: tin.cobjects carries obj_id, not in.obj_id.
+        tin.ods = {{obj_id, static_cast<uint64_t>(frame_w) * static_cast<uint64_t>(frame_h)}};
+    const ds_timing_t dt = in.ds_timing != nullptr ? *in.ds_timing : compute_ds_timing(tin);
+    const double obj_decode = in.ds_timing != nullptr
+        ? std::ceil(static_cast<double>(in.obj_w) * static_cast<double>(in.obj_h) *
+                    pg_decoder_t::FREQ / pg_decoder_t::RD) / pg_decoder_t::FREQ
+        : (dt.ods.empty() ? 0.0 : dt.ods.front().obj_decode);
+    if (timing_out != nullptr) {
+        timing_out->base_pts = in.timings.base_pts;
+        timing_out->base_dts = dt.dts;
+        timing_out->obj_decode_time = obj_decode;
+        timing_out->wipe_dur = dt.wipe_duration;
+        timing_out->decode_duration = dt.decode_duration;
+    }
+
+    // PCS: PTS = presentation, DTS = decode start
+    auto pcs = pcs_c::from_scratch(
+        static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+        static_cast<uint8_t>(in.fps_enum.to_pcsfps()),
+        static_cast<uint16_t>(m_composition_n++), in.comp_state,
+        false, palette_id, cobjects, in.timings.base_pts, dt.dts);
+    result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
+
+    // WDS: PTS = PCS_PTS - wipe duration.
+    // ponytail: no artificial nudge; the +1 decode guard in compute_ds_timing
+    // already keeps dts < pts (the oracle bumps decode_duration instead).
+    double wds_pts = in.timings.base_pts - dt.wipe_duration;
+    auto wds = wds_c::from_scratch(wds_windows, wds_pts, dt.dts);
+    result.push_back(std::make_shared<wds_c>(std::move(wds)));
+
+    // PDS: PTS = DTS (instant), or earlier in overlap mode (previous ENDS).
+    // Skipped for reused events — the palette is already in the decoder.
+    double pds_pts = dt.dts;
+    double pds_dts = dt.dts;
+    if (m_overlap && !result_so_far.empty()) {
+        auto prev_seg = result_so_far.back();
+        if (auto prev_ends = std::dynamic_pointer_cast<ends_c>(prev_seg)) {
+            pds_pts = prev_ends->pts();
+            pds_dts = prev_ends->dts();
+        }
+    }
+    const bool palette_forced = in.comp_state != pcs_c::composition_state_e::normal;
+    if (!in.reusable) {
+        result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts,
+                                  palette_forced));
+
+        // Skipped for reused events — the object is already decoded.
+        double ods_pts = dt.dts + obj_decode;
+        std::vector<uint8_t> frame_idx;
+        const std::vector<uint8_t>* ods_idx = &in.indexed;
+        if (frame_w != in.obj_w || frame_h != in.obj_h) {
+            frame_idx.assign(static_cast<size_t>(frame_w) * static_cast<size_t>(frame_h), 0xFF);
+            for (int y = 0; y < in.obj_h; ++y)
+                std::copy_n(in.indexed.begin() + static_cast<ptrdiff_t>(y) * in.obj_w,
+                            in.obj_w,
+                            frame_idx.begin() + static_cast<ptrdiff_t>(y + paste_y) * frame_w + paste_x);
+            ods_idx = &frame_idx;
+        }
+        auto rle_data = encode_rle(*ods_idx, frame_w, frame_h);
+        auto ods_list = ods_c::from_scratch(obj_id, ods_vn,
+                                              static_cast<uint16_t>(frame_w),
+                                              static_cast<uint16_t>(frame_h),
+                                              rle_data, ods_pts, dt.dts);
+        for (auto& ods : ods_list)
+            result.push_back(std::make_shared<ods_c>(std::move(ods)));
+
+        // ENDS: PTS = DTS = after last ODS
+        auto end = ends_c::from_scratch(ods_pts, ods_pts);
+        result.push_back(std::make_shared<ends_c>(std::move(end)));
+    } else {
+        // A non-NORMAL composition wipes the decoder CLUT; resend the palette
+        // even though the object itself is reused.
+        if (in.comp_state != pcs_c::composition_state_e::normal)
+            result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts, true));
+        // ENDS: PTS = DTS = presentation time of the reused composition.
+        // Uses the recomputed decode start so it never predates the PCS DTS.
+        auto end = ends_c::from_scratch(dt.dts, dt.dts);
+        result.push_back(std::make_shared<ends_c>(std::move(end)));
+    }
+
+    return result;
+}
+
+std::vector<std::shared_ptr<pg_segment_c>>
+epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
+                               const std::vector<bool>& redraw_flags,
+                               common::fps_e fps_enum,
+                               int& palette_id_counter,
+                               const std::vector<window_definition_t>& windows)
+{
+    // The order of operations below is the byte-exact semantics of the
+    // stream; do not reorder.
+    std::vector<std::shared_ptr<pg_segment_c>> result;
+    if (events.empty()) return result;
+
+    // Layout windows for this epoch (may be empty: single-window emission
+    // then falls back to per-object windows below).
+    m_windows = windows;
+    // ponytail: >16 WDS entries per epoch (1<<20)-150 overflows the PCS window
+    // list; collapse to a single union window instead of emitting it.
+    if (m_windows.size() >= 2) {
+        bool overflow = false;
+        for (const auto& w : m_windows)
+            if (static_cast<uint32_t>(w.width) * w.height >= (1u << 20) - 150) {
+                overflow = true;
+                break;
+            }
+        if (overflow) {
+            window_definition_t u;
+            u.window_id = 0;
+            uint32_t x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+            for (const auto& w : m_windows) {
+                x1 = std::min<uint32_t>(x1, w.h_pos);
+                y1 = std::min<uint32_t>(y1, w.v_pos);
+                x2 = std::max<uint32_t>(x2, w.h_pos + w.width);
+                y2 = std::max<uint32_t>(y2, w.v_pos + w.height);
+            }
+            u.h_pos = static_cast<uint16_t>(x1);
+            u.v_pos = static_cast<uint16_t>(y1);
+            u.width = static_cast<uint16_t>(x2 - x1);
+            u.height = static_cast<uint16_t>(y2 - y1);
+            m_windows.assign(1, u);
+        }
+    }
+    m_palette_cache.clear();
+    m_slots.clear();
+    m_last_palette_id = 0xFF;
+    reset_oid_phase(m_windows.size() >= 2 ? static_cast<int>(m_windows.size()) : 1);
+    // Overlap + two windows: acquisitions merge into the previous window's
+    // nodes, so the whole epoch must be planned before emission (two-phase).
+    // Default and single-window overlap keep the single-pass path below
+    // (byte-frozen).
+    if (m_overlap && m_windows.size() == 2)
+        return encode_epoch_overlap(events, redraw_flags, fps_enum,
+                                    palette_id_counter);
+    // Epoch frame per window: max content bbox over all events of the epoch
+    // (oracle find_acqs min_boxes). ODS frames are emitted at this size.
+    for (const auto& ev : events) {
+        auto rgba = ev.load_image();
+        if (rgba.empty()) continue;
+        int tw = 0, th = 0, tx = 0, ty = 0;
+        std::vector<uint8_t> scratch;
+        trim_transparent_padding(rgba, ev.width(), ev.height(), scratch, tw, th, tx, ty);
+        const int w = tw > 0 ? tw : ev.width();
+        const int h = th > 0 ? th : ev.height();
+        const int cx = ev.x() + tx, cy = ev.y() + ty;
+        auto grow = [&](uint8_t wid, int ww, int hh) {
+            auto& s = m_slots[wid];
+            s.w = std::max({s.w, ww, 8});
+            s.h = std::max({s.h, hh, 8});
+        };
+        if (m_windows.empty()) {
+            grow(0, w, h);
+        } else {
+            for (const auto& wd : m_windows) {
+                const int ix0 = std::max(cx, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(cy, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(cx + w, static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(cy + h, static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0) {
+                    // La ventana puede recortar un evento más ancho: re-trim al
+                    // alpha>0 dentro de la ventana (oráculo `_crop`, no el rect).
+                    int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                    if (trim_rgba_rect(rgba, ev.x(), ev.y(), ev.width(), ev.height(),
+                                       tx0, ty0, tx1, ty1))
+                        grow(wd.window_id, tx1 - tx0, ty1 - ty0);
+                }
+            }
+        }
+    }
+    // redraw_flags marks forced ACQUISITION points (periodic refresh)
+    const std::vector<bool>& forced_acq = redraw_flags;
+
+    auto palette_id = static_cast<uint8_t>(palette_id_counter % 8);
+    palette_id_counter++;
+
+    // Global oid alternation 0/1 across acquisitions (no per-window slots).
+    int double_buffer = 1;
+    // Per-window slot sizing and new-object mask: max (dy,dx) seen per window
+    // and which window got new content per event. Consumed by F2.
+    const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
+    // Per-window oid alternation (double buffering), default path.
+    std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
+    std::vector<std::pair<int, int>> min_boxes(nwin, {0, 0});
+    std::vector<uint8_t> new_mask(nwin, 0);
+    // Last object emitted per window. An acquisition re-lists every active
+    // window and re-emits its ODS, so an untouched window keeps its object.
+    struct window_object_t {
+        std::vector<uint8_t> indexed;
+        int w = 0, h = 0, x = 0, y = 0;
+        bool active = false;
+    };
+    std::vector<window_object_t> window_objects(nwin);
+
+    // Track previous event for clear DS insertion
+    double prev_tc_out = 0.0;
+    int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
+    bool have_prev = false;
+    int prev_window_id = 0; // layout window of the previous event's object
+
+    // Previous event timing (dts/dts_end/margin) for the decode-margin
+    // acquisition decision. pts_gap and dtl are computed per event.
+    double prev_base_pts = 0.0;   // previous event's PTS (tc_in)
+    double prev_tc_in = 0.0;      // previous event's tc_in (display start)
+    double prev_wipe_dur = 0.0;   // previous event's object wipe duration
+    double epoch_write_dur = 0.0; // first event's full-screen decode duration (write_duration)
+
+    // Previous trimmed bitmap (same epoch) and object id of the last ODS —
+    // reused by following events with identical content.
+    std::vector<uint8_t> prev_trimmed;
+    int prev_trim_w = 0, prev_trim_h = 0;
+    uint16_t prev_obj_id = 0;
+
+    // Composite bitmap for the current group.
+    // Accumulates via alpha_over; compared against via compare_with_alpha.
+    std::vector<uint8_t> compo_rgba;
+    int compo_w = 0, compo_h = 0;
+    int compo_x = 0, compo_y = 0;
+    bool have_compo = false;
+
+    // Helper to emit a clear display set at a given PTS using a window
+    // geometry (previous event's window for inline emits, recorded geometry
+    // when flushing a buffered group).
+    // Mid-stream clears pick WDS-vs-palette by fit; end-of-epoch clears by
+    // the last-event duration (the caller passes that decision explicitly).
+    enum class clear_mode_e { auto_fit, force_wds, force_palette };
+    auto emit_clear_ds = [&](double pts, int w, int h, int x, int y,
+                             clear_mode_e mode = clear_mode_e::auto_fit) -> void {
+        // Multi-window epochs re-declare the full layout on every display set;
+        // the wipe then covers every window. Single-window clears wipe the
+        // rectangle where the object was shown.
+        std::vector<window_definition_t> clear_windows;
+        int64_t wipe_area = 0;
+        if (m_windows.size() >= 2) {
+            clear_windows = m_windows;
+            for (const auto& wd : clear_windows)
+                wipe_area += static_cast<int64_t>(wd.width) * wd.height;
+        } else if (m_windows.size() == 1) {
+            // Single-window clear declares the epoch's ocbox (same window as the
+            // acquisition DS), not the previous object's bbox.
+            clear_windows = m_windows;
+            wipe_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
+        } else {
+            window_definition_t clear_wd;
+            clear_wd.window_id = 0;
+            clear_wd.h_pos = static_cast<uint16_t>(x);
+            clear_wd.v_pos = static_cast<uint16_t>(y);
+            clear_wd.width = static_cast<uint16_t>(w);
+            clear_wd.height = static_cast<uint16_t>(h);
+            clear_windows.push_back(clear_wd);
+            wipe_area = static_cast<int64_t>(w) * h;
+        }
+        const double wipe_ticks = std::ceil(static_cast<double>(wipe_area) *
+            pg_decoder_t::FREQ / pg_decoder_t::RC);
+        const double wipe_dur = wipe_ticks / pg_decoder_t::FREQ;
+        // Empty composition: one window copy to decode, nudged one tick up so the
+        // WDS DTS stays strictly below its PTS.
+        const double decode_dur = wipe_dur + 1.0 / pg_decoder_t::FREQ;
+        double dts = pts - decode_dur;
+        if (dts < 0) dts = 0;
+        // A full-window WDS wipe fits only when it leaves a margin inside one
+        // frame; otherwise clear via a palette swap.
+        const bool wds_fits = (wipe_dur + 3.0 / pg_decoder_t::FREQ) < 1.0 / m_fps;
+        const bool use_palette = (mode == clear_mode_e::force_palette) ||
+                                 (mode == clear_mode_e::auto_fit && !wds_fits);
+        if (use_palette) {
+            emit_palette_wipe(result, static_cast<uint8_t>(fps_enum.to_pcsfps()),
+                              pts, dts, palette_id);
+            return;
+        }
+        // PCS: NORMAL state, empty cobjects, no palette flag
+        auto clear_pcs = pcs_c::from_scratch(
+            static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
+            static_cast<uint8_t>(fps_enum.to_pcsfps()),
+            static_cast<uint16_t>(m_composition_n++),
+            pcs_c::composition_state_e::normal,
+            false, palette_id, {}, pts, dts);
+        result.push_back(std::make_shared<pcs_c>(std::move(clear_pcs)));
+        auto clear_wds = wds_c::from_scratch(clear_windows, pts - wipe_dur, dts);
+        result.push_back(std::make_shared<wds_c>(std::move(clear_wds)));
+        auto clear_end = ends_c::from_scratch(dts, dts);
+        result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
+    };
+
+    // Group buffering (P4b): a run of SSIM-fused / byte-identical events sharing one composition is
+    // buffered and co-quantized at group end: 1 union ODS + per-event palette
+    // diffs. Before P4b, fused events emitted no bitmap at all, so fades were
+    // invisible.
+    struct chain_event_t {
+        std::vector<uint8_t> rgba;      // trimmed frame (raw, for co-quant)
+        int w = 0, h = 0, crop_x = 0, crop_y = 0, ev_x = 0, ev_y = 0;
+        bool ev_forced = false;
+        pcs_c::composition_state_e comp_state = pcs_c::composition_state_e::epoch_start;
+        uint16_t obj_id = 0;
+        epoch_timings_t timings;
+        bool has_clear = false;      // previous-event clear DS params
+        int clear_x = 0, clear_y = 0, clear_w = 0, clear_h = 0;
+        double clear_pts = 0.0;
+        bool refresh = false;        // re-emit union ODS (late decoders)
+        bool acq_insert = false;     // extra_acq mid-group acquisition
+        epoch_timings_t acq_timings;
+        media::palette_t own_palette;   // quantized own frame (acq insert)
+        std::vector<uint8_t> own_indexed;
+    };
+    std::vector<chain_event_t> chain;
+    bool chain_active = false;
+
+    // Flush the buffered chain: 1 union ODS + per-event palette diffs.
+    auto flush_chain = [&]() -> void {
+        if (chain.empty()) return;
+        std::vector<media::group_frame_t> frames;
+        frames.reserve(chain.size());
+        for (const auto& e : chain) {
+            media::group_frame_t f;
+            f.rgba = e.rgba;
+            f.width = e.w;
+            f.height = e.h;
+            frames.push_back(std::move(f));
+        }
+        media::group_solution_t sol;
+        // Reserved slot 0xFF stays constant; -p only selects full-PDS output.
+        const bool solved = media::solve_group(
+            frames, 254, sol, m_bt_matrix, m_liq_options);
+        if (!solved || sol.palettes.size() != chain.size()) {
+            // Fallback: emit each event standalone (fresh ODS each).
+            logger_c::instance().warn(
+                "Group co-quantization failed; falling back to per-event emission");
+            for (const auto& e : chain) {
+                // Same gap-only clear rule as the main path.
+                if (e.has_clear && e.clear_pts < e.timings.base_pts)
+                    emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
+                event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
+                                      false, fps_enum, e.own_palette, e.own_indexed,
+                                      e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
+                auto segs = emit_event_segments(in, result);
+                for (auto& seg : segs) result.push_back(std::move(seg));
+            }
+            chain.clear();
+            chain_active = false;
+            return;
+        }
+
+        // One extra acquisition per run, on its last event (oracle render2.py:1024).
+        size_t acq_idx = chain.size();
+        for (size_t i = 0; i < chain.size(); i++)
+            if (chain[i].acq_insert) acq_idx = i;
+
+        for (size_t i = 0; i < chain.size(); i++) {
+            auto& e = chain[i];
+            epoch_timings_t ds_t;
+            // The undisplay clear is emitted only for gap (wipe) nodes —
+            // "zero unless there are no PG objects shown at some point in the
+            // epoch". Contiguous updates replace/refresh the composition with
+            // no clear (no blinking): the clear is emitted only when a real
+            // gap precedes the event.
+            if (e.has_clear && e.clear_pts < e.timings.base_pts)
+                emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
+            if (i == 0) {
+                // Group start: union bitmap + full palette.
+                event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
+                                      false, fps_enum, sol.palettes[0], sol.bitmap,
+                                      e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
+                auto segs = emit_event_segments(in, result, &ds_t);
+                for (auto& seg : segs) result.push_back(std::move(seg));
+            } else if (e.refresh) {
+                // A refreshed object needs its own display set: a palette update
+                // cannot carry an ODS. Emit PCS, WDS, PDS, ODS, END.
+                event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
+                                      e.ev_forced, e.comp_state, e.obj_id,
+                                      window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y),
+                                      palette_id, false, fps_enum,
+                                      sol.palettes[i], sol.bitmap, e.timings};
+                in.epoch_start = (e.comp_state == pcs_c::composition_state_e::epoch_start);
+                auto segs = emit_event_segments(in, result, &ds_t);
+                for (auto& seg : segs) result.push_back(std::move(seg));
+            } else {
+                // Palette update event: PCS/WDS/ENDS as today + diff PDS.
+                event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
+                                      e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
+                                      true /* reuse: no ODS */, fps_enum,
+                                      sol.palettes[i], e.own_indexed, e.timings};
+                auto segs = emit_event_segments(in, result, &ds_t);
+                std::shared_ptr<pds_c> diff_pds;
+                if (!sol.palettes[i].empty()) {
+                    double pds_pts = ds_t.base_dts, pds_dts = ds_t.base_dts;
+                    if (m_overlap && !result.empty()) {
+                        if (auto prev = std::dynamic_pointer_cast<ends_c>(result.back())) {
+                            pds_pts = prev->pts();
+                            pds_dts = prev->dts();
+                        }
+                    }
+                    // Non-NORMAL states already carry a full PDS from the DS
+                    // builder; only NORMAL needs the explicit palette delta.
+                    if (e.comp_state == pcs_c::composition_state_e::normal)
+                        diff_pds = make_pds(sol.palettes[i], palette_id, pds_pts, pds_dts);
+                }
+                for (auto& seg : segs) {
+                    if (diff_pds && dynamic_cast<ends_c*>(seg.get()) != nullptr)
+                        result.push_back(diff_pds);  // PDS right before ENDS
+                    result.push_back(std::move(seg));
+                }
+            }
+            // Mid-group acquisition (extra_acq): re-send this event's own
+            // frame so late decoders can re-acquire mid-fade.
+            if (e.acq_insert && i == acq_idx) {
+                event_emit_input_t acq_in{e.w, e.h, e.crop_x, e.crop_y,
+                                          e.ev_x, e.ev_y, e.ev_forced,
+                                          pcs_c::composition_state_e::acquisition,
+                                          e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id, false, fps_enum,
+                                          e.own_palette, e.own_indexed, e.acq_timings};
+                auto acq_segs = emit_event_segments(acq_in, result);
+                for (auto& seg : acq_segs) result.push_back(std::move(seg));
+            }
+        }
+        chain.clear();
+        chain_active = false;
+    };
+
+    for (size_t k = 0; k < events.size(); k++) {
+        auto& ev = events[k];
+        bool forced = (k < forced_acq.size() && forced_acq[k]);
+
+        auto rgba = ev.load_image();
+        if (rgba.empty()) {
+            logger_c::instance().warn("Empty image at event " + std::to_string(k));
+            if (chain_active) {
+                flush_chain();
+                chain_active = false;
+            }
+            continue;
+        }
+
+        // Trim transparent padding to the opaque bounding box
+        int trim_w, trim_h, trim_x, trim_y;
+        std::vector<uint8_t> trimmed_rgba;
+        trim_transparent_padding(rgba, ev.width(), ev.height(),
+                                  trimmed_rgba, trim_w, trim_h, trim_x, trim_y);
+        int obj_w = (trim_w > 0) ? trim_w : ev.width();
+        int obj_h = (trim_h > 0) ? trim_h : ev.height();
+        int crop_x = (trim_w > 0) ? trim_x : 0;
+        int crop_y = (trim_h > 0) ? trim_y : 0;
+
+        // Reuse is position-free: a PCS can move the object without a new ODS.
+        bool reusable = (obj_w == prev_trim_w && obj_h == prev_trim_h &&
+                         trimmed_rgba == prev_trimmed);
+
+        double ssim_score = 1.0;
+        double cross_percentage = 1.0;
+        bool force_acquisition = false;
+
+        // Current event's absolute bbox in the window
+        const int cur_x = ev.x() + crop_x;
+        const int cur_y = ev.y() + crop_y;
+        const bool bbox_matches_compo = have_compo &&
+            (cur_x == compo_x && cur_y == compo_y && obj_w == compo_w && obj_h == compo_h);
+
+        if (have_prev && !reusable && bbox_matches_compo) {
+            // Compare current trimmed bitmap against the group's accumulated composite
+            // CTU: recursive area-weighted SSIM with a 0.325 discount for
+            // identical regions.
+            const auto [ctu_score, ctu_cross] = core::ctu_c::evaluate(compo_rgba, trimmed_rgba, obj_w, obj_h);
+            ssim_score = ctu_score;
+            cross_percentage = ctu_cross;
+
+            // Similarity threshold: identical regions get the full discount,
+            // non-overlapping ones lower it toward the base threshold.
+            double thr_score = m_quality.fuse_threshold(cross_percentage);
+
+            if (ssim_score >= thr_score) {
+                // FUSE: similar enough — add to composite (alpha_over)
+                alpha_over(compo_rgba, trimmed_rgba.data(), obj_w, obj_h);
+                reusable = true;
+            } else {
+                // BREAK: drifted too far — force acquisition, reset composite
+                force_acquisition = true;
+            }
+        } else if (have_prev && !reusable && !bbox_matches_compo) {
+            // Bbox changed (move/resize) or no composite yet — treat as new group
+            force_acquisition = true;
+        }
+
+        // Forced/redraw events always break the group
+        if (k < forced_acq.size() && forced_acq[k]) {
+            force_acquisition = true;
+        }
+
+        if (reusable) {
+            m_reuse_candidates++;
+            logger_c::instance().log(common::log_level_e::hdebug,
+                "Reuse candidate event " + std::to_string(k) + " (" +
+                std::to_string(obj_w) + "x" + std::to_string(obj_h) + ")");
+        }
+
+        prev_trimmed = trimmed_rgba;
+        prev_trim_w = obj_w;
+        prev_trim_h = obj_h;
+
+        // Per-segment timestamps. Computed here so the drought decision below
+        // can use the decode-margin (acq/dtl) signals.
+        epoch_timings_t timings = compute_timings(ev.tc_in(),
+            static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
+
+        // Quantize the trimmed RGBA image
+        palette_t palette;
+        std::vector<uint8_t> indexed;
+        bool quant_ok = quantize_image(trimmed_rgba, obj_w, obj_h, palette, indexed);
+        if (quant_ok) {
+            // Transparent entries: index 0 stays free, every alpha==0 slot maps
+            // to 0xFF and is dropped from the palette (same layout as solve_group).
+            normalize_transparent_index(palette, indexed);
+        } else {
+            logger_c::instance().warn("Quantization failed for event " + std::to_string(k));
+            continue;
+        }
+
+    pcs_c::composition_state_e comp_state;
+    bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
+    // Layout window this event's object targets (multi-window Fase 1).
+    const uint8_t cur_window = window_for(ev.x(), ev.y(), crop_x, crop_y);
+    // Slot sizing and new-object mask: the window slot grows to the max object
+    // bbox seen; a non-reusable event brings new content to its window
+    // (new_mask drives the normal-case filter).
+    {
+        auto& mb = min_boxes[cur_window];
+        mb.first = std::max(mb.first, obj_h);
+        mb.second = std::max(mb.second, obj_w);
+        std::fill(new_mask.begin(), new_mask.end(), 0);
+        new_mask[cur_window] = reusable ? 0 : 1;
+    }
+
+    // The two-window normal case below redefines one window as NORMAL; the
+    // single-window analog is `reusable`, which also drives the NORMAL state.
+
+    // Decode-margin signals, ported via find_acqs_signals(). Margin is the
+    // previous node duration: the inter-event gap (wipe node) when one exists,
+    // else the previous event duration. Object-specific decode time (RD read +
+    // RC write) is the dts numerator; the emitted base_dts keeps the
+    // conservative full-screen model.
+    bool acq_valid = false;
+    double dtl = -1.0;
+    bool nc_margin = false; // normal case: new object decodes after the previous one
+    if (have_prev) {
+        const double obj_decode_dur = timings.obj_decode_time + timings.wipe_dur;
+        const double dts_eff = timings.base_pts - obj_decode_dur;
+        const double prev_dts_end = prev_base_pts - prev_wipe_dur;
+        const double gap = ev.tc_in() - prev_tc_out;
+        const double margin = (gap > 0.0) ? gap : (prev_tc_out - prev_tc_in);
+        const acq_signals_t sig = find_acqs_signals(
+            dts_eff, prev_dts_end, timings.base_pts, prev_base_pts,
+            epoch_write_dur, margin);
+        acq_valid = sig.valid;
+        dtl = sig.dtl;
+        nc_margin = (dts_eff > prev_dts_end);
+    }
+
+    // Normal case: when the epoch has two layout windows and the new event
+    // takes over a different window while the previous object is still on
+    // screen, this display set may redefine only that window as NORMAL instead
+    // of restarting the whole composition. Requires allow_normal_case and
+    // enough decode margin (dts_start_nc > dts_start, the nc_margin signal
+    // below). The other window's object stays on screen as a CObject reference.
+    const bool normal_case =
+        m_allow_normal_case && m_windows.size() == 2 && have_prev &&
+        ev.tc_in() < prev_tc_out && cur_window != prev_window_id &&
+        nc_margin;
+    const auto decision = m_quality.decide(normal_case, reusable, forced,
+                                           force_acquisition, acq_valid, dtl);
+    comp_state = decision.comp_state;
+    if (decision.reusable_refresh) emit_reusable = false;
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "[decide] k=" + std::to_string(k) +
+        " nc=" + std::to_string(normal_case) +
+        " reuse=" + std::to_string(reusable) +
+        " forced=" + std::to_string(forced) +
+        " force_acq=" + std::to_string(force_acquisition) +
+        " acq_valid=" + std::to_string(acq_valid) +
+        " dtl=" + std::to_string(dtl) +
+        " state=" + std::to_string(static_cast<int>(decision.comp_state)) +
+        " refresh=" + std::to_string(decision.reusable_refresh) +
+        " ups=" + std::to_string(m_quality.updates_since_acq()) +
+        " due=" + std::to_string(m_quality.acquisition_due(forced)));
+    // A periodic refresh re-sends the object even when its bitmap is unchanged.
+    if (k < forced_acq.size() && forced_acq[k]) emit_reusable = false;
+
+    // Object ID assignment: per-window double buffering by default;
+    // --alternate-oids requests the legacy global 0/1 scheme.
+    uint16_t obj_id;
+    if (emit_reusable) {
+        obj_id = prev_obj_id;
+    } else if (m_alternate_oids && m_windows.size() < 2) {
+        double_buffer = 1 - double_buffer;
+        obj_id = static_cast<uint16_t>(double_buffer);
+    } else if (m_windows.size() < 2) {
+        int& dbw = double_buffer_db[0];
+        dbw = static_cast<int>(std::abs(static_cast<long long>(m_windows.size()) - dbw));
+        obj_id = static_cast<uint16_t>(dbw);
+    } else {
+        // Multi-window: assigned per window in the split loop below.
+        obj_id = prev_obj_id;
+    }
+
+    // Composite tracking:
+    // - fuse (reusable via SSIM): already updated via alpha_over in the SSIM block
+    // - break/forced: reset composite to current trimmed bitmap
+    // Computed before the emit decision because the group lookahead needs the
+    // composite state left by this event.
+    if (force_acquisition || (k < forced_acq.size() && forced_acq[k])) {
+        // BREAK: new group starts with current event
+        compo_rgba = trimmed_rgba;
+        compo_w = obj_w;
+        compo_h = obj_h;
+        compo_x = ev.x() + crop_x;
+        compo_y = ev.y() + crop_y;
+        have_compo = true;
+    } else if (!have_compo) {
+        // First event: initialize composite
+        compo_rgba = trimmed_rgba;
+        compo_w = obj_w;
+        compo_h = obj_h;
+        compo_x = ev.x() + crop_x;
+        compo_y = ev.y() + crop_y;
+        have_compo = true;
+    }
+    // If reusable via SSIM, alpha_over already updated compo_rgba in the SSIM block
+    // If byte-exact reusable: composite unchanged (deviation: position-free)
+
+    // Computed for both paths: inline insert (non-group events) or a marker
+    // on the buffered record (flushed together with the group).
+    bool acq_ok = false;
+    epoch_timings_t acq_timings;
+    if (m_quality.acquisition_due(forced)) {
+        const double t_diff = ev.tc_out() - ev.tc_in();
+        // Temporal margin: the event must be long enough to fit the
+        // acquisition with decode room (t_diff > 4.5*write_dur/FREQ).
+        if (t_diff > 4.5 * timings.wipe_dur) {
+            const double dts_end = timings.base_dts + timings.wipe_dur;
+            const double target_dts_end = dts_end + 2.0 / pg_decoder_t::FREQ;
+            const double target_pts = timings.base_pts + 2.0 / pg_decoder_t::FREQ;
+            double pushed_pts = timings.base_pts;
+            double pushed_dts = timings.base_dts;
+            const double frame_dur = 1.0 / m_fps;
+            int frame_added = 0;
+            while (pushed_dts < target_dts_end ||
+                   pushed_pts < target_pts + timings.wipe_dur) {
+                pushed_pts += frame_dur;
+                pushed_dts = pushed_pts - timings.decode_duration;
+                frame_added++;
+                if (pushed_pts >= ev.tc_out()) break;  // never exceed the event
+            }
+            // Guard: tight margin only, and don't eat more than half the event
+            // (dts - dts_end < 0.25 and frame_added <= (durs-1)>>1).
+            const double dts_margin = pushed_dts - target_dts_end;
+            const int max_frames = static_cast<int>((t_diff * m_fps - 1.0) / 2.0);
+            if (dts_margin < 0.25 && frame_added <= max_frames) {
+                acq_ok = true;
+                acq_timings = compute_timings(pushed_pts,
+                    static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
+            }
+        }
+    }
+
+    // Group lookahead (P4b): would the next event fuse into this composition?
+    // If so, current event is a group member and its emission is deferred
+    // until the group ends.
+    bool next_fuses = false;
+    if (k + 1 < events.size() &&
+        comp_state != pcs_c::composition_state_e::acquisition && have_compo) {
+        auto& nev = events[k + 1];
+        const bool nforced = (k + 1 < forced_acq.size() && forced_acq[k + 1]);
+        if (!nforced) {
+            auto nrgba = nev.load_image();
+            if (!nrgba.empty()) {
+                int ntw, nth, ntx, nty;
+                std::vector<uint8_t> ntrim;
+                trim_transparent_padding(nrgba, nev.width(), nev.height(),
+                                          ntrim, ntw, nth, ntx, nty);
+                const int naw = (ntw > 0) ? ntw : nev.width();
+                const int nah = (nth > 0) ? nth : nev.height();
+                const int nx = nev.x() + ((ntw > 0) ? ntx : 0);
+                const int ny = nev.y() + ((nth > 0) ? nty : 0);
+                if (nx == compo_x && ny == compo_y &&
+                    naw == compo_w && nah == compo_h) {
+                    // CTU for P4b lookahead
+                    const auto [nctu_score, nctu_cross] = core::ctu_c::evaluate(compo_rgba, ntrim, naw, nah);
+                    const double nthr = m_quality.fuse_threshold(nctu_cross);
+                    next_fuses = nctu_score >= nthr;
+                }
+            }
+        }
+    }
+
+    const bool is_member =
+        comp_state != pcs_c::composition_state_e::acquisition &&
+        (chain_active || next_fuses);
+    if (is_member) {
+        // Defer: this event flows into the group's union bitmap.
+        chain_event_t rec;
+        rec.rgba = trimmed_rgba;
+        rec.w = obj_w;
+        rec.h = obj_h;
+        rec.crop_x = crop_x;
+        rec.crop_y = crop_y;
+        rec.ev_x = ev.x();
+        rec.ev_y = ev.y();
+        rec.ev_forced = ev.forced();
+        rec.comp_state = comp_state;
+        rec.obj_id = obj_id;
+        rec.timings = timings;
+        rec.has_clear = have_prev;
+        rec.clear_x = prev_pos_x;
+        rec.clear_y = prev_pos_y;
+        rec.clear_w = prev_obj_w;
+        rec.clear_h = prev_obj_h;
+        rec.clear_pts = prev_tc_out;
+        rec.refresh = (emit_reusable == false);  // Reusable palette-update marker
+        rec.acq_insert = acq_ok;
+        rec.acq_timings = acq_timings;
+        rec.own_palette = palette;
+        rec.own_indexed = indexed;
+        if (acq_ok) {
+            m_quality.note_acquisition();
+        }
+        chain.push_back(std::move(rec));
+        chain_active = true;
+    } else {
+        if (chain_active) {
+            flush_chain();
+            chain_active = false;
+        }
+        // An independent acquisition replaces the composition outright, so no
+        // clear precedes it -- unless the previous display ended earlier,
+        // leaving a blank gap that must be wiped.
+        if (have_prev && prev_tc_out < ev.tc_in())
+            emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h,
+                          prev_pos_x, prev_pos_y);
+        // Emit the full display set for this event.
+        event_emit_input_t in{
+            obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
+            comp_state, obj_id, window_for(ev.x(), ev.y(), crop_x, crop_y), palette_id, emit_reusable, fps_enum,
+            palette, indexed, timings};
+        in.normal_case_ref = normal_case;
+        in.ref_window_id = static_cast<uint8_t>(prev_window_id);
+        in.ref_obj_id = prev_obj_id;
+        in.ref_x = prev_pos_x;
+        in.ref_y = prev_pos_y;
+        in.epoch_start = (comp_state == pcs_c::composition_state_e::epoch_start);
+        if (m_windows.size() < 2) {
+            auto segs = emit_event_segments(in, result);
+            for (auto& seg : segs)
+                result.push_back(std::move(seg));
+        } else {
+            // Multi-window: split the event bbox per layout window, one emit each.
+            const int ax = ev.x() + crop_x, ay = ev.y() + crop_y;
+            // Legacy --alternate-oids keeps one global {0,1} bit, advanced on
+            // every ODS emission. The default is per-window double buffering:
+            // oid = wid + buffer[wid], advanced once per emitting window.
+            // Windows the event actually covers, in layout order.
+            std::vector<size_t> emit_order;
+            for (size_t wi = 0; wi < m_windows.size(); ++wi) {
+                const auto& wd = m_windows[wi];
+                const int ix0 = std::max(ax, static_cast<int>(wd.h_pos));
+                const int iy0 = std::max(ay, static_cast<int>(wd.v_pos));
+                const int ix1 = std::min(ax + obj_w,
+                    static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + obj_h,
+                    static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
+                if (ix1 > ix0 && iy1 > iy0)
+                    emit_order.push_back(wi);
+            }
+            std::vector<std::shared_ptr<pg_segment_c>> ev_segs;
+            uint16_t cur_win_oid = obj_id;
+            for (size_t wi : emit_order) {
+                const auto& wd = m_windows[wi];
+                const int wx = wd.h_pos, wy = wd.v_pos;
+                const int ix0 = std::max(ax, wx), iy0 = std::max(ay, wy);
+                const int ix1 = std::min(ax + obj_w, wx + static_cast<int>(wd.width));
+                const int iy1 = std::min(ay + obj_h, wy + static_cast<int>(wd.height));
+                const bool covered = (ix1 > ix0 && iy1 > iy0);
+                std::vector<uint8_t> sub;
+                int ow, oh, ox, oy;
+                int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
+                // Re-trim al contenido dentro de la ventana (oráculo `_crop`).
+                const bool has_content = covered &&
+                    trim_indexed_rect(indexed, ax, ay, obj_w, obj_h,
+                                      tx0, ty0, tx1, ty1);
+                if (has_content) {
+                    sub = crop_indexed(indexed, ax, ay, obj_w, obj_h,
+                                       tx0, ty0, tx1, ty1);
+                    ow = tx1 - tx0; oh = ty1 - ty0; ox = tx0 - wx; oy = ty0 - wy;
+                    window_objects[wi] = window_object_t{sub, ow, oh, ox, oy, true};
+                } else {
+                    sub = window_objects[wi].indexed;
+                    ow = window_objects[wi].w; oh = window_objects[wi].h;
+                    ox = window_objects[wi].x; oy = window_objects[wi].y;
+                }
+                uint16_t win_oid;
+                if (m_alternate_oids) {
+                    if (emit_reusable) {
+                        win_oid = obj_id;   // reused object keeps its decoded oid
+                    } else {
+                        double_buffer = 1 - double_buffer;
+                        win_oid = static_cast<uint16_t>(double_buffer);
+                    }
+                } else if (emit_reusable) {
+                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + double_buffer_db[wi]);
+                } else {
+                    int& dbw = double_buffer_db[wi];
+                    dbw = static_cast<int>(std::abs(
+                        static_cast<long long>(m_windows.size()) - dbw));
+                    win_oid = static_cast<uint16_t>(static_cast<int>(wi) + dbw);
+                }
+                if (wd.window_id == in.window_id)
+                    cur_win_oid = win_oid;
+                event_emit_input_t win_in{
+                    ow, oh, ox, oy, wx, wy,
+                    in.ev_forced, in.comp_state,
+                    win_oid, wd.window_id,
+                    in.palette_id, in.reusable, in.fps_enum, in.palette, sub, in.timings};
+                win_in.normal_case_ref =
+                    in.normal_case_ref && wd.window_id != in.ref_window_id;
+                win_in.ref_window_id = in.ref_window_id;
+                win_in.ref_obj_id = in.ref_obj_id;
+                win_in.ref_x = in.ref_x;
+                win_in.ref_y = in.ref_y;
+                win_in.epoch_start = (comp_state == pcs_c::composition_state_e::epoch_start) &&
+                                     wi == emit_order.front();
+                auto wsegs = emit_event_segments(win_in, result);
+                for (auto& seg : wsegs)
+                    ev_segs.push_back(std::move(seg));
+            }
+            obj_id = cur_win_oid;
+            // One display set per event: merge the per-window segments -- single
+            // PCS carrying every window's CObject, a single PDS with the fused
+            // palette, single WDS, single ENDS. PGS order is PCS, WDS, (PDS, ODS)..., ENDS.
+            std::shared_ptr<pcs_c> merged_pcs;
+            std::shared_ptr<pds_c> fused_pds;
+            std::map<uint8_t, media::palette_entry_t> fused_entries;
+            size_t dropped_pds = 0;
+            bool have_wds = false;
+            double last_ods_pts = 0.0;
+            uint16_t last_ods_id = 0xFFFF;
+            bool have_prev_ods = false, reanchored = false;
+            std::shared_ptr<wds_c> wds_kept;
+            std::shared_ptr<ends_c> ends_kept;
+            std::vector<std::shared_ptr<ods_c>> ods_kept;
+            std::vector<std::pair<uint16_t, uint64_t>> ods_areas;
+            for (size_t si = 0; si < ev_segs.size(); ++si) {
+                auto& seg = ev_segs[si];
+                if (auto pcs = std::dynamic_pointer_cast<pcs_c>(seg)) {
+                    if (merged_pcs) {
+                        merged_pcs->cobjects.insert(merged_pcs->cobjects.end(),
+                                                    pcs->cobjects.begin(), pcs->cobjects.end());
+                        merged_pcs->update();
+                        continue;
+                    }
+                    merged_pcs = pcs;
+                } else if (auto wd = std::dynamic_pointer_cast<wds_c>(seg)) {
+                    if (have_wds)
+                        continue;
+                    have_wds = true;
+                    wds_kept = wd;
+                } else if (auto pd = std::dynamic_pointer_cast<pds_c>(seg)) {
+                    if (fused_pds) {
+                        const auto pd_pal = pd->to_palette();
+                        for (const auto& [idx, entry] : pd_pal.entries())
+                            fused_entries[idx] = entry;
+                        ++dropped_pds;
+                        continue;
+                    }
+                    fused_pds = pd;
+                    fused_entries = pd->to_palette().entries();
+                } else if (auto od = std::dynamic_pointer_cast<ods_c>(seg)) {
+                    const bool new_group = (od->o_id() != last_ods_id) && have_prev_ods;
+                    if (new_group && od->dts() < last_ods_pts) {
+                        const double dur = od->pts() - od->dts();
+                        od->set_dts(last_ods_pts);
+                        od->set_pts(last_ods_pts + dur);
+                        reanchored = true;
+                    }
+                    if (!have_prev_ods || new_group)
+                        ods_areas.emplace_back(od->o_id(),
+                            static_cast<uint64_t>(od->width()) * od->height());
+                    ods_kept.push_back(od);
+                    last_ods_pts = od->pts();
+                    last_ods_id = od->o_id();
+                    have_prev_ods = true;
+                } else if (auto en = std::dynamic_pointer_cast<ends_c>(seg)) {
+                    // Keep only the last ENDS: the per-window trailing ENDS must
+                    // not close the display set before the remaining windows.
+                    if (si + 1 < ev_segs.size())
+                        continue;
+                    ends_kept = en;
+                }
+                result.push_back(std::move(seg));
+            }
+            if (!m_overlap && merged_pcs && wds_kept) {
+                // Merged DS decodes both windows: rebase the DTS from the merged
+                // composition, then schedule ODS groups back-to-back.
+                ds_timing_input_t tin{};
+                tin.state = merged_pcs->composition_state();
+                tin.pal_flag = merged_pcs->pal_flag();
+                tin.plane_area = static_cast<uint64_t>(m_width) * static_cast<uint64_t>(m_height);
+                tin.pts = in.timings.base_pts;
+                tin.windows = wds_kept->windows;
+                tin.cobjects = merged_pcs->cobjects;
+                tin.ods = ods_areas;
+                const ds_timing_t dt = compute_ds_timing(tin);
+                merged_pcs->set_dts(dt.dts);
+                wds_kept->set_dts(dt.dts);
+                wds_kept->set_pts(in.timings.base_pts - dt.wipe_duration);
+                double end = dt.dts;
+                double group_start = dt.dts;
+                for (size_t oi = 0; oi < ods_kept.size(); ++oi) {
+                    auto& od = ods_kept[oi];
+                    const bool first = oi == 0 ||
+                        ods_kept[oi - 1]->o_id() != od->o_id();
+                    if (first)
+                        group_start = end;
+                    const double dur = od->pts() - od->dts();
+                    od->set_dts(group_start);
+                    od->set_pts(group_start + dur);
+                    const bool closes_group = oi + 1 == ods_kept.size() ||
+                        ods_kept[oi + 1]->o_id() != od->o_id();
+                    if (closes_group)
+                        end = group_start + dur;
+                }
+                if (ends_kept) {
+                    ends_kept->set_pts(end);
+                    ends_kept->set_dts(end);
+                }
+            } else if (reanchored && ends_kept) {
+                ends_kept->set_pts(last_ods_pts);
+                ends_kept->set_dts(last_ods_pts);
+            }
+            if (fused_pds && merged_pcs) {
+                media::palette_t fused(fused_entries);
+                fused_pds->set_palette(fused);
+                if (!m_overlap) {
+                    fused_pds->set_pts(merged_pcs->dts());
+                    fused_pds->set_dts(merged_pcs->dts());
+                }
+                m_palette_cache[fused_pds->p_id()] = fused;
+                m_last_palette_id = fused_pds->p_id();
+                m_palette_vn -= static_cast<int>(dropped_pds);
+            }
+            if (merged_pcs)
+                m_last_cobjs = merged_pcs->cobjects;
+        }
+    }
+
+    logger_c::instance().log(common::log_level_e::hdebug,
+        "[event] k=" + std::to_string(k) +
+        " state=" + std::to_string(static_cast<int>(comp_state)) +
+        " member=" + std::to_string(is_member) +
+        " acq_ok=" + std::to_string(acq_ok) +
+         " chain=" + std::to_string(chain.size()));
+
+        prev_obj_id = obj_id;
+        prev_window_id = cur_window;
+
+        // Save event data for next iteration's clear DS and decode-margin check
+        prev_tc_out = ev.tc_out();
+        prev_pos_x = ev.x() + crop_x;
+        prev_pos_y = ev.y() + crop_y;
+        prev_obj_w = obj_w;
+        prev_obj_h = obj_h;
+        prev_base_pts = timings.base_pts;
+        prev_tc_in = ev.tc_in();
+        prev_wipe_dur = timings.wipe_dur;
+        if (k == 0) epoch_write_dur = timings.decode_duration; // First node's write duration
+        have_prev = true;
+
+        // Keep prev_trimmed for byte-exact fast path
+        prev_trimmed = trimmed_rgba;
+        prev_trim_w = obj_w;
+        prev_trim_h = obj_h;
+    }
+
+    // Final clear DS after the last event (end of epoch wipe)
+    if (chain_active) {
+        flush_chain();
+        chain_active = false;
+    }
+    if (have_prev) {
+        // The end-of-epoch clear declares the epoch's ocbox in single-window
+        // epochs, so that area bounds the wipe budget.
+        int64_t clear_area = static_cast<int64_t>(prev_obj_w) * prev_obj_h;
+        if (m_windows.size() == 1)
+            clear_area = static_cast<int64_t>(m_windows[0].width) * m_windows[0].height;
+        // The end-of-epoch wipe fits only if the last event is long enough to
+        // redraw the window; a short last event clears via a palette swap.
+        const double write_ticks = std::ceil(static_cast<double>(clear_area) *
+            pg_decoder_t::FREQ / pg_decoder_t::RC);
+        const double last_frames = (prev_tc_out - prev_tc_in) * m_fps;
+        const bool perform_wds_end = last_frames >=
+            std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
+        // The last event's redraw budget decides the wipe: a WDS wipe is used
+        // whenever it fits, otherwise a palette swap. Multi-window intermediate
+        // epochs take the WDS clear too (the oracle drops the merged
+        // composition instead of keeping it via a palette swap), so every
+        // content epoch ends bounded by a clear.
+        const bool use_palette_end = !perform_wds_end;
+        emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y,
+                      use_palette_end ? clear_mode_e::force_palette
+                                      : clear_mode_e::force_wds);
+        // The last epoch has no successor bounding it: after a palette swap,
+        // follow it with a WDS wipe a few frames later.
+        if (!perform_wds_end && m_is_last_epoch) {
+            const double nf_shift = std::max(1.0, std::ceil(
+                (write_ticks + 10.0) * m_fps / pg_decoder_t::FREQ));
+            emit_clear_ds(prev_tc_out + nf_shift / m_fps, prev_obj_w, prev_obj_h,
+                          prev_pos_x, prev_pos_y, clear_mode_e::force_wds);
+        }
+        logger_c::instance().log(common::log_level_e::hdebug, "Final clear DS at " + std::to_string(prev_tc_out));
+    }
+    // align_palette_updates (overlap mode): buffered palette updates must
+    // keep a strictly monotonic DTS: a display
+    // set may never start decoding before the previous one finished. Shifting
+    // puts each PU DTS into (prev_dts_end+1 tick, next_dts); the same +1-tick
+    // rule applies over the emitted stream, pushing both timestamps of an
+    // offending segment forward (frame by frame if needed).
+    if (m_overlap) {
+        double last_dts = -1.0;
+        for (auto& seg : result) {
+            if (seg->dts() <= last_dts) {
+                const double nd = last_dts + 1.0 / pg_decoder_t::FREQ;
+                seg->set_dts(nd);
+                if (seg->pts() < nd)
+                    seg->set_pts(nd);
+                last_dts = nd;
+            } else {
+                last_dts = seg->dts();
+            }
+        }
+    }
+    // Slot sizes accumulated over the epoch (find_acqs min_boxes) — diagnostic
+    // parity aid for F2 slot-based decode timing.
+    for (size_t w = 0; w < min_boxes.size(); ++w) {
+        logger_c::instance().log(common::log_level_e::hdebug,
+            "min_boxes w" + std::to_string(w) + " dy=" + std::to_string(min_boxes[w].first) +
+            " dx=" + std::to_string(min_boxes[w].second));
+    }
+    logger_c::instance().info("Encoded epoch with " + std::to_string(events.size()) +
+                                " events, " + std::to_string(result.size()) + " segments.");
+    return result;
+}
+}
+}

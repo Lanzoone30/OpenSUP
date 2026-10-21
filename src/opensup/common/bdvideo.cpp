@@ -144,5 +144,5 @@ bdvideo_c::check_format_fps(video_format_e fmt, fps_e fps) noexcept
     return {valid, expected};
 }
 
-} // namespace common
-} // namespace opensup
+}
+}

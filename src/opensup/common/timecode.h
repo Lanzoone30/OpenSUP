@@ -34,10 +34,17 @@ public:
     static tc_t from_frames(int64_t frames, fps_e fps);
     /// Build a timecode from a MPEG PTS (90 kHz clock) at the given frame rate.
     static tc_t from_pts(double pts, fps_e fps);
+    /// Build a timecode from HH:MM:SS:FF fields. Frames are counted at the
+    /// nominal integer rate; fractional rates (…/1001) keep 24/30/60.
+    static tc_t from_hmsf(int h, int m, int s, int f, fps_e fps);
+
+    /// Nominal frames-per-second used for timecode arithmetic: 24/30/60 for
+    /// NTSC ratios, the exact integer rate otherwise.
+    static int64_t nominal_rate(fps_e fps) noexcept;
 
     /// Frame count at the stored frame rate.
     [[nodiscard]] int64_t frames() const noexcept { return m_frames; }
-    /// MPEG PTS value (90 kHz ticks) for this timecode.
+    /// Presentation time in seconds, derived from the exact floored PTS tick count.
     [[nodiscard]] double to_pts() const noexcept;
     /// Time in seconds for this timecode.
     [[nodiscard]] double to_seconds() const noexcept;
@@ -64,5 +71,5 @@ private:
     fps_e m_fps;
 };
 
-} // namespace common
-} // namespace opensup
+}
+}

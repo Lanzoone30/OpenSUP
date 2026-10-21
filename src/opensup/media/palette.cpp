@@ -55,13 +55,13 @@ palette_entry_t::to_rgba(std::string_view matrix) const
     double cr_ = static_cast<double>(cr) - 128;
 
     auto& m = mat.y2r;
-    int r = static_cast<int>(std::round(m[0][0] * yy + m[0][1] * cb_ + m[0][2] * cr_ + m[0][3]));
-    int g = static_cast<int>(std::round(m[1][0] * yy + m[1][1] * cb_ + m[1][2] * cr_ + m[1][3]));
-    int b = static_cast<int>(std::round(m[2][0] * yy + m[2][1] * cb_ + m[2][2] * cr_ + m[2][3]));
+    int r = static_cast<int>(std::nearbyint(m[0][0] * yy + m[0][1] * cb_ + m[0][2] * cr_ + m[0][3]));
+    int g = static_cast<int>(std::nearbyint(m[1][0] * yy + m[1][1] * cb_ + m[1][2] * cr_ + m[1][3]));
+    int b = static_cast<int>(std::nearbyint(m[2][0] * yy + m[2][1] * cb_ + m[2][2] * cr_ + m[2][3]));
     int a = static_cast<int>(alpha);
 
     return palette_entry_t(clip_rgba(b), clip_rgba(g), clip_rgba(r), clip_rgba(a));
-    // BGR order from matrix math matches Python's RGBA namedtuple
+    // BGR order from the matrix math
 }
 
 palette_entry_t
@@ -73,9 +73,9 @@ palette_entry_t::from_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a,
 
     auto& m = mat.r2y;
     double rd = r, gd = g, bd = b;
-    auto y_  = static_cast<uint32_t>(std::round(m[0][0] * rd + m[0][1] * gd + m[0][2] * bd + m[0][3])) + 16;
-    auto cb_ = static_cast<uint32_t>(std::round(m[1][0] * rd + m[1][1] * gd + m[1][2] * bd + m[1][3])) + 128;
-    auto cr_ = static_cast<uint32_t>(std::round(m[2][0] * rd + m[2][1] * gd + m[2][2] * bd + m[2][3])) + 128;
+    auto y_  = static_cast<uint32_t>(std::nearbyint(m[0][0] * rd + m[0][1] * gd + m[0][2] * bd + m[0][3])) + 16;
+    auto cb_ = static_cast<uint32_t>(std::nearbyint(m[1][0] * rd + m[1][1] * gd + m[1][2] * bd + m[1][3])) + 128;
+    auto cr_ = static_cast<uint32_t>(std::nearbyint(m[2][0] * rd + m[2][1] * gd + m[2][2] * bd + m[2][3])) + 128;
 
     return palette_entry_t(clip_y(y_), clip_cbcr(cb_), clip_cbcr(cr_), a);
 }
@@ -192,5 +192,5 @@ palette_t::operator==(const palette_t& other) const noexcept
     return m_entries == other.m_entries;
 }
 
-} // namespace media
-} // namespace opensup
+}
+}

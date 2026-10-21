@@ -65,5 +65,5 @@ private:
     const std::vector<std::shared_ptr<pg_segment_c>>& segments,
     int64_t bitrate_bytes_per_s);
 
-} // namespace core
-} // namespace opensup
+}
+}

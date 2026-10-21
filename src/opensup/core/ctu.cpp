@@ -25,7 +25,7 @@ bool same_box(const common::box_t& a, const common::box_t& b) {
     return a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy;
 }
 
-}  // namespace
+}
 
 std::vector<uint8_t> ctu_c::crop(const std::vector<uint8_t>& rgba, int w, int h,
                                  const common::box_t& box) {
@@ -120,5 +120,5 @@ std::pair<double, double> ctu_c::evaluate(const std::vector<uint8_t>& composite,
     return {score / static_cast<double>(sum_area), cross / static_cast<double>(sum_area)};
 }
 
-}  // namespace core
-}  // namespace opensup
+}
+}

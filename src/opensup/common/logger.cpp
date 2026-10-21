@@ -69,20 +69,10 @@ logger_c::log(log_level_e level, const std::string& msg)
         // actual program output (e.g. --json NDJSON events).
         std::cerr << line << std::endl;
     }
-    if (m_file && m_file->is_open()) {
-        (*m_file) << line << std::endl;
-    }
     if (m_callback) {
         m_callback(msg, static_cast<int>(level));
     }
 }
 
-void
-logger_c::set_file_output(const std::string& path)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_file = std::make_unique<std::ofstream>(path, std::ios::out);
 }
-
-} // namespace common
-} // namespace opensup
+}
