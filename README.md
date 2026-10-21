@@ -78,15 +78,20 @@ Prebuilt builds are available on the
 
 **Windows** (x86_64)
 
-- **ZIP**: extract and run `OpenSUP.exe`
+- **GUI ZIP**: `OpenSUP-GUI-2.1.0-windows-amd64.zip` — extract and run `OpenSUP.exe`
 
 **Linux** (x86_64)
 
-- **RPM**: `sudo dnf install ./opensup-2.1.0-1.x86_64.rpm`
-- **DEB**: `sudo apt install ./opensup_2.1.0_amd64.deb`
+- **GUI RPM**: `sudo dnf install ./opensup-gui-2.1.0-1.x86_64.rpm`
+- **GUI DEB**: `sudo apt install ./opensup-gui_2.1.0_amd64.deb`
 
 Both Linux packages register OpenSUP in your application menu. They require
 `webkit2gtk 4.1` and `GTK 3`, installed automatically as dependencies.
+
+**CLI** (Windows and Linux, x86_64)
+
+- `OpenSUP-CLI-2.1.0-windows-amd64.zip` and `OpenSUP-CLI-2.1.0-linux-amd64.zip`
+  contain the standalone `opensup_cli`; no GUI needed.
 
 ---
 
