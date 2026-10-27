@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-27
+
+### Added
+
+- **`--single-object-ds` engine flag with an "One Object per Display Set
+  (Android TV compatibility)" checkbox**: each event collapses into a single
+  window so every display set carries exactly one object, which Media3-based
+  Android TV clients (Wholphin, Moonfin) render correctly (multi-object display
+  sets appear cut or incomplete there). With it on, Full Palette is forced and
+  Overlap Buffering plus the Normal Case options are blocked and restored back
+  when toggled off.
+
+### Changed
+
+- `-n/--allow-normal` and `-k/--prefer-normal` combined with
+  `--single-object-ds` now log a warning in the CLI: they have no effect
+  without a two-window layout.
+
 ## [2.1.0] - 2026-10-21
 
 ### Added
@@ -116,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log level read outside the lock.
 - Engine logs redirected to **stderr** so they no longer pollute the NDJSON stdout.
 
-[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Lanzoone30/OpenSUP/compare/v1.1.0...v2.0.0
