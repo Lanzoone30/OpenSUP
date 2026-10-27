@@ -13,7 +13,7 @@ const (
 )
 
 // Version is concatenated into the windowTitle and version keys.
-const Version = "2.1.0"
+const Version = "2.2.0"
 
 // Table maps each key to a pair (EN, ES).
 var Table = map[string][2]string{
@@ -67,6 +67,7 @@ var Table = map[string][2]string{
 	"alternateOids":    {"Use global object IDs 0/1 (interoperability)", "Usar IDs de objeto globales 0/1 (interoperabilidad)"},
 	"ignoreResolution": {"Ignore resolution validation.", "Ignorar validación de resolución."},
 	"tightOds":         {"Fit ODS box to text", "Ajustar caja al texto"},
+	"singleObjectDs":   {"One object per display set (Android TV compatibility)", "Un objeto por display set (compatibilidad Android TV)"},
 
 	// -- Activity Log --
 	"activityLog": {"ACTIVITY LOG", "REGISTRO DE ACTIVIDAD"},
@@ -123,6 +124,10 @@ var Table = map[string][2]string{
 	"tipIgnoreResolution": {
 		"Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.",
 		"Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores.",
+	},
+	"tipSingleObjectDs": {
+		"Generates each subtitle with a single image instead of splitting it into two windows. Enable this option if you plan to play PGS in Media3-based Android TV clients (Wholphin, Moonfin).",
+		"Genera cada subtítulo con una sola imagen en vez de dividirlo en dos ventanas. Activa esta opción si planeas visualizar PGS en clientes Android TV basados en Media3 (Wholphin, Moonfin).",
 	},
 }
 
