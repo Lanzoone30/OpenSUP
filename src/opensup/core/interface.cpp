@@ -115,7 +115,8 @@ windows_from_boxes(const common::box_t& w0, const common::box_t& w1) {
 }
 
 static std::vector<window_definition_t>
-determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height) {
+determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int height,
+                  bool single_object_ds) {
     layout_engine_c layout_engine(width, height);
 
     for (const auto& event : events) {
@@ -135,8 +136,13 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
     (void)is_vertical;
     // Buffer holds 16 entries (1<<20 bytes); a window at/above 1MB-150B cannot fit,
     // so collapse the split into the single container window.
-    if ((w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy) &&
-        (w0.area() >= (1 << 20) - 150 || w1.area() >= (1 << 20) - 150)) {
+    // --single-object-ds always collapses: one window yields one object per DS,
+    // because Media3's PGS parser rejects two ODS in a display set
+    // (androidx/media#2534, breaks Wholphin/Moonfin on Android TV).
+    const bool split =
+        w0.x != w1.x || w0.y != w1.y || w0.dx != w1.dx || w0.dy != w1.dy;
+    if (split && (single_object_ds || w0.area() >= (1 << 20) - 150 ||
+                  w1.area() >= (1 << 20) - 150)) {
         return windows_from_boxes(container, container);
     }
     return windows_from_boxes(w0, w1);
@@ -146,7 +152,8 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
 // decode base of the epoch being closed; events accumulate from the end so the
 // closing layout is known before the boundary is decided.
 static std::vector<std::vector<bdn_xml_event_c>>
-split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width, int height) {
+split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width, int height,
+                           bool single_object_ds) {
     const uint64_t container_area = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
     std::vector<std::vector<bdn_xml_event_c>> epochs;
     std::vector<bdn_xml_event_c> running;
@@ -154,7 +161,8 @@ split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width,
     for (size_t i = group.size(); i-- > 0; ) {
         const auto& event = group[i];
         if (!running.empty() && event.tc_out() != running.front().tc_in()) {
-            const double base = decode_base(determine_windows(running, width, height), container_area);
+            const double base = decode_base(
+                determine_windows(running, width, height, single_object_ds), container_area);
             if (event.tc_out() + base + 1e-8 < running.front().tc_in()) {
                 epochs.push_back(std::move(running));
                 running.clear();
@@ -177,6 +185,14 @@ bdn_render_c::execute()
 {
     encode_result_t result;
     auto start_time = std::chrono::steady_clock::now();
+
+    // Compat mode forces a single window per epoch; overlap emits objects ahead
+    // of their PTS in a two-window path, so keep the flag and drop overlap.
+    if (m_config.single_object_ds && m_config.overlap) {
+        logger_c::instance().warn(
+            "--single-object-ds and -d/--overlap are mutually exclusive; overlap disabled");
+        m_config.overlap = false;
+    }
 
     bdn_xml_c xml;
     if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
@@ -206,7 +222,8 @@ bdn_render_c::execute()
     // Each coarse group is split further by the layout-driven decode-base check.
     std::vector<std::vector<bdn_xml_event_c>> event_groups;
     for (const auto& group : coarse_groups) {
-        auto sub = split_group_by_decode_base(group, m_config.width, m_config.height);
+        auto sub = split_group_by_decode_base(group, m_config.width, m_config.height,
+                                              m_config.single_object_ds);
         for (auto& epoch : sub)
             event_groups.push_back(std::move(epoch));
     }
@@ -258,7 +275,8 @@ bdn_render_c::execute()
         }
 
         // Determine window layout for this epoch (before encoding)
-        auto windows = determine_windows(group, m_config.width, m_config.height);
+        auto windows = determine_windows(group, m_config.width, m_config.height,
+                                         m_config.single_object_ds);
 
         epoch_render_options_t opts;
         opts.fps = m_config.fps;
@@ -267,7 +285,8 @@ bdn_render_c::execute()
         opts.quantizer_id = m_config.quantizer_id;
         opts.allow_normal_case = m_config.allow_normal_case;
         opts.overlap = m_config.overlap;
-        opts.full_palette = m_config.full_palette;
+        // Media3 does not merge partial PDS, so compat mode needs the full palette.
+        opts.full_palette = m_config.full_palette || m_config.single_object_ds;
         opts.prefer_normal_case = m_config.prefer_normal_case;
         opts.quality_factor = m_config.compression / 100.0;
         opts.refresh_rate = m_config.acqrate / 100.0;

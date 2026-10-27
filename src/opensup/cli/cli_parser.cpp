@@ -64,6 +64,9 @@ parse_args(int argc, char** argv)
     app.add_flag("--tight-ods", opts.tight_ods,
                   "Crop each ODS box to its event content instead of the window slot.");
 
+    app.add_flag("--single-object-ds", opts.single_object_ds,
+                  "Emit at most one object per display set (compat: Media3-based Android TV players)");
+
     app.add_flag("--json", opts.json_mode,
                   "Emit NDJSON events to stdout (log/progress/done)");
 
@@ -237,9 +240,15 @@ options_to_config(const cli_options_t& opts)
             "--prefer-normal requires --allow-normal, forcefully enabling this flag.");
         cfg.allow_normal_case = true;
     }
+    if (opts.single_object_ds && (cfg.allow_normal_case || cfg.prefer_normal_case)) {
+        common::logger_c::instance().warn(
+            "--allow-normal and --prefer-normal have no effect with --single-object-ds"
+            " (requires a two-window layout).");
+    }
     cfg.overlap = opts.overlap;
     cfg.alternate_oids = opts.alternate_oids;
     cfg.tight_ods = opts.tight_ods;
+    cfg.single_object_ds = opts.single_object_ds;
     cfg.bt_matrix = canonical_bt_matrix(opts.bt_matrix);
     if (cfg.bt_matrix.empty()) {
         common::logger_c::instance().warn(
