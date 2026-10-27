@@ -16,6 +16,7 @@ export namespace config {
 	    both_formats: boolean;
 	    ignore_resolution: boolean;
 	    tight_ods: boolean;
+	    single_object_ds: boolean;
 	    quantizer: number;
 	
 	    static createFrom(source: any = {}) {
@@ -39,6 +40,7 @@ export namespace config {
 	        this.both_formats = source["both_formats"];
 	        this.ignore_resolution = source["ignore_resolution"];
 	        this.tight_ods = source["tight_ods"];
+	        this.single_object_ds = source["single_object_ds"];
 	        this.quantizer = source["quantizer"];
 	    }
 	}
@@ -61,6 +63,7 @@ export namespace engine {
 	    Overlap: boolean;
 	    AlternateOids: boolean;
 	    TightOds: boolean;
+	    SingleObjectDs: boolean;
 	    RedrawPeriod: number;
 	    MaxKbps: number;
 	    Threads: number;
@@ -88,6 +91,7 @@ export namespace engine {
 	        this.Overlap = source["Overlap"];
 	        this.AlternateOids = source["AlternateOids"];
 	        this.TightOds = source["TightOds"];
+	        this.SingleObjectDs = source["SingleObjectDs"];
 	        this.RedrawPeriod = source["RedrawPeriod"];
 	        this.MaxKbps = source["MaxKbps"];
 	        this.Threads = source["Threads"];

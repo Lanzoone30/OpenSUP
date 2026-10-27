@@ -27,6 +27,7 @@ struct cli_options_t {
     bool overlap = false;
     bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)
     bool tight_ods = false;        // ODS box = event content, not the window slot
+    bool single_object_ds = false; // One window/object per display set (Media3 compat)
     double redraw_period = 0.0;
     int max_kbps = 0;        // 0 = bitrate validation off
     int threads = 0;         // 0 = auto (physical cores)

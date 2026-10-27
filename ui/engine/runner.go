@@ -45,6 +45,7 @@ type EncodeConfig struct {
 	Overlap          bool
 	AlternateOids    bool
 	TightOds         bool
+	SingleObjectDs   bool
 	RedrawPeriod     float64
 	MaxKbps          int
 	Threads          int
@@ -324,6 +325,9 @@ func buildArgs(cfg EncodeConfig) []string {
 	}
 	if cfg.TightOds {
 		args = append(args, "--tight-ods")
+	}
+	if cfg.SingleObjectDs {
+		args = append(args, "--single-object-ds")
 	}
 	if cfg.RedrawPeriod != 0 {
 		args = append(args, "--redraw-period", floatToStr(cfg.RedrawPeriod))

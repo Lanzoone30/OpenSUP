@@ -28,6 +28,7 @@ func TestDefaults(t *testing.T) {
 	assert.False(t, d.BothFormats)
 	assert.False(t, d.IgnoreResolution)
 	assert.False(t, d.TightOds)
+	assert.False(t, d.SingleObjectDs)
 	assert.Equal(t, 3, d.Quantizer)
 }
 
@@ -49,6 +50,7 @@ func TestRoundTrip(t *testing.T) {
 		BothFormats:      true,
 		IgnoreResolution: true,
 		TightOds:         true,
+		SingleObjectDs:   true,
 		Quantizer:        2,
 	}
 	require.NoError(t, Save(s))

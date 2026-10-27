@@ -53,6 +53,7 @@ type Settings struct {
 	BothFormats      bool `json:"both_formats"`
 	IgnoreResolution bool `json:"ignore_resolution"`
 	TightOds         bool `json:"tight_ods"`
+	SingleObjectDs   bool `json:"single_object_ds"`
 	Quantizer        int  `json:"quantizer"`
 }
 

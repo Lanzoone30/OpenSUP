@@ -4,7 +4,7 @@ import { $ } from "../../shared/dom.js";
 import { state } from "../../shared/state.js";
 import { go } from "../../shared/bridge.js";
 import { t } from "../../shared/i18n.js";
-import { updateReadyState } from "../btns-actions/btns-actions.js";
+import { updateReadyState, syncFullPalette } from "../btns-actions/btns-actions.js";
 
 export function applyBDNPath(path) {
   if (!path) return;
@@ -34,11 +34,7 @@ export async function setOutput() {
       state.outputPath = path;
       state.lastOutDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
       $("lbl_output_file").textContent = path.split(/[\\/]/).pop();
-      const forced =
-        path.toLowerCase().endsWith(".pes") || $("chk_both_formats").checked;
-      if (forced) $("chk_full_palette").checked = true;
-      $("chk_full_palette").disabled = forced;
-      updateReadyState();
+      syncFullPalette();
       updateOutputActions();
     }
   } catch (err) {

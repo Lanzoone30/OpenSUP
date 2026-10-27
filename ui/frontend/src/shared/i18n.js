@@ -1,6 +1,6 @@
 // Bilingual string table, mirrored by the Go table in ui/i18n/strings.go.
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 
 const Table = {
   // -- Header --
@@ -53,6 +53,7 @@ const Table = {
   alternateOids:  { en: "Use global object IDs 0/1 (interoperability)", es: "Usar IDs de objeto globales 0/1 (interoperabilidad)" },
   ignoreResolution: { en: "Ignore resolution validation.", es: "Ignorar validación de resolución." },
   tightOds:       { en: "Fit ODS box to text",               es: "Ajustar caja al texto" },
+  singleObjectDs: { en: "One object per display set (Android TV compatibility)", es: "Un objeto por display set (compatibilidad Android TV)" },
 
   // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
@@ -89,6 +90,7 @@ const Table = {
   tipOverlapBuf:   { en: "Buffer palette updates whenever possible to drop fewer events. Stream shall NOT be Built or Rebuilt at the authoring stage.", es: "Buffear las actualizaciones de paleta siempre que sea posible para descartar menos eventos. El stream NO debe ser Built ni Rebuilt en la etapa de autoría." },
   tipAlternateOids:{ en: "Use global object IDs 0/1 instead of per-window ids.\nThe legacy mode can alter the picture when several windows share a display set; the per-window default avoids buffer clobbering.", es: "Usar IDs de objeto globales 0/1 en lugar de ids por ventana.\nEl modo legacy puede alterar la visualización cuando varias ventanas comparten display set; el default por ventana evita el pisado de buffers." },
   tipTightOds:    { en: "Crops each event's ODS box to its exact content instead of reusing the union box shared across the event chain.\nImproves image fit of late events in authoring tools.", es: "Recorta la caja ODS de cada evento a su contenido exacto en lugar de reutilizar la caja unión compartida por la cadena de eventos.\nMejora el encaje de la imagen en herramientas de edición." },
+  tipSingleObjectDs:{ en: "Generates each subtitle with a single image instead of splitting it into two windows. Enable this option if you plan to play PGS in Media3-based Android TV clients (Wholphin, Moonfin).", es: "Genera cada subtítulo con una sola imagen en vez de dividirlo en dos ventanas. Activa esta opción si planeas visualizar PGS en clientes Android TV basados en Media3 (Wholphin, Moonfin)." },
   tipIgnoreResolution: { en: "Enable only if the BDN uses a non-standard resolution.\nUsing this option improperly may produce streams where some events do not display on some players.", es: "Actívalo solo si el BDN usa una resolución no estándar.\nUsar esta opción indebidamente puede producir streams donde algunos eventos no se muestren en algunos reproductores." },
 };
 
