@@ -43,6 +43,7 @@ export function startEncode() {
     Overlap:         $("chk_overlap").checked,
     AlternateOids:   $("chk_alternate_oids").checked,
     TightOds:        $("chk_tight_ods").checked,
+    SingleObjectDs:  $("chk_single_object_ds").checked,
     RedrawPeriod:    numOr($("input_redraw"), 0),
     MaxKbps:         numOr($("input_max_kbps"), 0),
     Threads:         numOr($("combo_threads"), 0),
@@ -102,6 +103,23 @@ export function wireButtons() {
 
 let allowBeforePrefer = false;
 
+// freePaletteChecked remembers the user's choice while no rule forces the
+// palette (both formats, .pes output, single-object), so unforcing restores
+// it instead of leaving the box half-changed.
+let freePaletteChecked = false;
+
+export function syncFullPalette() {
+  const forced =
+    $("chk_both_formats").checked ||
+    (state.outputPath || "").toLowerCase().endsWith(".pes") ||
+    $("chk_single_object_ds").checked;
+  const wasFullPaletteForced = $("chk_full_palette").disabled;
+  if (!wasFullPaletteForced) freePaletteChecked = $("chk_full_palette").checked;
+  $("chk_full_palette").disabled = forced;
+  $("chk_full_palette").checked = forced || freePaletteChecked;
+  updateReadyState();
+}
+
 // Wire the option checkboxes that gate encode readiness.
 export function wireOptions() {
   $("chk_prefer_normal").addEventListener("change", (e) => {
@@ -118,12 +136,36 @@ export function wireOptions() {
 
   // Both-formats and .pes destinations require full palette; the re-enable is
   // re-evaluated on both triggers so no disabled state survives.
-  $("chk_both_formats").addEventListener("change", () => {
-    const forced =
-      $("chk_both_formats").checked || state.outputPath.toLowerCase().endsWith(".pes");
-    if (forced) $("chk_full_palette").checked = true;
-    $("chk_full_palette").disabled = forced;
-    updateReadyState();
+  $("chk_both_formats").addEventListener("change", syncFullPalette);
+
+  // Single-object display sets are incompatible with -d/--ahead and inert
+  // with normal-case refreshes; full palette is forced engine-side. Pre-state
+  // is captured so toggling off restores what the user had.
+  let singleOnRestore = null;
+
+  $("chk_single_object_ds").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    if (on) {
+      singleOnRestore = {
+        overlap: $("chk_overlap").checked,
+        allowNormal: $("chk_allow_normal").checked,
+        preferNormal: $("chk_prefer_normal").checked,
+      };
+      $("chk_overlap").checked = false;
+      $("chk_allow_normal").checked = false;
+      $("chk_prefer_normal").checked = false;
+    } else if (singleOnRestore) {
+      $("chk_prefer_normal").checked = singleOnRestore.preferNormal;
+      $("chk_allow_normal").checked = singleOnRestore.preferNormal || singleOnRestore.allowNormal;
+      $("chk_overlap").checked = singleOnRestore.overlap;
+      allowBeforePrefer = singleOnRestore.preferNormal;
+      singleOnRestore = null;
+    }
+    $("chk_overlap").disabled = on;
+    $("chk_prefer_normal").disabled = on;
+    $("chk_allow_normal").disabled = on || $("chk_prefer_normal").checked;
+    if ($("chk_prefer_normal").checked) $("chk_allow_normal").checked = true;
+    syncFullPalette();
   });
 
   // Re-evaluate encode readiness if options change (button gate: paths only).

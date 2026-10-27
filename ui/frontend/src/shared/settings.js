@@ -33,10 +33,13 @@ export async function loadSettings() {
           both_formats: "chk_both_formats",
           ignore_resolution: "chk_ignore_resolution",
           tight_ods: "chk_tight_ods",
+          single_object_ds: "chk_single_object_ds",
         };
         for (const [key, id] of Object.entries(flags)) {
           if (s[key] !== undefined) $(id).checked = s[key];
         }
+        // Re-apply the overlap gate to the restored single-object value.
+        $("chk_single_object_ds").dispatchEvent(new Event("change"));
         const qz = $("combo_quantizer");
         if (s.quantizer !== undefined &&
             [...qz.options].some((o) => o.value === String(s.quantizer))) {
@@ -68,6 +71,7 @@ export async function saveSettings() {
       BothFormats:      $("chk_both_formats").checked,
       IgnoreResolution: $("chk_ignore_resolution").checked,
       TightOds:         $("chk_tight_ods").checked,
+      SingleObjectDs:   $("chk_single_object_ds").checked,
       Quantizer:        parseInt($("combo_quantizer").value),
     });
   } catch (err) {
