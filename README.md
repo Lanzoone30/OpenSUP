@@ -149,12 +149,24 @@ A BDN XML file can also be dragged and dropped onto the left panel.
 | **Overlap Buffering**            | Buffers palette updates whenever possible so fewer events are dropped. The stream shall NOT be Built or Rebuilt at the authoring stage.                                                           |
 | **Write Full Palette**           | Writes the full 256-entry palette for every epoch instead of an optimized subset. Can improve quality at the cost of a larger output.                                                             |
 | **Fit ODS Box to Text**          | Sets the ODS box to the event content instead of the whole window slot, for authoring tools that crop or rescale graphics.                                                                        |
-| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window so every display set carries one object. Enable it if Media3-based Android TV clients (Wholphin, Moonfin) render PGS cut or incomplete. Forces Full Palette and disables Overlap Buffering and the Normal Case options while on. | 
+| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window, so every display set contains only one object. This option is useful when your Android TV client is Media3-based (Wholphin, Moonfin). When on, it forces Full Palette and turns Overlap Buffering and Normal Case off. | 
 | **Alternate OIDs**               | Forces legacy global object ids 0/1. The default is per-window ids, which keeps multi-window compositions out of trouble.                                                                         |
 | **Both SUP + PES/MUI**           | Also exports a .pes/.mui file alongside the .sup file in a single run.                                                                                                                            |
 | **Ignore Resolution Validation** | By default, encoding fails if the video resolution is not one of the standard Blu-ray resolutions (1920×1080, 1280×720, 720×576, 720×480). Enable to ignore Blu-ray standards and encode anyway.  |
 
 </details>
+
+> [!NOTE]
+> **Android TV Clients Compatibility.** Some Android TV clients that render subtitles
+> through Media3/ExoPlayer (Wholphin, Moonfin with the Media3 engine, and other
+> Media3-based Jellyfin clients) can display PGS subtitles larger than the video,
+> overflowing its frame. This comes from how Media3 scales subtitle bitmaps: it
+> computes them as a fraction of the whole display surface instead of the video
+> display area. To avoid these issues, use a player that scales subtitles against
+> the video, such as VLC, or switch the engine to mpv in your client's settings.
+> This is also why the **One Object per Display Set** option above exists: a quick
+> workaround to get the PGS stream displaying on these clients, though not a
+> perfect one, as issues can still appear with certain video formats.
 
 > [!WARNING]
 > The **Ignore Resolution Validation** option skips checks for Blu-ray format compliance. Some
