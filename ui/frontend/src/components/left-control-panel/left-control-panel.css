@@ -6,7 +6,8 @@
   margin: -2px 0 2px 2px;
   word-break: break-word;
   overflow-wrap: anywhere;
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
   transition: color var(--dur) var(--ease);
 }
 
@@ -90,7 +91,7 @@
 
 .btn-secondary:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--text);
   background: var(--accent-soft);
   box-shadow: var(--shadow-sm);
 }
@@ -157,6 +158,10 @@
   flex-shrink: 0;
 }
 
+.check:hover input[type="checkbox"] {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
 
 /* Group: numeric input + help tip side by side */
 .redraw-group {
@@ -186,28 +191,30 @@
 }
 
 .output-file-row .file-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   width: auto;
 }
 
 .output-file-row .btn-icon {
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  min-height: 36px;
+  width: 32px;
+  min-height: 32px;
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-input);
   background: var(--surface);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
 .btn-icon svg {
@@ -221,12 +228,16 @@
 }
 
 .btn-icon:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .btn-icon:hover:not(:disabled) .seg-icon {
-  color: var(--accent);
+  color: var(--accent-hover);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn-icon:disabled {
@@ -274,6 +285,10 @@
      at that edge (driven from JS so idle lists stay crisp). */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
+}
+
+.controls-scroll[inert] {
+  opacity: 0.55;
 }
 
 /* ── Collapsible cards (details/summary accordions) ── */
@@ -351,4 +366,46 @@ details[open]>summary.card-title::before {
 
 details[open]>summary.adv-title::before {
   transform: rotate(45deg);
+}
+
+/* ── Card head with the clear-scope icon ── */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-head .card-title {
+  flex: 1;
+}
+
+/* ── Scope readiness chips ── */
+.encode-hint {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  align-items: center;
+}
+
+.hint-chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.hint-chip::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  margin-right: 5px;
+  transition: background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.hint-chip.done::before {
+  background: var(--accent);
+  border-color: var(--accent);
 }

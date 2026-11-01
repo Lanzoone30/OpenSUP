@@ -47,11 +47,8 @@
   box-shadow: var(--shadow-danger-active);
 }
 
-.btn-danger:disabled {
-  background: transparent;
-  color: var(--danger);
-  border-color: var(--danger);
-  opacity: 0.45;
+.btn-danger:focus-visible {
+  box-shadow: 0 0 0 3px var(--danger-ring);
 }
 
 /* ── Action row ── */
