@@ -4,8 +4,13 @@
 
       <!-- Project Scope -->
       <div class="card">
-        <h2 class="card-title" data-i18n="projectScope">Project Scope</h2>
-        <div class="drop-zone" data-drop="bdn" title="Drag & drop a BDN XML file here">
+        <div class="card-head">
+          <h2 class="card-title" data-i18n="projectScope">Project Scope</h2>
+          <button id="btn_clear_scope" class="btn btn-icon" disabled title="Clear selections" aria-label="Clear selections">
+            <span class="seg-icon" data-icon="eraser" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div id="drop_bdn" class="drop-zone" data-drop="bdn">
           <button id="btn_select_bdn" class="btn btn-secondary" data-i18n="selectBdn">Select BDN XML</button>
           <span id="lbl_bdn_file" class="file-label" data-i18n="noFile">No file selected</span>
         </div>
@@ -18,6 +23,10 @@
             <span class="seg-icon" data-icon="folder" aria-hidden="true"></span>
           </button>
         </span>
+        <div id="encode_hint" class="encode-hint" hidden>
+          <span id="hint_bdn" class="hint-chip"><span data-i18n="reqBdn">BDN file</span></span>
+          <span id="hint_output" class="hint-chip"><span data-i18n="reqSupOutput">SUP output</span></span>
+        </div>
       </div>
 
       <!-- Parameters -->

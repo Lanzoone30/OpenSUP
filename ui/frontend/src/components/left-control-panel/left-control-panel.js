@@ -11,7 +11,9 @@ export function applyBDNPath(path) {
   state.inputPath = path;
   state.lastBDNDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
   $("lbl_bdn_file").textContent = path.split(/[\\/]/).pop();
+  $("lbl_bdn_file").title = path;
   updateReadyState();
+  updateScopeHint();
 }
 
 export async function selectBDN() {
@@ -29,11 +31,12 @@ export async function setOutput() {
   const app = go();
   if (!app?.SetOutput) return;
   try {
-    const path = await app.SetOutput();
+    const path = await app.SetOutput(state.lastBDNDir || "");
     if (path) {
       state.outputPath = path;
       state.lastOutDir = path.substring(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
       $("lbl_output_file").textContent = path.split(/[\\/]/).pop();
+      $("lbl_output_file").title = path;
       syncFullPalette();
       updateOutputActions();
     }
@@ -57,6 +60,33 @@ export async function revealOutputFolder() {
 export function updateOutputActions() {
   const btn = $("btn_reveal_output");
   if (btn) btn.disabled = !state.outputPath || state.isEncoding;
+  updateScopeHint();
+}
+
+export function updateScopeHint() {
+  const hint = $("encode_hint");
+  if (hint) {
+    const hasBdn = Boolean(state.inputPath);
+    const hasOut = Boolean(state.outputPath);
+    hint.hidden = hasBdn === hasOut;
+    $("hint_bdn").classList.toggle("done", hasBdn);
+    $("hint_output").classList.toggle("done", hasOut);
+  }
+  const clear = $("btn_clear_scope");
+  if (clear) clear.disabled = (!state.inputPath && !state.outputPath) || state.isEncoding;
+  const dz = $("drop_bdn");
+  if (dz) dz.title = state.inputPath ? "" : t("dropBdn");
+}
+
+export function clearScope() {
+  state.inputPath = "";
+  state.outputPath = "";
+  $("lbl_bdn_file").textContent = t("noFile");
+  $("lbl_output_file").textContent = t("destNotSet");
+  $("lbl_bdn_file").title = "";
+  $("lbl_output_file").title = "";
+  updateReadyState();
+  updateOutputActions();
 }
 
 export function updateControlsFade() {
