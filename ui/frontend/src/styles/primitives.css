@@ -138,6 +138,19 @@ select option {
 
 .dd-list.open {
   display: block;
+  animation: dd-open var(--dur) var(--ease-out);
+}
+
+@keyframes dd-open {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .dd-list li {
