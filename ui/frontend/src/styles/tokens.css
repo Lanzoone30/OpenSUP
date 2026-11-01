@@ -62,7 +62,7 @@
   --col-offset: 36px;
 
   /* Log level colors */
-  --log-debug: #8A8884;
+  --log-debug: #6E6D69;
   --log-debug-bg: transparent;
   --log-info: #47454C;
   --log-info-bg: transparent;
@@ -108,8 +108,8 @@
   --bar-track-border: var(--border);
 
   /* Type */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "Consolas", "Cascadia Code", "Courier New", monospace;
+  --font-sans: system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -175,7 +175,7 @@
   --led-red: #EF4444;
   --led-red-glow: rgba(239, 68, 68, 0.7);
 
-  --log-debug: #5A5A62;
+  --log-debug: #8A8A93;
   --log-debug-bg: transparent;
   --log-info: #B0B0BA;
   --log-info-bg: transparent;
@@ -262,7 +262,7 @@
     --led-red: #EF4444;
     --led-red-glow: rgba(239, 68, 68, 0.7);
 
-    --log-debug: #5A5A62;
+    --log-debug: #8A8A93;
     --log-debug-bg: transparent;
     --log-info: #B0B0BA;
     --log-info-bg: transparent;
