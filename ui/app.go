@@ -139,14 +139,34 @@ func (a *App) RevealOutput(path string) error {
 // The frontend listens for engine:log, engine:progress, engine:done
 // events emitted by the runner.
 func (a *App) StartEncode(cfg engine.EncodeConfig) (bool, error) {
+	var before os.FileInfo
+	if cfg.OutputPath != "" {
+		before, _ = os.Stat(cfg.OutputPath)
+	}
 	result, err := a.runner.Run(a.ctx, cfg)
 	if err != nil {
 		return false, fmt.Errorf("start encode: %w", err)
 	}
 	if result.Cancelled {
+		removePartialOutput(cfg.OutputPath, before)
 		return false, nil
 	}
 	return result.Success, nil
+}
+
+// removePartialOutput deletes the truncated file left by an aborted run,
+// keeping a pre-existing output the engine never touched.
+func removePartialOutput(path string, before os.FileInfo) {
+	if path == "" {
+		return
+	}
+	now, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	if before == nil || !now.ModTime().Equal(before.ModTime()) || now.Size() != before.Size() {
+		_ = os.Remove(path)
+	}
 }
 
 // AbortEncode kills the in-flight engine subprocess.
