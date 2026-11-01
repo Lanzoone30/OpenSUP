@@ -11,11 +11,14 @@ const Table = {
   // -- Project Scope --
   projectScope:   { en: "Project Scope",                  es: "Proyecto" },
   selectBdn:      { en: "Select bdn.xml file",            es: "Seleccionar archivo bdn.xml" },
+  dropBdn:        { en: "Drag & drop a BDN XML file here", es: "Arrastra y suelta un archivo BDN XML aquí" },
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
   setOutput:      { en: "Set output",                     es: "Establecer salida" },
   openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
   jumpToLive:     { en: "Jump to latest log entry",        es: "Ir al final del registro" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
+  clearSelections:{ en: "Clear selections",               es: "Limpiar selecciones" },
+  resolutionHint: { en: "Enable the \"Ignore resolution validation\" option to process anyway.", es: "Activa la opción \"Ignorar validación de resolución\" para procesar de todas maneras." },
 
   // -- Parameters --
   parameters:     { en: "Parameters",                     es: "Parámetros" },
@@ -62,6 +65,7 @@ const Table = {
   copied:         { en: "Copied",                          es: "Copiado" },
   copyLog:        { en: "Copy log",                       es: "Copiar registro" },
   logLines:       { en: "[%1 lines]",                     es: "[%1 líneas]" },
+  logLine:        { en: "[%1 line]",                      es: "[%1 línea]" },
 
   // -- Encode --
   progress:       { en: "Progress",                      es: "Progreso" },
@@ -72,10 +76,12 @@ const Table = {
   abort:          { en: "ABORT",                           es: "ABORTAR" },
   starting:       { en: "Encoding",                       es: "Codificando" },
   done:           { en: "Done",                            es: "Listo" },
-  failed:         { en: "Encoding FAILED — see log for details", es: "Codificación FALLIDA — ver el registro" },
+  failed:         { en: "Encoding FAILED - See activity log for details", es: "Codificación FALLIDA - Consulta el registro de actividad" },
   abortedShort:   { en: "Encoding Aborted",               es: "Codificación Abortada" },
   aborted:        { en: "Aborted",                        es: "Abortado" },
   abortLogMsg:    { en: "Encoding aborted by user.",      es: "Codificación abortada por el usuario." },
+  reqBdn:         { en: "BDN file",                       es: "Archivo BDN" },
+  reqSupOutput:   { en: "SUP output",                     es: "Salida SUP" },
 
   // -- Theme --
   themeSystem:    { en: "System",                         es: "Sistema" },
