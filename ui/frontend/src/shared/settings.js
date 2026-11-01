@@ -5,7 +5,7 @@ import { state } from "./state.js";
 import { go } from "./bridge.js";
 import { setLang } from "./i18n.js";
 import { applyTheme } from "./theme.js";
-import { syncDropdown } from "./dropdown.js";
+import { syncSeg } from "./segmented.js";
 
 export async function loadSettings() {
   const app = go();
@@ -17,10 +17,10 @@ export async function loadSettings() {
         // the generated models.ts — NOT the Go field names.
         setLang(s.language || 0);
         $("cmb_language").value = String(s.language || 0);
-        syncDropdown("dd_language");
+        syncSeg("seg_language");
         applyTheme(s.theme || 0);
         $("cmb_theme").value = String(s.theme || 0);
-        syncDropdown("dd_theme");
+        syncSeg("seg_theme");
         if (s.last_bdn_dir)  state.lastBDNDir = s.last_bdn_dir;
         if (s.last_output_dir)  state.lastOutDir = s.last_output_dir;
         // Engine Options: restore only keys present in the file.

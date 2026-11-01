@@ -53,6 +53,8 @@
   .progress-reveal,
   .led-done,
   .dd-list.open,
+  .seg-group::before,
+  .seg-opt.active .seg-icon svg,
   .card,
   .log-panel>.log-card,
   .log-panel>.card-progress,
