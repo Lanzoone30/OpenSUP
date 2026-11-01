@@ -74,11 +74,16 @@ func (a *App) SelectBDN() (string, error) {
 }
 
 // SetOutput opens a save dialog and returns the chosen path.
+// bdnDir, when set, seeds the dialog with the loaded BDN's folder.
 // Returns "" if the user cancels.
-func (a *App) SetOutput() (string, error) {
+func (a *App) SetOutput(bdnDir string) (string, error) {
+	dir := bdnDir
+	if dir == "" {
+		dir = a.lastOutDir
+	}
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:            "Set SUP Output",
-		DefaultDirectory: a.lastOutDir,
+		DefaultDirectory: dir,
 		Filters: []runtime.FileFilter{
 			{DisplayName: "PGS Subtitle (*.sup)", Pattern: "*.sup"},
 			{DisplayName: "All files (*.*)", Pattern: "*.*"},

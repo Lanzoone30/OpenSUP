@@ -17,7 +17,7 @@ export function SaveSettings(arg1:config.Settings):Promise<boolean>;
 
 export function SelectBDN():Promise<string>;
 
-export function SetOutput():Promise<string>;
+export function SetOutput(arg1:string):Promise<string>;
 
 export function StartEncode(arg1:engine.EncodeConfig):Promise<boolean>;
 
