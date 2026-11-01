@@ -6,12 +6,16 @@ import { t, getLang } from './shared/i18n.js';
 import { EventsOn, OnFileDrop } from '../wailsjs/runtime/runtime.js';
 import folderIcon from './components/left-control-panel/assets/folder.svg?raw';
 import eraserIcon from './components/left-control-panel/assets/eraser.svg?raw';
+import monitorIcon from './components/ui-actions/assets/monitor.svg?raw';
+import sunIcon from './components/ui-actions/assets/sun.svg?raw';
+import moonIcon from './components/ui-actions/assets/moon.svg?raw';
 import { $ } from './shared/dom.js';
 import { state } from './shared/state.js';
 import { appendLog, updateLogCount, updateLogPlaceholder, wireLogPanel, lockLogButtonWidths, updateLogButtons } from './components/log-panel/log-panel.js';
 import { setStatus, setProgressClip, updateProgress } from './components/progress/progress.js';
 import { applyBDNPath, updateOutputActions, updateControlsFade, wireControlsFade, wireCardToggles, populateThreads, updateScopeHint } from './components/left-control-panel/left-control-panel.js';
 import { setEncodingState, updateReadyState, wireButtons, wireOptions } from './components/btns-actions/btns-actions.js';
+import { syncSeg } from './shared/segmented.js';
 import { syncDropdown } from './shared/dropdown.js';
 import { loadSettings } from './shared/settings.js';
 import { wireUiActions } from './components/ui-actions/ui-actions.js';
@@ -50,6 +54,12 @@ function applyI18n() {
     const el = $(id);
     if (el && el.parentElement) el.parentElement.title = t(key);
   }
+  const themeTips = { 0: "themeSystem", 1: "themeLight", 2: "themeDark" };
+  document.querySelectorAll("#seg_theme .seg-opt").forEach((el) => {
+    const label = t(themeTips[el.dataset.val]);
+    el.title = label;
+    el.setAttribute("aria-label", label);
+  });
   // Tooltips for selects
   const cs = $("combo_colorspace");
   if (cs) cs.title = t("colorSpaceTip");
@@ -138,7 +148,7 @@ function wireDomEvents() {
 
 // Inyect SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.
 function injectIcons() {
-  const icons = { folder: folderIcon, eraser: eraserIcon };
+  const icons = { folder: folderIcon, eraser: eraserIcon, monitor: monitorIcon, sun: sunIcon, moon: moonIcon };
   document.querySelectorAll("[data-icon]").forEach((el) => {
     const svg = icons[el.dataset.icon];
     if (svg) el.innerHTML = svg;
@@ -158,8 +168,8 @@ async function init() {
   updateReadyState();
   updateOutputActions();
   syncDropdown("dd_quantizer");
-  syncDropdown("dd_language");
-  syncDropdown("dd_theme");
+  syncSeg("seg_language");
+  syncSeg("seg_theme");
   document.title = t("windowTitle");
   wireControlsFade();
 }
