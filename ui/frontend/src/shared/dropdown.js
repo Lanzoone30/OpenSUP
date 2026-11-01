@@ -20,12 +20,6 @@ export function syncDropdown(ddId) {
       const full = li.textContent.trim();
       if (label) label.textContent = full;
       else if (!iconOnly) btn.textContent = full;
-      // Language button shows the flag of the active locale.
-      const flag = btn.querySelector(".dd-flag-current");
-      if (flag) {
-        const host = li.querySelector("img.dd-flag");
-        if (host) flag.src = host.src;
-      }
     }
     // Mark options whose text overflows the list width; they scroll on hover.
     const span = li.querySelector("span");
