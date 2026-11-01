@@ -12,6 +12,7 @@
 
 #include <pugixml.hpp>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <filesystem>
 #include <cmath>
@@ -200,8 +201,10 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
     for (auto event_node : events_node.children("Event")) {
         auto in_tc = event_node.attribute("InTC").as_string();
         auto out_tc = event_node.attribute("OutTC").as_string();
-        auto forced_attr = event_node.attribute("Forced").as_string();
-        bool forced = (std::string(forced_attr) == "true");
+        std::string forced_attr = event_node.attribute("Forced").as_string();
+        std::transform(forced_attr.begin(), forced_attr.end(), forced_attr.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        bool forced = (forced_attr == "true");
 
         auto tc_from_string = [this](const std::string& tc) -> common::tc_t {
             int h = 0, m = 0, s = 0, f = 0;
