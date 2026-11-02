@@ -18,6 +18,7 @@ add_executable(opensup_test_core
   ods_vn_test.cpp
   sequence_quality_policy_test.cpp
   timecode_anchor_test.cpp
+  timecode_convention_test.cpp
   ds_timings_test.cpp
   ds_structure_test.cpp
   epoch_split_test.cpp
