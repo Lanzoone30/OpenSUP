@@ -5,8 +5,8 @@ import { state } from "../../shared/state.js";
 import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
-import { appendLog } from "../log-panel/log-panel.js";
-import { selectBDN, setOutput, revealOutputFolder, updateOutputActions } from "../left-control-panel/left-control-panel.js";
+import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
+import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
 
 export function setEncodingState(encoding) {
@@ -15,7 +15,10 @@ export function setEncodingState(encoding) {
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;
+  const sc = document.querySelector(".controls-scroll");
+  if (sc) sc.inert = encoding;
   updateOutputActions();
+  updateLogButtons();
 }
 
 // Attribute `state.isEncoding || !state.inputPath || !state.outputPath` gates the encode button.
@@ -70,6 +73,7 @@ export function startEncode() {
     // Normal completion: the engine:done event handles the UI state.
   }).catch((err) => {
     console.error("StartEncode:", err);
+    appendLog("error", "Failed to start encode: " + err);
     setStatus("failed");
     $("progress_fill").classList.add("failed");
   }).finally(() => {
@@ -82,13 +86,12 @@ export function startEncode() {
 
 export function abortEncode() {
   const app = go();
-  if (!app?.AbortEncode) return;
+  if (!app?.AbortEncode || !state.isEncoding) return;
+  $("btn_abort").disabled = true;
   app.AbortEncode();
-  // Immediate feedback (red bar + message). "error" (string) so
-  // levelNameToCss maps to the red log style.
-  appendLog("error", "Encoding aborted by user.");
   $("progress_fill").classList.add("failed");
   $("progress_fill").classList.remove("active");
+  $("lbl_eta").textContent = "—";
   setStatus("aborted");
 }
 
@@ -97,6 +100,7 @@ export function wireButtons() {
   $("btn_select_bdn").addEventListener("click", selectBDN);
   $("btn_set_output").addEventListener("click", setOutput);
   $("btn_reveal_output").addEventListener("click", revealOutputFolder);
+  $("btn_clear_scope").addEventListener("click", clearScope);
   $("btn_encode").addEventListener("click", startEncode);
   $("btn_abort").addEventListener("click", abortEncode);
 }

@@ -1,106 +1,137 @@
-.header-controls select {
-  min-width: 78px;
-  font-size: 12px;
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
-/* ── Dropdown variants in header ── */
-.hdr-dd .dd-btn {
+/* ── Segmented controls (language / theme) ── */
+.seg-group {
+  --count: 2;
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  width: auto;
-  min-width: 0;
-  padding: 7px 32px 7px 12px;
-  position: relative;
-  background-image: none;
+  padding: 2px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
 }
 
-/* Language button keeps a stable width: "English (US)" is wider than
-   "Spanish", so without a floor the control resizes on locale switch. */
-#dd_language .dd-btn {
-  min-width: 152px;
+#seg_theme {
+  --count: 3;
 }
 
-.hdr-dd .dd-flag {
-  width: 20px;
-  height: auto;
-  flex-shrink: 0;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px var(--border);
-}
-
-.hdr-dd .dd-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12.5px;
-}
-
-/* Rotating chevron on open/close */
-.hdr-dd .dd-btn::after {
+/* Sliding active pill: one equal-width column per option. */
+.seg-group::before {
   content: "";
   position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 10px;
-  height: 6px;
-  transform: translateY(-50%);
-  background-image: var(--select-arrow);
-  background-repeat: no-repeat;
-  background-size: contain;
-  pointer-events: none;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--count));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--r-btn) - 2px);
+  box-shadow: var(--shadow-xs);
+  transform: translateX(calc(var(--i, 0) * 100%));
   transition: transform var(--dur) var(--ease);
 }
 
-.hdr-dd .dd-btn.open::after {
-  transform: translateY(-50%) rotate(180deg);
+/* On dark the pill must be lighter than its track. */
+[data-theme="dark"] .seg-group::before {
+  background: var(--surface-hover);
 }
 
-.hdr-dd .dd-list {
-  left: auto;
-  right: 0;
-  min-width: 140px;
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-pop);
-  transform-origin: top right;
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] .seg-group::before {
+    background: var(--surface-hover);
+  }
 }
 
-.hdr-dd .dd-list.open {
-  display: block;
-  animation: dd-pop var(--dur-slow) var(--ease-out);
-}
-
-.hdr-dd .dd-list li {
-  display: flex;
+.seg-opt {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--r-btn) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
 }
 
-.hdr-dd .dd-list li.active {
-  background: var(--accent-soft);
+#seg_theme .seg-opt {
+  width: 34px;
 }
 
-.hdr-dd .dd-list li.active::before {
-  content: "✓";
-  color: var(--accent);
-  font-weight: 700;
-  margin-right: 6px;
+.seg-opt:hover {
+  color: var(--text);
 }
 
-@keyframes dd-pop {
+.seg-opt.active,
+.seg-opt.active:hover {
+  color: var(--accent-active);
+}
+
+.seg-opt:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+.seg-opt .seg-icon {
+  width: 15px;
+  height: 15px;
+  color: inherit;
+}
+
+/* Micro-animation of the selected icon. */
+.seg-opt.active .seg-icon svg {
+  animation: seg-pop var(--dur) var(--ease-out);
+}
+
+#seg_theme .seg-opt[data-val="1"].active .seg-icon svg {
+  animation: seg-sun var(--dur) var(--ease-out);
+}
+
+#seg_theme .seg-opt[data-val="2"].active .seg-icon svg {
+  animation: seg-moon var(--dur) var(--ease-out);
+}
+
+@keyframes seg-pop {
   from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
+    transform: scale(0.82);
   }
 
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
-.header-controls {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
+@keyframes seg-sun {
+  from {
+    transform: rotate(-45deg) scale(0.82);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes seg-moon {
+  from {
+    transform: rotate(20deg) scale(0.82);
+  }
+
+  to {
+    transform: none;
+  }
 }

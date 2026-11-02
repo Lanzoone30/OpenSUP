@@ -7,6 +7,8 @@ import { setProgressClip, setStatus } from "../progress/progress.js";
 
 const LEVEL_NAMES = { debug: "DEBUG", info: "INFO", warn: "WARN", pass: "PASS", error: "ERROR", fail: "FAIL", fatal: "FATAL" };
 
+const RESOLUTION_SUFFIX = "Use --ignore-resolution or the checkbox in the GUI.";
+
 export function appendLog(level, msg) {
   const area = $("txt_log");
   const entry = document.createElement("span");
@@ -27,7 +29,8 @@ export function appendLog(level, msg) {
 function formatLogLine(level, msg) {
   const css = levelNameToCss(level);
   const name = LEVEL_NAMES[css] || "INFO";
-  const text = msg.replace(/^\d{2}:\d{2}:\d{2}\s+[A-Z]+:\s+/, "");
+  let text = msg.replace(/^\d{2}:\d{2}:\d{2}\s+[A-Z]+:\s+/, "");
+  if (text.includes(RESOLUTION_SUFFIX)) text = text.replaceAll(RESOLUTION_SUFFIX, t("resolutionHint"));
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   const ts = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -55,18 +58,47 @@ function clearLog() {
   if (fb) fb.hidden = true;
   updateLogCount();
   updateLogPlaceholder();
-  // Reset bar/ETA; keep "failed" so a red (aborted) bar stays red while it
-  // resets — a new encode clears it in startEncode().
+  // Keep "failed" so a red (aborted) bar stays red while it resets; a new
+  // encode clears it in startEncode().
   setProgressClip(0);
   $("progress_fill").classList.remove("active");
   setStatus("standing");
   $("lbl_pct").textContent = "0%";
   $("lbl_eta").textContent = "—";
+  updateLogButtons();
+}
+
+// Keep both log buttons at the same width across languages.
+export function lockLogButtonWidths() {
+  const copy = $("btn_copy_log");
+  const clear = $("btn_clear_log");
+  if (!copy || !clear) return;
+  copy.style.minWidth = "";
+  clear.style.minWidth = "";
+  const width = Math.max(copy.getBoundingClientRect().width, clear.getBoundingClientRect().width);
+  copy.style.minWidth = width + "px";
+  clear.style.minWidth = width + "px";
 }
 
 export function updateLogCount() {
   const el = $("lbl_log_lines");
-  if (el) el.textContent = fmt(t("logLines"), state.logEntries);
+  if (el) el.textContent = fmt(t(state.logEntries === 1 ? "logLine" : "logLines"), state.logEntries);
+  updateLogButtons();
+}
+
+function hasProgressState() {
+  return state.isEncoding ||
+    state.statusMode !== "standing" ||
+    $("lbl_pct").textContent.trim() !== "0%" ||
+    $("lbl_eta").textContent.trim() !== "—";
+}
+
+export function updateLogButtons() {
+  const hasLog = state.logEntries > 0;
+  const copy = $("btn_copy_log");
+  const clear = $("btn_clear_log");
+  if (copy) copy.disabled = !hasLog;
+  if (clear) clear.disabled = !hasLog && !hasProgressState();
 }
 
 export function updateLogPlaceholder() {

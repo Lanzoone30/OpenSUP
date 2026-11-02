@@ -1,28 +1,23 @@
     <div class="header-controls">
-      <div class="dropdown hdr-dd" id="dd_language" title="Interface Language / Idioma de interfaz">
-        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
-          <img class="dd-flag dd-flag-current" alt="" src="/src/components/ui-actions/assets/flags/us.svg"/>
-          <span class="dd-label">English (US)</span>
-        </button>
-        <ul class="dd-list" role="listbox">
-          <li role="option" data-val="0"><img class="dd-flag" alt="" src="/src/components/ui-actions/assets/flags/us.svg"/><span>English (US)</span></li>
-          <li role="option" data-val="1"><img class="dd-flag" alt="" src="/src/components/ui-actions/assets/flags/es.svg"/><span>Spanish</span></li>
-        </ul>
+      <div id="seg_language" class="seg-group">
+        <button type="button" class="seg-opt active" data-val="0" title="English" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" class="seg-opt" data-val="1" title="Español" aria-label="Español" aria-pressed="false">ES</button>
         <select id="cmb_language" class="seg-source" aria-hidden="true" tabindex="-1">
           <option value="0">English (US)</option>
-          <option value="1">Spanish</option>
+          <option value="1">Español</option>
         </select>
       </div>
 
-      <div class="dropdown hdr-dd" id="dd_theme" title="Theme / Tema">
-        <button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false">
-          <span class="dd-label">System</span>
+      <div id="seg_theme" class="seg-group">
+        <button type="button" class="seg-opt active" data-val="0" title="System" aria-label="System" aria-pressed="true">
+          <span class="seg-icon" data-icon="monitor" aria-hidden="true"></span>
         </button>
-        <ul class="dd-list" role="listbox">
-          <li role="option" data-val="0"><span data-i18n="themeSystem">System</span></li>
-          <li role="option" data-val="1"><span data-i18n="themeLight">Light</span></li>
-          <li role="option" data-val="2"><span data-i18n="themeDark">Dark</span></li>
-        </ul>
+        <button type="button" class="seg-opt" data-val="1" title="Light" aria-label="Light" aria-pressed="false">
+          <span class="seg-icon" data-icon="sun" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="seg-opt" data-val="2" title="Dark" aria-label="Dark" aria-pressed="false">
+          <span class="seg-icon" data-icon="moon" aria-hidden="true"></span>
+        </button>
         <select id="cmb_theme" class="seg-source" aria-hidden="true" tabindex="-1">
           <option value="0">System</option>
           <option value="1">Light</option>

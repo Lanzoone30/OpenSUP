@@ -13,7 +13,7 @@ const (
 )
 
 // Version is concatenated into the windowTitle and version keys.
-const Version = "2.2.0"
+const Version = "2.3.0"
 
 // Table maps each key to a pair (EN, ES).
 var Table = map[string][2]string{
@@ -25,11 +25,14 @@ var Table = map[string][2]string{
 	// -- Project Scope --
 	"projectScope":     {"Project Scope", "Proyecto"},
 	"selectBdn":        {"Select bdn.xml file", "Seleccionar archivo bdn.xml"},
+	"dropBdn":          {"Drag & drop a BDN XML file here", "Arrastra y suelta un archivo BDN XML aquí"},
 	"noFile":           {"No file selected", "Ningún archivo seleccionado"},
 	"setOutput":        {"Set output", "Establecer salida"},
 	"openOutputFolder": {"Open output folder", "Abrir carpeta de salida"},
 	"jumpToLive":       {"Jump to latest log entry", "Ir al final del registro"},
 	"destNotSet":       {"Destination not set", "Destino no establecido"},
+	"clearSelections":  {"Clear selections", "Limpiar selecciones"},
+	"resolutionHint":   {"Enable the \"Ignore resolution validation\" option to process anyway.", "Activa la opción \"Ignorar validación de resolución\" para procesar de todas maneras."},
 
 	// -- Parameters --
 	"parameters":      {"Parameters", "Parámetros"},
@@ -76,6 +79,7 @@ var Table = map[string][2]string{
 	"copied":      {"Copied", "Copiado"},
 	"copyLog":     {"Copy log", "Copiar registro"},
 	"logLines":    {"[%1 lines]", "[%1 líneas]"},
+	"logLine":     {"[%1 line]", "[%1 línea]"},
 
 	// -- Encode --
 	"progress":     {"Progress", "Progreso"},
@@ -86,10 +90,12 @@ var Table = map[string][2]string{
 	"abort":        {"ABORT", "ABORTAR"},
 	"starting":     {"Encoding…", "Codificando…"},
 	"done":         {"Done", "Listo"},
-	"failed":       {"Encoding FAILED – see log for details", "CODIFICACIÓN FALLIDA – ver el registro"},
+	"failed":       {"Encoding FAILED - See activity log for details", "CODIFICACIÓN FALLIDA - Consulta el registro de actividad"},
 	"abortedShort": {"Encoding Aborted", "Codificación Abortada"},
 	"aborted":      {"Aborted", "Abortado"},
 	"abortLogMsg":  {"Encoding aborted by user.", "Codificación abortada por el usuario."},
+	"reqBdn":       {"BDN file", "Archivo BDN"},
+	"reqSupOutput": {"SUP output", "Salida SUP"},
 
 	// -- Theme --
 	"themeSystem": {"System", "Sistema"},

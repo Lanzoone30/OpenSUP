@@ -30,8 +30,8 @@ export function SelectBDN() {
   return window['go']['main']['App']['SelectBDN']();
 }
 
-export function SetOutput() {
-  return window['go']['main']['App']['SetOutput']();
+export function SetOutput(arg1) {
+  return window['go']['main']['App']['SetOutput'](arg1);
 }
 
 export function StartEncode(arg1) {
