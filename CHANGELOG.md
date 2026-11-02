@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-01
+
+### Added
+
+- **General GUI improvements**: segmented language (EN/ES) and theme
+  (System/Light/Dark) selectors in the header; erase button and requirement
+  chips in Project Scope; tooltips with the full BDN/Output path; and the
+  output dialog now opens in the loaded BDN's folder.
+
+### Changed
+
+- **Interface**: local system fonts instead of webfonts; animated dropdown
+  opening; unified 32×32 icon buttons with press feedback; AA contrast in
+  hover states and the DEBUG log, in both themes.
+- **Log panel**: Clear removes log, progress, ETA and status in one click;
+  Copy and Clear stay disabled without content; placeholder before the first
+  run; fully translated messages (plurals and the engine resolution suffix).
+- **While encoding**: the controls column is locked with `inert` (checkbox
+  states preserved) instead of disabling each element; drag & drop is ignored.
+
+### Fixed
+
+- **Aborting an encode**: ABORT disables after the first click; cancellation
+  is logged as a warning and the ETA resets; the partially rewritten `.sup`
+  is deleted, while a pre-existing output that was not rewritten is kept
+  (covered by regression tests).
+- **Engine startup failures** now appear in the log.
+- **"Español"** is now written in Spanish.
+- **Core**: the `Forced` attribute in BDN XML events is compared
+  case-insensitively (`True`, `TRUE`, etc. no longer count as "not forced").
+
 ## [2.2.0] - 2026-10-27
 
 ### Added
@@ -134,7 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log level read outside the lock.
 - Engine logs redirected to **stderr** so they no longer pollute the NDJSON stdout.
 
-[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/Lanzoone30/OpenSUP/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Lanzoone30/OpenSUP/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Lanzoone30/OpenSUP/compare/v1.1.0...v2.0.0
