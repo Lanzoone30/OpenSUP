@@ -41,6 +41,30 @@ TEST(InspectorTest, ValidateAcceptsFixture) {
     for (auto& f : rep.findings) EXPECT_FALSE(f.hard) << f.rule;
 }
 
+TEST(InspectorTest, ValidateWarnsOnMissingFinalEnds) {
+    auto raw = fixture_bytes();
+    ASSERT_GT(raw.size(), 13u);
+    raw.resize(raw.size() - 13);  // closing ENDS is header-only
+
+    auto stream = parse_sup(raw);
+    EXPECT_TRUE(stream.errors.empty());
+    ASSERT_EQ(stream.warnings.size(), 1u);
+
+    const auto rep = validate(stream);
+    EXPECT_TRUE(rep.compliant);
+    int trailing = 0;
+    for (auto& f : rep.findings) {
+        EXPECT_FALSE(f.hard) << f.rule;
+        if (f.rule == "stream") {
+            EXPECT_NE(f.detail.find("trailing display set without ENDS"), std::string::npos);
+            ++trailing;
+        } else {
+            EXPECT_NE(f.rule, "test_diplayset/end");
+        }
+    }
+    EXPECT_EQ(trailing, 1);
+}
+
 TEST(InspectorTest, ValidateRejectsOutOfRangePalette) {
     auto stream = load_sup(fixture_path("mini.sup"));
     auto pds = stream.display_sets[0].pds().front();
