@@ -277,6 +277,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar width so collapsing a card does not reflow the column. */
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -285,6 +287,13 @@
      at that edge (driven from JS so idle lists stay crisp). */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
+}
+
+/* Engines without gutter support: keep the track instead of letting it pop in. */
+@supports not (scrollbar-gutter: stable) {
+  .controls-scroll {
+    overflow-y: scroll;
+  }
 }
 
 .controls-scroll[inert] {
