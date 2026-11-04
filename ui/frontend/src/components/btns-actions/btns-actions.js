@@ -143,8 +143,8 @@ export function wireOptions() {
   $("chk_both_formats").addEventListener("change", syncFullPalette);
 
   // Single-object display sets are incompatible with -d/--ahead and inert
-  // with normal-case refreshes; full palette is forced engine-side. Pre-state
-  // is captured so toggling off restores what the user had.
+  // with normal-case refreshes; full palette and tight ODS boxes are forced
+  // engine-side. Pre-state is captured so toggling off restores the user's.
   let singleOnRestore = null;
 
   $("chk_single_object_ds").addEventListener("change", (e) => {
@@ -154,20 +154,24 @@ export function wireOptions() {
         overlap: $("chk_overlap").checked,
         allowNormal: $("chk_allow_normal").checked,
         preferNormal: $("chk_prefer_normal").checked,
+        tightOds: $("chk_tight_ods").checked,
       };
       $("chk_overlap").checked = false;
       $("chk_allow_normal").checked = false;
       $("chk_prefer_normal").checked = false;
+      $("chk_tight_ods").checked = true;
     } else if (singleOnRestore) {
       $("chk_prefer_normal").checked = singleOnRestore.preferNormal;
       $("chk_allow_normal").checked = singleOnRestore.preferNormal || singleOnRestore.allowNormal;
       $("chk_overlap").checked = singleOnRestore.overlap;
       allowBeforePrefer = singleOnRestore.preferNormal;
+      $("chk_tight_ods").checked = singleOnRestore.tightOds;
       singleOnRestore = null;
     }
     $("chk_overlap").disabled = on;
     $("chk_prefer_normal").disabled = on;
     $("chk_allow_normal").disabled = on || $("chk_prefer_normal").checked;
+    $("chk_tight_ods").disabled = on;
     if ($("chk_prefer_normal").checked) $("chk_allow_normal").checked = true;
     syncFullPalette();
   });
