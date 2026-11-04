@@ -13,7 +13,7 @@ import { $ } from './shared/dom.js';
 import { state } from './shared/state.js';
 import { appendLog, updateLogCount, updateLogPlaceholder, wireLogPanel, lockLogButtonWidths, updateLogButtons } from './components/log-panel/log-panel.js';
 import { setStatus, setProgressClip, updateProgress } from './components/progress/progress.js';
-import { applyBDNPath, updateOutputActions, updateControlsFade, wireControlsFade, wireCardToggles, populateThreads, updateScopeHint } from './components/left-control-panel/left-control-panel.js';
+import { applyBDNPath, updateOutputActions, updateControlsFade, wireControlsFade, wireCardToggles, populateThreads, updateScopeHint, flashOutputReady } from './components/left-control-panel/left-control-panel.js';
 import { setEncodingState, updateReadyState, wireButtons, wireOptions } from './components/btns-actions/btns-actions.js';
 import { syncSeg } from './shared/segmented.js';
 import { syncDropdown } from './shared/dropdown.js';
@@ -109,6 +109,7 @@ function wireEngineEvents() {
     if (data && data.success) {
       setProgressClip(1);
       setStatus("finished");
+      flashOutputReady();
     } else if (data && data.cancelled) {
       appendLog("warn", t("abortLogMsg"));
       setStatus("aborted");

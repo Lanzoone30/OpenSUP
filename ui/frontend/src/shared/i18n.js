@@ -15,6 +15,7 @@ const Table = {
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
   setOutput:      { en: "Set output",                     es: "Establecer salida" },
   openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
+  outputReady:    { en: "Encoding finished — open the output folder", es: "Codificación terminada — abrir la carpeta de salida" },
   jumpToLive:     { en: "Jump to latest log entry",        es: "Ir al final del registro" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
   clearSelections:{ en: "Clear selections",               es: "Limpiar selecciones" },

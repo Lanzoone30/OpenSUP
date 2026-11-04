@@ -245,6 +245,36 @@
   cursor: not-allowed;
 }
 
+/* Post-encode cue: green icon stays lit; the outer frame blinks for 3 s. */
+@keyframes output-ready-frame {
+  0%,
+  100% {
+    border-color: var(--border-strong);
+    box-shadow: none;
+  }
+
+  50% {
+    border-color: var(--success);
+    box-shadow: 0 0 0 1px var(--success), 0 0 10px var(--led-green-glow);
+  }
+}
+
+.btn-icon.is-ready {
+  color: var(--success);
+  animation: output-ready-frame 1s ease-in-out 3;
+}
+
+.btn-icon.is-ready .seg-icon,
+.btn-icon.is-ready:hover:not(:disabled) .seg-icon {
+  color: var(--success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon.is-ready {
+    animation: none;
+  }
+}
+
 /* ── Drop zones ── */
 .drop-zone {
   --wails-drop-target: drop;

@@ -49,11 +49,31 @@ export async function setOutput() {
 export async function revealOutputFolder() {
   const app = go();
   if (!app?.RevealOutput || !state.outputPath) return;
+  clearOutputFlash();
   try {
     await app.RevealOutput(state.outputPath);
   } catch (err) {
     console.error("RevealOutput:", err);
   }
+}
+
+// Mark the reveal-folder button as ready; the CSS blinks its frame for 3 s.
+export function flashOutputReady() {
+  const btn = $("btn_reveal_output");
+  if (!btn || btn.disabled) return;
+  clearOutputFlash();
+  btn.classList.add("is-ready");
+  const msg = t("outputReady");
+  btn.title = msg;
+  btn.setAttribute("aria-label", msg);
+}
+
+export function clearOutputFlash() {
+  const btn = $("btn_reveal_output");
+  if (!btn) return;
+  btn.classList.remove("is-ready");
+  btn.title = t("openOutputFolder");
+  btn.setAttribute("aria-label", t("openOutputFolder"));
 }
 
 // Enable/disable the reveal-folder icon based on whether an output exists.
@@ -87,6 +107,7 @@ export function clearScope() {
   $("lbl_output_file").title = "";
   updateReadyState();
   updateOutputActions();
+  clearOutputFlash();
 }
 
 export function updateControlsFade() {

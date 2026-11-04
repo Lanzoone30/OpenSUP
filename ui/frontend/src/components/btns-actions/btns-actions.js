@@ -6,11 +6,12 @@ import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
 import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
-import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope } from "../left-control-panel/left-control-panel.js";
+import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
+  if (encoding) clearOutputFlash();
   $("btn_encode").disabled = encoding;
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
