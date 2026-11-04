@@ -57,6 +57,8 @@
   --led-green-glow: rgba(46, 204, 113, 0.8);
   --led-red: #C0392B;
   --led-red-glow: rgba(192, 57, 43, 0.6);
+  --led-amber: #B45309;
+  --led-amber-glow: rgba(180, 83, 9, 0.55);
 
   /* Layout offset: align left column with the log box */
   --col-offset: 36px;
@@ -174,6 +176,8 @@
   --led-green-glow: rgba(16, 185, 129, 0.7);
   --led-red: #EF4444;
   --led-red-glow: rgba(239, 68, 68, 0.7);
+  --led-amber: #FCD34D;
+  --led-amber-glow: rgba(252, 211, 77, 0.55);
 
   --log-debug: #8A8A93;
   --log-debug-bg: transparent;
@@ -261,6 +265,8 @@
     --led-green-glow: rgba(16, 185, 129, 0.7);
     --led-red: #EF4444;
     --led-red-glow: rgba(239, 68, 68, 0.7);
+    --led-amber: #FCD34D;
+    --led-amber-glow: rgba(252, 211, 77, 0.55);
 
     --log-debug: #8A8A93;
     --log-debug-bg: transparent;

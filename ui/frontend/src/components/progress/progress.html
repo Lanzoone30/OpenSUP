@@ -1,12 +1,12 @@
       <div class="card card-progress">
-        <h2 class="card-title" data-i18n="progress">Progress</h2>
+        <h2 class="card-title" id="lbl_progress_title" data-i18n="progress">Progress</h2>
         <div class="progress-info">
-          <span id="status_led" class="led led-standing" role="status" aria-live="polite"></span>
-          <span id="lbl_progress_text" data-i18n="standingBy">Standing by</span>
+          <span id="status_led" class="led led-standing" aria-hidden="true"></span>
+          <span id="lbl_progress_text" role="status" aria-live="polite" data-i18n="standingBy">Standing by</span>
           <span id="lbl_pct" class="pct">0%</span>
           <span id="lbl_eta" class="eta">—</span>
         </div>
-        <div class="progress-track">
+        <div class="progress-track" role="progressbar" aria-labelledby="lbl_progress_title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div id="progress_reveal" class="progress-reveal">
             <div id="progress_fill" class="progress-fill"></div>
             <div class="progress-gradient-overlay"></div>
