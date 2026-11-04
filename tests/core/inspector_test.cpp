@@ -41,28 +41,51 @@ TEST(InspectorTest, ValidateAcceptsFixture) {
     for (auto& f : rep.findings) EXPECT_FALSE(f.hard) << f.rule;
 }
 
-TEST(InspectorTest, ValidateWarnsOnMissingFinalEnds) {
+TEST(InspectorTest, ValidateChecksDisplaySetsWithoutEpochAnchor) {
+    auto raw = fixture_bytes();
+    for (size_t i = 0; i + 13 <= raw.size();) {
+        const size_t len = (raw[i + 11] << 8) | raw[i + 12];
+        if (raw[i + 10] == 0x16) raw[i + 13 + 7] = 0x40;  // PCS -> Acquisition Point
+        i += 13 + len;
+    }
+    // A lone leading ENDS leaves the first display set without a PCS.
+    const uint8_t ends[13] = {'P', 'G', 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0, 0};
+    raw.insert(raw.begin(), ends, ends + 13);
+
+    auto stream = parse_sup(raw);
+    ASSERT_EQ(stream.display_sets.size(), 3u);
+    ASSERT_TRUE(stream.epoch_starts.empty());
+
+    const auto rep = validate(stream);
+    EXPECT_FALSE(rep.compliant);
+    int pcs_less = 0;
+    bool later_ds_checked = false;
+    for (auto& f : rep.findings) {
+        if (f.rule == "test_diplayset/pcs" && f.hard) ++pcs_less;
+        if (f.ds == 2 && f.rule == "object/palette") later_ds_checked = true;
+    }
+    EXPECT_EQ(pcs_less, 1);
+    EXPECT_TRUE(later_ds_checked);
+}
+
+TEST(InspectorTest, ValidateRejectsMissingFinalEnds) {
     auto raw = fixture_bytes();
     ASSERT_GT(raw.size(), 13u);
     raw.resize(raw.size() - 13);  // closing ENDS is header-only
 
     auto stream = parse_sup(raw);
     EXPECT_TRUE(stream.errors.empty());
-    ASSERT_EQ(stream.warnings.size(), 1u);
+    EXPECT_TRUE(stream.missing_final_ends);
+    EXPECT_FALSE(stream.well_formed());
 
     const auto rep = validate(stream);
-    EXPECT_TRUE(rep.compliant);
-    int trailing = 0;
+    EXPECT_FALSE(rep.compliant);
+    int stream_ends = 0;
     for (auto& f : rep.findings) {
-        EXPECT_FALSE(f.hard) << f.rule;
-        if (f.rule == "stream") {
-            EXPECT_NE(f.detail.find("trailing display set without ENDS"), std::string::npos);
-            ++trailing;
-        } else {
-            EXPECT_NE(f.rule, "test_diplayset/end");
-        }
+        EXPECT_NE(f.rule, "test_diplayset/end");
+        if (f.rule == "stream" && f.hard) ++stream_ends;
     }
-    EXPECT_EQ(trailing, 1);
+    EXPECT_EQ(stream_ends, 1);
 }
 
 TEST(InspectorTest, ValidateRejectsOutOfRangePalette) {

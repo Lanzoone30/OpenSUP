@@ -26,11 +26,11 @@ struct sup_stream_t {
     size_t trailing_bytes = 0;
     /// Structural parse problems (empty for a well-formed stream).
     std::vector<std::string> errors;
-    /// Non-fatal anomalies; a complete display set may lack its closing ENDS.
-    std::vector<std::string> warnings;
+    /// The last display set at EOF is missing its closing ENDS.
+    bool missing_final_ends = false;
 
     [[nodiscard]] bool well_formed() const noexcept {
-        return errors.empty() && trailing_bytes == 0;
+        return errors.empty() && trailing_bytes == 0 && !missing_final_ends;
     }
     /// Number of epochs (a stream always has at least one if non-empty).
     [[nodiscard]] size_t epochs() const noexcept;
