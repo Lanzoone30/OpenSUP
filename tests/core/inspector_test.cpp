@@ -41,6 +41,33 @@ TEST(InspectorTest, ValidateAcceptsFixture) {
     for (auto& f : rep.findings) EXPECT_FALSE(f.hard) << f.rule;
 }
 
+TEST(InspectorTest, ValidateChecksDisplaySetsWithoutEpochAnchor) {
+    auto raw = fixture_bytes();
+    for (size_t i = 0; i + 13 <= raw.size();) {
+        const size_t len = (raw[i + 11] << 8) | raw[i + 12];
+        if (raw[i + 10] == 0x16) raw[i + 13 + 7] = 0x40;  // PCS -> Acquisition Point
+        i += 13 + len;
+    }
+    // A lone leading ENDS leaves the first display set without a PCS.
+    const uint8_t ends[13] = {'P', 'G', 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0, 0};
+    raw.insert(raw.begin(), ends, ends + 13);
+
+    auto stream = parse_sup(raw);
+    ASSERT_EQ(stream.display_sets.size(), 3u);
+    ASSERT_TRUE(stream.epoch_starts.empty());
+
+    const auto rep = validate(stream);
+    EXPECT_FALSE(rep.compliant);
+    int pcs_less = 0;
+    bool later_ds_checked = false;
+    for (auto& f : rep.findings) {
+        if (f.rule == "test_diplayset/pcs" && f.hard) ++pcs_less;
+        if (f.ds == 2 && f.rule == "object/palette") later_ds_checked = true;
+    }
+    EXPECT_EQ(pcs_less, 1);
+    EXPECT_TRUE(later_ds_checked);
+}
+
 TEST(InspectorTest, ValidateWarnsOnMissingFinalEnds) {
     auto raw = fixture_bytes();
     ASSERT_GT(raw.size(), 13u);
