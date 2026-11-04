@@ -68,28 +68,24 @@ TEST(InspectorTest, ValidateChecksDisplaySetsWithoutEpochAnchor) {
     EXPECT_TRUE(later_ds_checked);
 }
 
-TEST(InspectorTest, ValidateWarnsOnMissingFinalEnds) {
+TEST(InspectorTest, ValidateRejectsMissingFinalEnds) {
     auto raw = fixture_bytes();
     ASSERT_GT(raw.size(), 13u);
     raw.resize(raw.size() - 13);  // closing ENDS is header-only
 
     auto stream = parse_sup(raw);
     EXPECT_TRUE(stream.errors.empty());
-    ASSERT_EQ(stream.warnings.size(), 1u);
+    EXPECT_TRUE(stream.missing_final_ends);
+    EXPECT_FALSE(stream.well_formed());
 
     const auto rep = validate(stream);
-    EXPECT_TRUE(rep.compliant);
-    int trailing = 0;
+    EXPECT_FALSE(rep.compliant);
+    int stream_ends = 0;
     for (auto& f : rep.findings) {
-        EXPECT_FALSE(f.hard) << f.rule;
-        if (f.rule == "stream") {
-            EXPECT_NE(f.detail.find("trailing display set without ENDS"), std::string::npos);
-            ++trailing;
-        } else {
-            EXPECT_NE(f.rule, "test_diplayset/end");
-        }
+        EXPECT_NE(f.rule, "test_diplayset/end");
+        if (f.rule == "stream" && f.hard) ++stream_ends;
     }
-    EXPECT_EQ(trailing, 1);
+    EXPECT_EQ(stream_ends, 1);
 }
 
 TEST(InspectorTest, ValidateRejectsOutOfRangePalette) {

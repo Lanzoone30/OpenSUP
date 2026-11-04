@@ -185,7 +185,7 @@ int run_inspect(const std::string& path, int only_ds)
         return 2;
     }
     for (auto& e : stream.errors) std::cerr << "inspect: " << e << "\n";
-    for (auto& w : stream.warnings) std::cerr << "inspect: warning: " << w << "\n";
+    if (stream.missing_final_ends) std::cerr << "inspect: missing final ENDS\n";
     return 0;
 }
 

@@ -195,7 +195,8 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
     };
 
     for (auto& e : stream.errors) add(0, true, "stream", e);
-    for (auto& w : stream.warnings) add(0, false, "stream", w);
+    if (stream.missing_final_ends)
+        add(0, true, "stream", "trailing display set without ENDS");
     if (stream.trailing_bytes)
         add(0, true, "stream",
             "trailing bytes after the last segment: " + std::to_string(stream.trailing_bytes));
@@ -319,6 +320,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             }
             const bool ends_present = has_type(ds, segment_type_e::end);
             const bool trailing = !ends_present && ep[kd] + 1 == stream.display_sets.size();
+            // A trailing display set is reported once at stream level.
             if (!trailing && (!ends_present || ds.segments.back()->type() != segment_type_e::end))
                 add(ep[kd], true, "test_diplayset/end", "ENDS is missing or not the last segment");
 
