@@ -322,6 +322,22 @@ details[open]>summary.card-title::before {
   transform: rotate(45deg);
 }
 
+/* Chevron turns back at the start of the collapse, not when it ends. */
+details.acc-closing>summary.card-title::before {
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+/* Accordion height animation states (left-control-panel.js). */
+details.acc-anim {
+  /* clip, not hidden: WebKitGTK collapses a <details> height when overflow
+     creates a scroll container, so the animation would run at 30px. */
+  overflow: clip;
+}
+
+details.is-measuring>:not(summary) {
+  display: none;
+}
+
 /* Sub-accordion: "Advanced Options" group inside the Parameters card. */
 .adv {
   border: 1px solid var(--border);
