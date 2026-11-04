@@ -245,6 +245,36 @@
   cursor: not-allowed;
 }
 
+/* Post-encode cue: green icon stays lit; the outer frame blinks for 3 s. */
+@keyframes output-ready-frame {
+  0%,
+  100% {
+    border-color: var(--border-strong);
+    box-shadow: none;
+  }
+
+  50% {
+    border-color: var(--success);
+    box-shadow: 0 0 0 1px var(--success), 0 0 10px var(--led-green-glow);
+  }
+}
+
+.btn-icon.is-ready {
+  color: var(--success);
+  animation: output-ready-frame 1s ease-in-out 3;
+}
+
+.btn-icon.is-ready .seg-icon,
+.btn-icon.is-ready:hover:not(:disabled) .seg-icon {
+  color: var(--success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon.is-ready {
+    animation: none;
+  }
+}
+
 /* ── Drop zones ── */
 .drop-zone {
   --wails-drop-target: drop;
@@ -277,6 +307,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar width so collapsing a card does not reflow the column. */
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -287,8 +319,17 @@
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%);
 }
 
-.controls-scroll[inert] {
+/* Engines without gutter support: keep the track instead of letting it pop in. */
+@supports not (scrollbar-gutter: stable) {
+  .controls-scroll {
+    overflow-y: scroll;
+  }
+}
+
+/* Locked during encoding: cards are inert, the scroll container stays scrollable. */
+.controls-scroll.is-encoding > .card {
   opacity: 0.55;
+  pointer-events: none;
 }
 
 /* ── Collapsible cards (details/summary accordions) ── */
@@ -320,6 +361,22 @@ summary.card-title::before {
 
 details[open]>summary.card-title::before {
   transform: rotate(45deg);
+}
+
+/* Chevron turns back at the start of the collapse, not when it ends. */
+details.acc-closing>summary.card-title::before {
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+/* Accordion height animation states (left-control-panel.js). */
+details.acc-anim {
+  /* clip, not hidden: WebKitGTK collapses a <details> height when overflow
+     creates a scroll container, so the animation would run at 30px. */
+  overflow: clip;
+}
+
+details.is-measuring>:not(summary) {
+  display: none;
 }
 
 /* Sub-accordion: "Advanced Options" group inside the Parameters card. */

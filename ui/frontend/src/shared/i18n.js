@@ -10,11 +10,12 @@ const Table = {
 
   // -- Project Scope --
   projectScope:   { en: "Project Scope",                  es: "Proyecto" },
-  selectBdn:      { en: "Select bdn.xml file",            es: "Seleccionar archivo bdn.xml" },
+  selectBdn:      { en: "Select BDN XML file",            es: "Seleccionar archivo BDN XML" },
   dropBdn:        { en: "Drag & drop a BDN XML file here", es: "Arrastra y suelta un archivo BDN XML aquí" },
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
-  setOutput:      { en: "Set output",                     es: "Establecer salida" },
+  setOutput:      { en: "Set SUP output",                  es: "Establecer salida SUP" },
   openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
+  outputReady:    { en: "Encoding finished — open the output folder", es: "Codificación terminada — abrir la carpeta de salida" },
   jumpToLive:     { en: "Jump to latest log entry",        es: "Ir al final del registro" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
   clearSelections:{ en: "Clear selections",               es: "Limpiar selecciones" },

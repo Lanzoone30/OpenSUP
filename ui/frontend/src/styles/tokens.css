@@ -57,6 +57,8 @@
   --led-green-glow: rgba(46, 204, 113, 0.8);
   --led-red: #C0392B;
   --led-red-glow: rgba(192, 57, 43, 0.6);
+  --led-amber: #B45309;
+  --led-amber-glow: rgba(180, 83, 9, 0.55);
 
   /* Layout offset: align left column with the log box */
   --col-offset: 36px;
@@ -160,20 +162,22 @@
   --bar-fill-3: #0193CD;
   --bar-fail-1: #EF4444;
   --bar-fail-2: #F87171;
-  --bar-glass-top: rgba(255, 255, 255, 0.45);
-  --bar-glass-mid: rgba(255, 255, 255, 0.20);
-  --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+  --bar-glass-top: rgba(255, 255, 255, 0.8);
+  --bar-glass-mid: rgba(255, 255, 255, 0.4);
+  --bar-glass-bottom: rgba(255, 255, 255, 0.2);
   --bar-border-overlay: rgba(255, 255, 255, 0.10);
-  --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+  --bar-track-bg: var(--bar-track-slot, #26262C);
   --bar-track-border: var(--border);
-  --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
-  --bar-track-slot: rgba(25, 26, 32, 1);
+  --bar-track-groove: none;
+  --bar-track-slot: #26262C;
   --led-blue: #0E7490;
   --led-blue-glow: rgba(14, 116, 144, 0.7);
   --led-green: #10B981;
   --led-green-glow: rgba(16, 185, 129, 0.7);
   --led-red: #EF4444;
   --led-red-glow: rgba(239, 68, 68, 0.7);
+  --led-amber: #FCD34D;
+  --led-amber-glow: rgba(252, 211, 77, 0.55);
 
   --log-debug: #8A8A93;
   --log-debug-bg: transparent;
@@ -247,20 +251,22 @@
     --bar-fill-3: #0193CD;
     --bar-fail-1: #EF4444;
     --bar-fail-2: #F87171;
-    --bar-glass-top: rgba(255, 255, 255, 0.45);
-    --bar-glass-mid: rgba(255, 255, 255, 0.20);
-    --bar-glass-bottom: rgba(255, 255, 255, 0.08);
+    --bar-glass-top: rgba(255, 255, 255, 0.8);
+    --bar-glass-mid: rgba(255, 255, 255, 0.4);
+    --bar-glass-bottom: rgba(255, 255, 255, 0.2);
     --bar-border-overlay: rgba(255, 255, 255, 0.10);
-    --bar-track-bg: var(--bar-track-slot, rgba(25, 26, 32, 1));
+    --bar-track-bg: var(--bar-track-slot, #26262C);
     --bar-track-border: var(--border);
-    --bar-track-groove: inset 0 1px 3px rgba(0, 0, 0, 0.45);
-    --bar-track-slot: rgba(25, 26, 32, 1);
+    --bar-track-groove: none;
+    --bar-track-slot: #26262C;
     --led-blue: #0E7490;
     --led-blue-glow: rgba(14, 116, 144, 0.7);
     --led-green: #10B981;
     --led-green-glow: rgba(16, 185, 129, 0.7);
     --led-red: #EF4444;
     --led-red-glow: rgba(239, 68, 68, 0.7);
+    --led-amber: #FCD34D;
+    --led-amber-glow: rgba(252, 211, 77, 0.55);
 
     --log-debug: #8A8A93;
     --log-debug-bg: transparent;

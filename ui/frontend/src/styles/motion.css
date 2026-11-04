@@ -15,7 +15,7 @@
 .log-panel>.log-card,
 .log-panel>.card-progress,
 .log-panel>.encode-row {
-  animation: fade-in-up 0.45s var(--ease-out) both;
+  animation: fade-in-up 0.45s var(--ease-out) backwards;
 }
 
 .card:nth-child(1) {
@@ -51,7 +51,6 @@
 
   .progress-fill,
   .progress-reveal,
-  .led-done,
   .dd-list.open,
   .seg-group::before,
   .seg-opt.active .seg-icon svg,

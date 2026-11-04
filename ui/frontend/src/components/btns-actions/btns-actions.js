@@ -6,17 +6,22 @@ import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
 import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
-import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope } from "../left-control-panel/left-control-panel.js";
+import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
+  if (encoding) clearOutputFlash();
   $("btn_encode").disabled = encoding;
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;
   const sc = document.querySelector(".controls-scroll");
-  if (sc) sc.inert = encoding;
+  if (sc) {
+    // Lock the cards, not the scroll container, so the sidebar still scrolls.
+    sc.classList.toggle("is-encoding", encoding);
+    for (const card of sc.children) card.inert = encoding;
+  }
   updateOutputActions();
   updateLogButtons();
 }
