@@ -16,7 +16,11 @@ export function setEncodingState(encoding) {
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;
   const sc = document.querySelector(".controls-scroll");
-  if (sc) sc.inert = encoding;
+  if (sc) {
+    // Lock the cards, not the scroll container, so the sidebar still scrolls.
+    sc.classList.toggle("is-encoding", encoding);
+    for (const card of sc.children) card.inert = encoding;
+  }
   updateOutputActions();
   updateLogButtons();
 }

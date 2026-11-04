@@ -296,8 +296,10 @@
   }
 }
 
-.controls-scroll[inert] {
+/* Locked during encoding: cards are inert, the scroll container stays scrollable. */
+.controls-scroll.is-encoding > .card {
   opacity: 0.55;
+  pointer-events: none;
 }
 
 /* ── Collapsible cards (details/summary accordions) ── */
