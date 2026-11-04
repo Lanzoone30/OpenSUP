@@ -149,7 +149,7 @@ A BDN XML file can also be dragged and dropped onto the left panel.
 | **Overlap Buffering**            | Buffers palette updates whenever possible so fewer events are dropped. The stream shall NOT be Built or Rebuilt at the authoring stage.                                                           |
 | **Write Full Palette**           | Writes the full 256-entry palette for every epoch instead of an optimized subset. Can improve quality at the cost of a larger output.                                                             |
 | **Fit ODS Box to Text**          | Sets the ODS box to the event content instead of the whole window slot, for authoring tools that crop or rescale graphics.                                                                        |
-| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window, so every display set contains only one object. This option is useful when your Android TV client is Media3-based (Wholphin, Moonfin). When on, it forces Full Palette and turns Overlap Buffering and Normal Case off. | 
+| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window, so every display set contains only one object. This option is useful when your Android TV client is Media3-based (Wholphin, Moonfin). When on, it forces Full Palette and Fit ODS Box to Text, and turns Overlap Buffering and Normal Case off. |
 | **Alternate OIDs**               | Forces legacy global object ids 0/1. The default is per-window ids, which keeps multi-window compositions out of trouble.                                                                         |
 | **Both SUP + PES/MUI**           | Also exports a .pes/.mui file alongside the .sup file in a single run.                                                                                                                            |
 | **Ignore Resolution Validation** | By default, encoding fails if the video resolution is not one of the standard Blu-ray resolutions (1920×1080, 1280×720, 720×576, 720×480). Enable to ignore Blu-ray standards and encode anyway.  |
@@ -203,7 +203,7 @@ The CLI shares the exact same engine as the GUI.
 | `-d, --ahead`         | Allow palette update buffering (alias `--overlap`, deprecated)        |
 | `--alternate-oids`    | Force legacy global object ids 0/1 (default: per-window ids)          |
 | `--ignore-resolution` | Accept non-standard video resolutions                                  |
-| `--tight-ods`         | Crop each event's ODS box tight to its text (default: off)            |
+| `--tight-ods`         | Crop each event's ODS box tight to its text (default: off; forced by `--single-object-ds`) |
 | `--single-object-ds`  | Emit at most one object per display set (Media3/Android TV compat)    |
 | `--redraw-period`     | Anchor interval in seconds (0 = disable, minimum 1)                   |
 | `-m, --max-kbps`      | Validate against a max bitrate in Kbps [0-48000, 0 = off] (default 0) |
