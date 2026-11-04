@@ -102,9 +102,8 @@
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--bar-track-border);
-  /* Diffuse inner shadow (no inner frame): the dark bar reads the same
-     size as the light one, with the fill flush to the track border. */
-  box-shadow: var(--shadow-inset), var(--bar-track-groove, none);
+  /* Per-theme track shadow; none keeps the surface flat. */
+  box-shadow: var(--bar-track-groove, none);
 }
 
 /* Clipped with clip-path: the gradient is not distorted by progress and
