@@ -23,7 +23,8 @@ namespace {
 namespace fs = std::filesystem;
 
 static void
-encode(const std::string& input, const std::string& output, bool tight)
+encode(const std::string& input, const std::string& output, bool tight,
+       bool single_object_ds = false)
 {
     encode_config_t cfg;
     cfg.input_path = input;
@@ -31,6 +32,7 @@ encode(const std::string& input, const std::string& output, bool tight)
     cfg.overwrite = true;
     cfg.threads = 1;
     cfg.tight_ods = tight;
+    cfg.single_object_ds = single_object_ds;
     bdn_render_c render(cfg);
     const auto res = render.execute();
     ASSERT_TRUE(res.success) << res.error;
@@ -119,6 +121,33 @@ TEST(TightOds, DefaultKeepsSlotAndDisabledFlagIsByteIdentical) {
         }
     }
     EXPECT_GT(larger, 0) << "fixture does not exercise the slot padding";
+}
+
+TEST(TightOds, SingleObjectDsForcesTightBoxes) {
+    const std::string fixture = OPENDSUP_FIXTURES_DIR "/flags_parity.xml";
+    const std::string coupled = OPENDSUP_TEST_OUTPUT_DIR "/tight_single_coupled.sup";
+    const std::string explicit_tight = OPENDSUP_TEST_OUTPUT_DIR "/tight_single_on.sup";
+
+    encode(fixture, coupled, false, true);
+    encode(fixture, explicit_tight, true, true);
+    EXPECT_EQ(read_bytes(coupled), read_bytes(explicit_tight))
+        << "single-object-ds must force tight ODS";
+
+    const auto stream = read::load_sup(coupled);
+    ASSERT_FALSE(stream.display_sets.empty());
+    size_t checked = 0;
+    for (const auto& ds : stream.display_sets) {
+        for (const auto& ods : ds.ods()) {
+            if (ods->seq_flags() != ods_c::sequence_flags_e::single) continue;
+            const int w = ods->width(), h = ods->height();
+            const auto px = media::decode_rle(ods->data(), w, h);
+            ASSERT_EQ(px.size(), static_cast<size_t>(w) * static_cast<size_t>(h));
+            EXPECT_TRUE(edge_has_content(px, w, h))
+                << "ODS " << ods->o_id() << " keeps padding around its content";
+            ++checked;
+        }
+    }
+    EXPECT_GT(checked, 0u);
 }
 
 }  // namespace

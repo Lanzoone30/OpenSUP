@@ -293,7 +293,7 @@ bdn_render_c::execute()
         opts.ssim_tol = m_config.ssim_tol / 100.0;
         opts.insert_acquisitions = m_config.extra_acq;
         opts.alternate_oids = m_config.alternate_oids;
-        opts.tight_ods = m_config.tight_ods;
+        opts.tight_ods = m_config.tight_ods || m_config.single_object_ds;
         opts.bt_matrix = m_config.bt_matrix;
         opts.liq_quality = m_config.liq_quality;
         opts.liq_speed = m_config.liq_speed;
