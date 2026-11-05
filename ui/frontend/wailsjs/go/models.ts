@@ -23,6 +23,7 @@ export namespace config {
 	    window_x: number;
 	    window_y: number;
 	    window_positioned: boolean;
+	    window_maximised: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -52,6 +53,7 @@ export namespace config {
 	        this.window_x = source["window_x"];
 	        this.window_y = source["window_y"];
 	        this.window_positioned = source["window_positioned"];
+	        this.window_maximised = source["window_maximised"];
 	    }
 	}
 
