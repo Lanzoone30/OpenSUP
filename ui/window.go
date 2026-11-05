@@ -31,6 +31,12 @@ func (a *App) applyWindowSize(ctx context.Context) {
 	w, h = clampWindowSize(w, h, info.width, info.height)
 	runtime.WindowSetSize(ctx, w, h)
 
+	if a.settings.WindowMaximised {
+		runtime.WindowCenter(ctx)
+		runtime.WindowMaximise(ctx)
+		return
+	}
+
 	if !a.settings.WindowPositioned {
 		runtime.WindowCenter(ctx)
 		return
@@ -44,6 +50,7 @@ func (a *App) applyWindowSize(ctx context.Context) {
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
+	maximised := runtime.WindowIsMaximised(ctx)
 	w, h := runtime.WindowGetSize(ctx)
 	if w < minWindowWidth || h < minWindowHeight {
 		return false
@@ -52,8 +59,12 @@ func (a *App) beforeClose(ctx context.Context) bool {
 
 	a.mu.Lock()
 	a.settings.WindowWidth, a.settings.WindowHeight = w, h
-	a.settings.WindowX, a.settings.WindowY = x, y
-	a.settings.WindowPositioned = true
+	if maximised {
+		a.settings.WindowMaximised = true
+	} else {
+		a.settings.WindowX, a.settings.WindowY = x, y
+		a.settings.WindowPositioned = true
+	}
 	s := a.settings
 	a.mu.Unlock()
 

@@ -197,6 +197,7 @@ func (a *App) SaveSettings(s config.Settings) (bool, error) {
 	s.WindowX = a.settings.WindowX
 	s.WindowY = a.settings.WindowY
 	s.WindowPositioned = a.settings.WindowPositioned
+	s.WindowMaximised = a.settings.WindowMaximised
 
 	a.lastBDNDir = s.LastBDNDir
 	a.lastOutDir = s.LastOutDir

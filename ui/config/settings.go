@@ -61,6 +61,7 @@ type Settings struct {
 	WindowY          int  `json:"window_y"`
 	// Separates "no saved position" from (0,0).
 	WindowPositioned bool `json:"window_positioned"`
+	WindowMaximised  bool `json:"window_maximised"`
 }
 
 func defaults() Settings {
