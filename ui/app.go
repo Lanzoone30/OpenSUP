@@ -19,11 +19,11 @@ import (
 // App is the struct exposed to the Wails frontend. Every exported
 // method becomes callable from JavaScript via window.go.main.App.*.
 type App struct {
-	ctx     context.Context
-	runner  *engine.Runner
+	ctx      context.Context
+	runner   *engine.Runner
 	settings config.Settings
 
-	mu      sync.Mutex
+	mu         sync.Mutex
 	lastBDNDir string
 	lastOutDir string
 }
@@ -34,6 +34,8 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Hidden until the saved geometry is applied.
+	defer runtime.WindowShow(ctx)
 
 	// Load persisted settings before the frontend renders.
 	s, err := config.Load()
@@ -41,9 +43,13 @@ func (a *App) startup(ctx context.Context) {
 		// Non-fatal: defaults are returned even on error.
 		s = config.Settings{}
 	}
+	a.mu.Lock()
 	a.settings = s
 	a.lastBDNDir = s.LastBDNDir
 	a.lastOutDir = s.LastOutDir
+	a.mu.Unlock()
+
+	a.applyWindowSize(ctx)
 
 	// Create the engine runner with a Wails-backed emitter that
 	// forwards events to the frontend.
@@ -54,7 +60,7 @@ func (a *App) startup(ctx context.Context) {
 // Returns "" if the user cancels.
 func (a *App) SelectBDN() (string, error) {
 	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:            "Select BDN XML",
+		Title: "Select BDN XML",
 		Filters: []runtime.FileFilter{
 			{DisplayName: "BDN XML (*.xml)", Pattern: "*.xml"},
 			{DisplayName: "All files (*.*)", Pattern: "*.*"},
@@ -183,9 +189,17 @@ func (a *App) LoadSettings() (config.Settings, error) {
 // SaveSettings persists the given settings to disk.
 func (a *App) SaveSettings(s config.Settings) (bool, error) {
 	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Geometry is owned by the Go side; the frontend omits it.
+	s.WindowWidth = a.settings.WindowWidth
+	s.WindowHeight = a.settings.WindowHeight
+	s.WindowX = a.settings.WindowX
+	s.WindowY = a.settings.WindowY
+	s.WindowPositioned = a.settings.WindowPositioned
+
 	a.lastBDNDir = s.LastBDNDir
 	a.lastOutDir = s.LastOutDir
-	a.mu.Unlock()
 	if err := config.Save(s); err != nil {
 		return false, fmt.Errorf("save settings: %w", err)
 	}
