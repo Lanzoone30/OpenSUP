@@ -55,6 +55,12 @@ type Settings struct {
 	TightOds         bool `json:"tight_ods"`
 	SingleObjectDs   bool `json:"single_object_ds"`
 	Quantizer        int  `json:"quantizer"`
+	WindowWidth      int  `json:"window_width"`
+	WindowHeight     int  `json:"window_height"`
+	WindowX          int  `json:"window_x"`
+	WindowY          int  `json:"window_y"`
+	// Separates "no saved position" from (0,0).
+	WindowPositioned bool `json:"window_positioned"`
 }
 
 func defaults() Settings {

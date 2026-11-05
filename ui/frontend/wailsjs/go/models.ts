@@ -18,6 +18,11 @@ export namespace config {
 	    tight_ods: boolean;
 	    single_object_ds: boolean;
 	    quantizer: number;
+	    window_width: number;
+	    window_height: number;
+	    window_x: number;
+	    window_y: number;
+	    window_positioned: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -42,6 +47,11 @@ export namespace config {
 	        this.tight_ods = source["tight_ods"];
 	        this.single_object_ds = source["single_object_ds"];
 	        this.quantizer = source["quantizer"];
+	        this.window_width = source["window_width"];
+	        this.window_height = source["window_height"];
+	        this.window_x = source["window_x"];
+	        this.window_y = source["window_y"];
+	        this.window_positioned = source["window_positioned"];
 	    }
 	}
 
