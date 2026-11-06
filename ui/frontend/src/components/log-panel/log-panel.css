@@ -68,9 +68,12 @@
   line-height: 1.6;
 }
 
+/* Equal-width buttons in both languages (EN/ES labels differ). */
 .log-buttons {
   margin-left: auto;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 6px;
 }
 

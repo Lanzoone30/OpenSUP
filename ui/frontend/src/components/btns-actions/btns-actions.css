@@ -37,7 +37,6 @@
 
 .btn-danger:hover:not(:disabled) {
   background: var(--danger-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-danger-md);
 }
 
@@ -48,7 +47,8 @@
 }
 
 .btn-danger:focus-visible {
-  box-shadow: 0 0 0 3px var(--danger-ring);
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
 }
 
 /* ── Action row ── */

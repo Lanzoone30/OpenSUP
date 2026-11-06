@@ -8,11 +8,15 @@ import { setProgressClip, setStatus } from "../progress/progress.js";
 import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
 import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
+import { t } from "../../shared/i18n.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
+  const encode = $("btn_encode");
+  encode.disabled = encoding;
+  encode.textContent = t(encoding ? "encodeRunning" : "initEncode");
+  encode.setAttribute("aria-busy", String(encoding));
   if (encoding) clearOutputFlash();
-  $("btn_encode").disabled = encoding;
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;

@@ -59,9 +59,8 @@ func (a *App) beforeClose(ctx context.Context) bool {
 
 	a.mu.Lock()
 	a.settings.WindowWidth, a.settings.WindowHeight = w, h
-	if maximised {
-		a.settings.WindowMaximised = true
-	} else {
+	a.settings.WindowMaximised = maximised
+	if !maximised {
 		a.settings.WindowX, a.settings.WindowY = x, y
 		a.settings.WindowPositioned = true
 	}

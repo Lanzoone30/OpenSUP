@@ -57,18 +57,20 @@ export async function revealOutputFolder() {
   }
 }
 
-// Mark the reveal-folder button as ready; the CSS blinks its frame for 3 s.
+let readyTimer = 0;
 export function flashOutputReady() {
   const btn = $("btn_reveal_output");
   if (!btn || btn.disabled) return;
   clearOutputFlash();
   btn.classList.add("is-ready");
-  const msg = t("outputReady");
-  btn.title = msg;
-  btn.setAttribute("aria-label", msg);
+  readyTimer = setTimeout(clearOutputFlash, 7000);
 }
 
 export function clearOutputFlash() {
+  if (readyTimer) {
+    clearTimeout(readyTimer);
+    readyTimer = 0;
+  }
   const btn = $("btn_reveal_output");
   if (!btn) return;
   btn.classList.remove("is-ready");
@@ -88,14 +90,17 @@ export function updateScopeHint() {
   if (hint) {
     const hasBdn = Boolean(state.inputPath);
     const hasOut = Boolean(state.outputPath);
-    hint.hidden = hasBdn === hasOut;
+    hint.hidden = hasBdn && hasOut;
     $("hint_bdn").classList.toggle("done", hasBdn);
     $("hint_output").classList.toggle("done", hasOut);
   }
   const clear = $("btn_clear_scope");
   if (clear) clear.disabled = (!state.inputPath && !state.outputPath) || state.isEncoding;
   const dz = $("drop_bdn");
-  if (dz) dz.title = state.inputPath ? "" : t("dropBdn");
+  if (dz) {
+    dz.title = state.inputPath ? t("dropBdnReplace") : t("dropBdn");
+    dz.classList.toggle("has-file", Boolean(state.inputPath));
+  }
 }
 
 export function clearScope() {

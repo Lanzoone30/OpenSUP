@@ -15,5 +15,6 @@ export function syncSeg(segId) {
     const active = i === index;
     o.classList.toggle("active", active);
     o.setAttribute("aria-pressed", String(active));
+    o.tabIndex = active ? 0 : -1;
   });
 }
