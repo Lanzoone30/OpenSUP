@@ -41,7 +41,7 @@ func (f *fakeEmitter) snapshot() []emittedEvent {
 }
 
 func TestBuildArgs_DefaultsAlwaysJSON(t *testing.T) {
-	args := buildArgs(EncodeConfig{InputPath: "in.xml", OutputPath: "out.sup"})
+	args := buildArgs(EncodeConfig{InputPath: "in.xml", OutputPath: "out.sup", Quantizer: 2})
 	require.NotEmpty(t, args)
 	assert.Equal(t, "--json", args[0])
 	assert.Contains(t, args, "-i")
@@ -53,11 +53,19 @@ func TestBuildArgs_DefaultsAlwaysJSON(t *testing.T) {
 	assert.NotContains(t, args, "-b")
 }
 
+func TestBuildArgs_QuantizerPassThrough(t *testing.T) {
+	for _, q := range []int{0, 1, 3} {
+		args := buildArgs(EncodeConfig{Quantizer: q})
+		assert.Contains(t, args, "-q")
+		assert.Contains(t, args, intToStr(q))
+	}
+}
+
 func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 	cfg := EncodeConfig{
 		InputPath:        "in.xml",
 		OutputPath:       "out.sup",
-		Quantizer:        2,
+		Quantizer:        3,
 		BTMatrix:         "bt2020",
 		Overwrite:        true,
 		BothFormats:      true,
@@ -72,12 +80,12 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		Compression:      75,
 		Acqrate:          90,
 		SsimTol:          10,
-		ExtraAcq:         3,
+		ExtraAcq:         6,
 	}
 	args := buildArgs(cfg)
 	want := map[string]bool{
 		"--json": true, "-i": true, "in.xml": true, "out.sup": true,
-		"-q": true, "2": true, "-b": true, "bt2020": true,
+		"-q": true, "3": true, "-b": true, "bt2020": true,
 		"-y": true,
 		"-w": true, "-p": true,
 		"-n": true, "-k": true,
@@ -88,7 +96,7 @@ func TestBuildArgs_AllBooleansAndOverrides(t *testing.T) {
 		"-c": true, "75": true,
 		"-a": true, "90": true,
 		"--ssim-tol": true, "10": true,
-		"-e": true, "3": true,
+		"-e": true, "6": true,
 	}
 	for _, a := range args {
 		delete(want, a)
