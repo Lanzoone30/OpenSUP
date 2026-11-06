@@ -4,7 +4,7 @@
 // OpenSUP - PGS Encoder
 //
 // CLI flag semantics. 032 aligns the surface: quantizer ids
-// (2 = HexTree, 3 = LIQ), -n/--allow-normal, -k/--prefer-normal, -d/--ahead,
+// (1 = HexTree, 2 = LIQ), -n/--allow-normal, -k/--prefer-normal, -d/--ahead,
 // -t/--threads, --ssim-tol long-only.
 #include <gtest/gtest.h>
 
@@ -192,34 +192,25 @@ TEST(CliParser, UnknownBtMatrixWarnsAndFallsBackTo709) {
     EXPECT_EQ(r.warnings[0], "Unknown color space 'bt999', using BT.709.");
 }
 
-TEST(CliParser, QuantizerOutOfRangeWarnsAndFallsBackToPiliq) {
-    for (const int q : {5, -1}) {
+TEST(CliParser, QuantizerInvalidWarnsAndFallsBackToPiliq) {
+    for (const int q : {4, 5, 99, -1}) {
         cli_options_t opts;
         opts.quantizer = q;
         const auto r = resolve_options(opts);
-        EXPECT_EQ(r.cfg.quantizer_id, 3) << "q=" << q;
+        EXPECT_EQ(r.cfg.quantizer_id, 2) << "q=" << q;
         ASSERT_EQ(r.warnings.size(), 1u);
         EXPECT_EQ(r.warnings[0],
-                  "Invalid quantizer '" + std::to_string(q) + "', using PNGQ/LIQ (3).");
+                  "Invalid quantizer '" + std::to_string(q) + "', using libimage (2).");
     }
 }
 
 TEST(CliParser, QuantizerAvailableIdsStaySilent) {
-    for (const int q : {2, 3}) {
+    for (const int q : {0, 1, 2, 3}) {
         cli_options_t opts;
         opts.quantizer = q;
         const auto r = resolve_options(opts);
         EXPECT_EQ(r.cfg.quantizer_id, q) << "q=" << q;
         EXPECT_TRUE(r.warnings.empty()) << "q=" << q;
-    }
-}
-
-TEST(CliParser, QuantizerUnavailableBackendAborts) {
-    for (const int q : {0, 1, 4}) {
-        cli_options_t opts;
-        opts.quantizer = q;
-        EXPECT_EXIT(options_to_config(opts), ::testing::ExitedWithCode(1),
-                    "backend not available in this build");
     }
 }
 

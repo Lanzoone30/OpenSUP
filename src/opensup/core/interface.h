@@ -41,7 +41,7 @@ struct encode_config_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ
+    int quantizer_id = 2;  // 0 = Qtzr, 1 = HexTree, 2 = libimage (def), 3 = Wu
     bool overwrite = false;
     bool ignore_resolution = false;  // accept non-Blu-ray canvas sizes (experimental)
     bool both_formats = false;

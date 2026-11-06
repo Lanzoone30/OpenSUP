@@ -125,7 +125,7 @@ struct epoch_render_options_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ (def)
+    int quantizer_id = 2;  // 0 = Qtzr, 1 = HexTree, 2 = libimage (def), 3 = Wu
     bool allow_normal_case = false;
     bool overlap = false;
     bool full_palette = false;
