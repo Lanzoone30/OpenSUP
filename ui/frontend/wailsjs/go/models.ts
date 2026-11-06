@@ -18,6 +18,7 @@ export namespace config {
 	    tight_ods: boolean;
 	    single_object_ds: boolean;
 	    quantizer: number;
+	    settings_scheme: number;
 	    window_width: number;
 	    window_height: number;
 	    window_x: number;
@@ -48,6 +49,7 @@ export namespace config {
 	        this.tight_ods = source["tight_ods"];
 	        this.single_object_ds = source["single_object_ds"];
 	        this.quantizer = source["quantizer"];
+	        this.settings_scheme = source["settings_scheme"];
 	        this.window_width = source["window_width"];
 	        this.window_height = source["window_height"];
 	        this.window_x = source["window_x"];

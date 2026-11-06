@@ -3,12 +3,14 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Quantization backends: libimagequant (GPL-3.0-or-later) and the
-// HexTree quantizer from cubicibo/brule (MIT, ported in hextree_impl.cpp).
+// Quantization backends: libimagequant (GPL-3.0-or-later), the HexTree
+// quantizer from cubicibo/brule (MIT), QtzrUTC and Wu.
 
 #include "opensup/pch.h"
 #include "opensup/media/optimizer.h"
 #include "opensup/media/hextree_impl.h"
+#include "opensup/media/qtzrutc_core.h"
+#include "opensup/media/wuquant_core.h"
 #include "opensup/common/logger.h"
 
 #include <cmath>
@@ -133,12 +135,86 @@ hextree_t::quantize(const std::vector<uint8_t>& rgba,
     return result;
 }
 
+quantize_result_t
+qtzrutc_t::quantize(const std::vector<uint8_t>& rgba,
+                    int width, int /*height*/, int max_colors, bool /*single_bitmap*/,
+                    std::string_view matrix, const liq_options_t& opts)
+{
+    quantize_result_t result;
+
+    std::vector<uint8_t> palette_bytes;
+    std::vector<uint8_t> indexed;
+    int pal_count = 0;
+    // Deterministic fixed effort; width 0 disables dithering.
+    const uint32_t dither_width = opts.dither_pct > 0
+                                      ? static_cast<uint32_t>(width) : 0u;
+    // Core caps at 255 so the caller-reserved 0xFF index never appears.
+    if (!qtzrutc_quantize_core(rgba.data(), rgba.size() / 4, dither_width,
+                               max_colors, palette_bytes, indexed, pal_count)) {
+        logger_c::instance().error("QtzrUTC quantization failed");
+        return result;
+    }
+
+    for (int i = 0; i < pal_count; i++) {
+        result.palette.set(static_cast<uint8_t>(i),
+                           palette_entry_t::from_rgba(
+                               palette_bytes[static_cast<size_t>(i) * 4],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 1],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 2],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 3],
+                               matrix));
+    }
+    result.indexed = std::move(indexed);
+
+    logger_c::instance().log(common::log_level_e::hdebug,
+                             "QtzrUTC: " + std::to_string(pal_count) + " colors");
+    return result;
+}
+
+quantize_result_t
+wuquant_t::quantize(const std::vector<uint8_t>& rgba,
+                    int width, int /*height*/, int max_colors, bool /*single_bitmap*/,
+                    std::string_view matrix, const liq_options_t& opts)
+{
+    quantize_result_t result;
+
+    std::vector<uint8_t> palette_bytes;
+    std::vector<uint8_t> indexed;
+    int pal_count = 0;
+    // Dithering is binary in the UI: any non-zero percentage enables it.
+    const uint32_t dither_width = opts.dither_pct > 0
+                                      ? static_cast<uint32_t>(width) : 0u;
+    // Core caps at 255 so the caller-reserved 0xFF index never appears.
+    if (!wuquant_quantize_core(rgba.data(), rgba.size() / 4, dither_width,
+                               max_colors, palette_bytes, indexed, pal_count)) {
+        logger_c::instance().error("Wu quantization failed");
+        return result;
+    }
+
+    for (int i = 0; i < pal_count; i++) {
+        result.palette.set(static_cast<uint8_t>(i),
+                           palette_entry_t::from_rgba(
+                               palette_bytes[static_cast<size_t>(i) * 4],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 1],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 2],
+                               palette_bytes[static_cast<size_t>(i) * 4 + 3],
+                               matrix));
+    }
+    result.indexed = std::move(indexed);
+
+    logger_c::instance().log(common::log_level_e::hdebug,
+                             "Wu: " + std::to_string(pal_count) + " colors");
+    return result;
+}
+
 std::vector<std::unique_ptr<quantizer_base_c>>
 optimiser_c::get_available()
 {
     std::vector<std::unique_ptr<quantizer_base_c>> backends;
     backends.push_back(std::make_unique<libimagequant_t>());
     backends.push_back(std::make_unique<hextree_t>());
+    backends.push_back(std::make_unique<qtzrutc_t>());
+    backends.push_back(std::make_unique<wuquant_t>());
     return backends;
 }
 
@@ -146,8 +222,10 @@ int
 optimiser_c::index_for(int quantizer_id) noexcept
 {
     switch (quantizer_id) {
-    case 3: return 0;  // PNGQ/LIQ
-    case 2: return 1;  // HexTree
+    case 2: return 0;  // libimagequant (LIQ)
+    case 1: return 1;  // HexTree
+    case 0: return 2;  // QtzrUTC
+    case 3: return 3;  // Wu
     default: return -1;
     }
 }

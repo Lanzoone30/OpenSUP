@@ -55,6 +55,8 @@ type Settings struct {
 	TightOds         bool `json:"tight_ods"`
 	SingleObjectDs   bool `json:"single_object_ds"`
 	Quantizer        int  `json:"quantizer"`
+	// Quantizer id space of the file: 1 = {0 Qtzr, 1 HexTree, 2 libimage, 3 Wu}; 0 = pre-renumber.
+	Scheme           int  `json:"settings_scheme"`
 	WindowWidth      int  `json:"window_width"`
 	WindowHeight     int  `json:"window_height"`
 	WindowX          int  `json:"window_x"`
@@ -70,7 +72,7 @@ func defaults() Settings {
 		Theme:      ThemeSystem,
 		LastBDNDir: "",
 		LastOutDir: "",
-		Quantizer:  3, // PNGQ/LIQ, matches the markup default
+		Quantizer:  2, // libimage, matches the markup default
 	}
 }
 
@@ -131,11 +133,18 @@ func Load() (Settings, error) {
 		// A subsequent Save overwrites the bad file with valid JSON.
 		return defaults(), nil
 	}
+	// Files without scheme predate the renumber: remap {2 Hex→1, 3 Liq→2, 5 Wu→3} once.
+	if s.Scheme == 0 {
+		if remap := map[int]int{2: 1, 3: 2, 5: 3}; remap[s.Quantizer] != 0 {
+			s.Quantizer = remap[s.Quantizer]
+		}
+	}
 	return s, nil
 }
 
 // Save writes settings.json, creating the config directory first.
 func Save(s Settings) error {
+	s.Scheme = 1
 	p, err := path()
 	if err != nil {
 		return err

@@ -16,7 +16,7 @@ namespace cli {
 struct cli_options_t {
     std::string input_path;
     std::string output_path;
-    int quantizer = 3;       // SUPer ids: 2 = HexTree, 3 = LIQ (def); 0/1/4 reserved
+    int quantizer = 2;       // Backend ids: 0 = Qtzr, 1 = HexTree, 2 = LIQ (def), 3 = Wu
     std::string bt_matrix = "bt709";
     bool overwrite = false;
     bool ignore_resolution = false;

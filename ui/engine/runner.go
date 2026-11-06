@@ -293,7 +293,7 @@ func buildArgs(cfg EncodeConfig) []string {
 	if cfg.OutputPath != "" {
 		args = append(args, cfg.OutputPath)
 	}
-	if cfg.Quantizer != 0 && cfg.Quantizer != 3 { // 3 = LIQ, the engine default
+	if cfg.Quantizer != 2 { // 2 = libimage, the engine default
 		args = append(args, "-q", intToStr(cfg.Quantizer))
 	}
 	if cfg.BTMatrix != "" {

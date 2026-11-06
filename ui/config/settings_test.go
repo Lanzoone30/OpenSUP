@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,7 +20,7 @@ func TestDefaults(t *testing.T) {
 	assert.False(t, d.ParamsOpen)
 	assert.False(t, d.EngineOpen)
 	assert.False(t, d.AdvancedOpen)
-	// Engine Options default to the markup: all unchecked, quantizer 3.
+	// Engine Options default to the markup: all unchecked, quantizer 2.
 	assert.False(t, d.AllowNormal)
 	assert.False(t, d.PreferNormal)
 	assert.False(t, d.Overlap)
@@ -29,7 +30,7 @@ func TestDefaults(t *testing.T) {
 	assert.False(t, d.IgnoreResolution)
 	assert.False(t, d.TightOds)
 	assert.False(t, d.SingleObjectDs)
-	assert.Equal(t, 3, d.Quantizer)
+	assert.Equal(t, 2, d.Quantizer)
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -51,7 +52,8 @@ func TestRoundTrip(t *testing.T) {
 		IgnoreResolution: true,
 		TightOds:         true,
 		SingleObjectDs:   true,
-		Quantizer:        2,
+		Quantizer:        1,
+		Scheme:           1,
 	}
 	require.NoError(t, Save(s))
 
@@ -71,6 +73,33 @@ func TestLoadDefaultsOnMissingFile(t *testing.T) {
 	s, err := Load()
 	require.NoError(t, err)
 	assert.Equal(t, defaults(), s)
+}
+
+func TestLoadMigratesLegacyQuantizerIds(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	path := filepath.Join(dir, "opensup")
+	require.NoError(t, os.MkdirAll(path, 0o755))
+	for old, want := range map[int]int{2: 1, 3: 2, 5: 3} {
+		require.NoError(t, os.WriteFile(
+			filepath.Join(path, "settings.json"),
+			[]byte(fmt.Sprintf(`{"quantizer":%d}`, old)), 0o644))
+		s, err := Load()
+		require.NoError(t, err)
+		assert.Equal(t, want, s.Quantizer, "old id %d", old)
+	}
+}
+
+func TestLoadKeepsSchemeIds(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "opensup"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "opensup", "settings.json"),
+		[]byte(`{"quantizer":3,"settings_scheme":1}`), 0o644))
+	s, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, 3, s.Quantizer, "scheme file must not be remapped")
 }
 
 func TestLoadCorruptFile(t *testing.T) {

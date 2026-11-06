@@ -3,6 +3,8 @@ add_library(opensup_media
   pgraphics.cpp
   optimizer.cpp
   hextree_impl.cpp
+  qtzrutc_core.cpp
+  wuquant_core.cpp
   rle_decode.cpp
 )
 
@@ -29,9 +31,8 @@ target_precompile_headers(opensup_media
 
 set_project_warnings(opensup_media)
 
-# Ported brule HexTree core is C-style C++ with old-style casts; keep the
-# MIT source faithful instead of rewriting every cast.
+# Ported C-style cores keep their original casts; relax conversion warnings.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  set_source_files_properties(hextree_impl.cpp PROPERTIES
+  set_source_files_properties(hextree_impl.cpp qtzrutc_core.cpp wuquant_core.cpp PROPERTIES
     COMPILE_OPTIONS "-Wno-old-style-cast;-Wno-sign-conversion;-Wno-conversion;-Wno-shadow")
 endif()

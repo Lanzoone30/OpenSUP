@@ -89,6 +89,30 @@ TEST(GroupChain, Deterministic) {
         EXPECT_EQ(a[i]->to_bytes(), b[i]->to_bytes());
 }
 
+TEST(GroupChain, QtzrUtcIdAndUnknownIdFallback) {
+    // 4 has no backend: index_for -1 -> default backend.
+    for (int qid : {0, 4}) {
+        SCOPED_TRACE(qid);
+        encode_config_t cfg;
+        cfg.input_path = OPENDSUP_FIXTURES_DIR "/synth_similar.xml";
+        cfg.output_path = OPENDSUP_TEST_OUTPUT_DIR "/group_chain_q" +
+                          std::to_string(qid) + ".sup";
+        cfg.overwrite = true;
+        cfg.compression = 100;
+        cfg.extra_acq = 0;
+        cfg.quantizer_id = qid;
+
+        bdn_render_c r(cfg);
+        const auto res = r.execute();
+        ASSERT_TRUE(res.success) << res.error;
+
+        int ods = 0;
+        for (const auto& s : r.segments())
+            if (dynamic_cast<ods_c*>(s.get())) ods++;
+        EXPECT_GT(ods, 0);
+    }
+}
+
 }  // namespace
 }  // namespace core
 }  // namespace opensup

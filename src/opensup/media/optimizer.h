@@ -3,8 +3,8 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Quantization backends: libimagequant (GPL-3.0-or-later) and the
-// HexTree quantizer from cubicibo/brule (MIT, ported in hextree_impl.cpp).
+// Quantization backends: libimagequant (GPL-3.0-or-later), the HexTree
+// quantizer from cubicibo/brule (MIT), QtzrUTC and Wu.
 
 #pragma once
 
@@ -82,6 +82,28 @@ public:
     std::string name() const override { return "HexTree"; }
 };
 
+/// QtzrUTC backend (no external deps).
+class qtzrutc_t : public quantizer_base_c {
+public:
+    quantize_result_t quantize(const std::vector<uint8_t>& rgba,
+                               int width, int height, int max_colors,
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
+    std::string name() const override { return "QtzrUTC"; }
+};
+
+/// Wu backend: variance-minimizing palette, optional Atkinson dithering.
+class wuquant_t : public quantizer_base_c {
+public:
+    quantize_result_t quantize(const std::vector<uint8_t>& rgba,
+                               int width, int height, int max_colors,
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
+    std::string name() const override { return "Wu"; }
+};
+
 /// One frame of a subtitle animation group (raw trimmed RGBA).
 struct group_frame_t {
     std::vector<uint8_t> rgba;  ///< width*height*4, straight alpha.
@@ -124,8 +146,8 @@ class optimiser_c {
 public:
     static std::vector<std::unique_ptr<quantizer_base_c>> get_available();
 
-    /// SUPer quantizer id (2 = HexTree, 3 = LIQ) -> get_available() index,
-    /// or -1 when the backend is not compiled into this build.
+    /// Engine quantizer id (0 = QtzrUTC, 1 = HexTree, 2 = LIQ, 3 = Wu) ->
+    /// get_available() index, or -1 when not compiled into this build.
     static int index_for(int quantizer_id) noexcept;
 };
 
