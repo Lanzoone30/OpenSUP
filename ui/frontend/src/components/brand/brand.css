@@ -12,8 +12,8 @@
   width: 180px;
   height: 1px;
   background: linear-gradient(90deg,
-      transparent 0%, var(--border-strong) 30%,
-      var(--border-strong) 70%, transparent 100%);
+      transparent 0%, var(--border) 30%,
+      var(--border) 70%, transparent 100%);
 }
 
 .brand-top-line {
@@ -24,6 +24,12 @@
   height: var(--logo-h);
   width: var(--logo-w);
   object-fit: contain;
+  transition: transform var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+
+.brand:hover #logo {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 5px 10px var(--accent-ring));
 }
 
 .subtitle {

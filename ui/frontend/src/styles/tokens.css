@@ -10,7 +10,7 @@
 
   /* Borders */
   --border: #E0DDD7;
-  --border-strong: #C4C0B8;
+  --border-strong: #8A857C;
   --border-focus: #00AB8B;
 
   /* Text */
@@ -48,7 +48,7 @@
   --bar-glass-bottom: rgba(255, 255, 255, 0.2);
   --bar-border-overlay: rgba(255, 255, 255, 0.15);
   --bar-track-bg: var(--surface-alt);
-  --bar-track-border: var(--border);
+  --bar-track-border: #C9C4BA;
   --bar-track-groove: none;
   --bar-track-slot: var(--surface-alt);
   --led-blue: #0193CD;
@@ -107,7 +107,7 @@
   --logo-w: 180px;
   --gap: 20px;
   --bar-track-bg: var(--surface-alt);
-  --bar-track-border: var(--border);
+  --bar-track-border: #C9C4BA;
 
   /* Type */
   --font-sans: system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
@@ -132,7 +132,7 @@
   --surface-raised: #202026;
 
   --border: #2A2A33;
-  --border-strong: #43434F;
+  --border-strong: #6C6C77;
   --border-focus: #2DD4BF;
 
   --text: #EEEEF0;
@@ -167,7 +167,7 @@
   --bar-glass-bottom: rgba(255, 255, 255, 0.2);
   --bar-border-overlay: rgba(255, 255, 255, 0.10);
   --bar-track-bg: var(--bar-track-slot, #26262C);
-  --bar-track-border: var(--border);
+  --bar-track-border: #45454F;
   --bar-track-groove: none;
   --bar-track-slot: #26262C;
   --led-blue: #0E7490;
@@ -222,7 +222,7 @@
     --surface-raised: #202026;
 
     --border: #2A2A33;
-    --border-strong: #43434F;
+    --border-strong: #6C6C77;
     --border-focus: #2DD4BF;
 
     --text: #EEEEF0;
@@ -256,7 +256,7 @@
     --bar-glass-bottom: rgba(255, 255, 255, 0.2);
     --bar-border-overlay: rgba(255, 255, 255, 0.10);
     --bar-track-bg: var(--bar-track-slot, #26262C);
-    --bar-track-border: var(--border);
+    --bar-track-border: #45454F;
     --bar-track-groove: none;
     --bar-track-slot: #26262C;
     --led-blue: #0E7490;

@@ -68,18 +68,6 @@ function clearLog() {
   updateLogButtons();
 }
 
-// Keep both log buttons at the same width across languages.
-export function lockLogButtonWidths() {
-  const copy = $("btn_copy_log");
-  const clear = $("btn_clear_log");
-  if (!copy || !clear) return;
-  copy.style.minWidth = "";
-  clear.style.minWidth = "";
-  const width = Math.max(copy.getBoundingClientRect().width, clear.getBoundingClientRect().width);
-  copy.style.minWidth = width + "px";
-  clear.style.minWidth = width + "px";
-}
-
 export function updateLogCount() {
   const el = $("lbl_log_lines");
   if (el) el.textContent = fmt(t(state.logEntries === 1 ? "logLine" : "logLines"), state.logEntries);

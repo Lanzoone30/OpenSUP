@@ -54,11 +54,23 @@
   .dd-list.open,
   .seg-group::before,
   .seg-opt.active .seg-icon svg,
+  #logo,
   .card,
   .log-panel>.log-card,
   .log-panel>.card-progress,
   .log-panel>.encode-row {
     animation: none !important;
     transition: none !important;
+  }
+
+  .brand:hover #logo {
+    transform: none;
+    filter: none;
+  }
+
+  .drop-zone::before {
+    animation: none !important;
+    transition: none !important;
+    opacity: 0.85;
   }
 }
