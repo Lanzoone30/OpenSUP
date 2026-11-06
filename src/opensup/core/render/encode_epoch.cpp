@@ -258,9 +258,12 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
     size_t qid = idx < 0 ? 0u : static_cast<size_t>(idx);
     if (try_quantize(qid)) return true;
 
-    // Fall back to the other backend when the preferred one failed.
-    size_t fallback_id = qid ^ 1u;
-    return fallback_id < opt.size() && try_quantize(fallback_id);
+    // Fall back to the next backend in get_available() order (count varies).
+    for (size_t step = 1; step < opt.size(); step++) {
+        const size_t fallback_id = (qid + step) % opt.size();
+        if (try_quantize(fallback_id)) return true;
+    }
+    return false;
 }
 
 epoch_timings_t
