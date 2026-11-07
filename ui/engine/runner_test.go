@@ -179,21 +179,15 @@ func TestPickBinary_FindsEmbedded(t *testing.T) {
 }
 
 func TestRunner_AlreadyRunning(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	r := NewRunner(&fakeEmitter{})
-	// first run
-	runErr := make(chan error, 1)
-	go func() {
-		_, err := r.Run(ctx, EncodeConfig{InputPath: "x.xml", OutputPath: "y.sup"})
-		runErr <- err
-	}()
-	time.Sleep(10 * time.Millisecond)
-	// second run immediately should fail
-	_, err := r.Run(ctx, EncodeConfig{InputPath: "a.xml", OutputPath: "b.sup"})
+	// Guard the in-flight state directly: a real subprocess can exit before
+	// the second call, which made this test timing-dependent.
+	r.mu.Lock()
+	r.running = true
+	r.mu.Unlock()
+
+	_, err := r.Run(context.Background(), EncodeConfig{InputPath: "a.xml", OutputPath: "b.sup"})
 	assert.ErrorIs(t, err, ErrAlreadyRunning)
-	cancel()
-	_ = <-runErr
 }
 
 func TestRunner_CancelStopsEncode(t *testing.T) {
