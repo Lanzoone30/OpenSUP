@@ -19,6 +19,7 @@ import { syncSeg } from './shared/segmented.js';
 import { syncDropdown, refreshDropdown } from './shared/dropdown.js';
 import { loadSettings } from './shared/settings.js';
 import { wireUiActions } from './components/ui-actions/ui-actions.js';
+import { wireAbout } from './components/about/about.js';
 
 // ── i18n: translate all [data-i18n] elements ──
 function applyI18n() {
@@ -139,6 +140,7 @@ function wireDomEvents() {
   wireOptions();
   wireLogPanel();
   wireCardToggles();
+  wireAbout();
 }
 
 // Inyect SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.

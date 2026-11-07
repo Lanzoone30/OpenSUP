@@ -20,6 +20,20 @@
   margin-bottom: 2px;
 }
 
+.brand-trigger {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: var(--r-card);
+}
+
+.brand-trigger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
 #logo {
   height: var(--logo-h);
   width: var(--logo-w);
