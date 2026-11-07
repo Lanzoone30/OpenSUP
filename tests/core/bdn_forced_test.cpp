@@ -5,6 +5,7 @@
 #include <string>
 
 #include "opensup/core/filestreams.h"
+#include "opensup/core/render/epoch_encoder.h"
 
 namespace opensup {
 namespace core {
@@ -61,6 +62,43 @@ parse_forced()
 }
 
 TEST(BdnForced, StandardValue) { parse_forced(); }
+
+// The forced flag must reach the wire as the PCS composition-object forced
+// bit (0x80); the cropped bit (0x40) is a different flag.
+TEST(BdnForced, WireFlagMatchesSpec)
+{
+    bdn_xml_c xml;
+    ASSERT_TRUE(xml.parse(std::string(OPENDSUP_FIXTURES_DIR) + "/forced_flag.xml"));
+    auto events = xml.events();
+    ASSERT_EQ(events.size(), 2u);
+    ASSERT_TRUE(events[0].forced());
+    ASSERT_FALSE(events[1].forced());
+
+    std::vector<window_definition_t> windows(1);
+    windows[0].window_id = 0;
+    windows[0].h_pos = 0;
+    windows[0].v_pos = 0;
+    windows[0].width = 600;
+    windows[0].height = 120;
+
+    epoch_render_options_t opts;
+    epoch_encoder_c enc(opts);
+    int palette_id_counter = 0;
+    auto segs = enc.encode_epoch(events, std::vector<bool>(events.size(), true),
+                                 common::fps_e::from_double(25.0),
+                                 palette_id_counter, windows);
+
+    std::vector<uint8_t> flags;
+    for (const auto& seg : segs) {
+        const auto* pcs = dynamic_cast<pcs_c*>(seg.get());
+        if (!pcs || !pcs->cobjects.size()) continue;
+        for (const auto& obj : pcs->cobjects)
+            flags.push_back(obj.flags);
+    }
+    ASSERT_EQ(flags.size(), 2u);
+    EXPECT_EQ(flags[0], c_object_t::forced);
+    EXPECT_EQ(flags[1], c_object_t::standard);
+}
 
 } // namespace
 } // namespace core
