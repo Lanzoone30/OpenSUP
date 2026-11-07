@@ -38,6 +38,7 @@ add_executable(opensup_test_core
   ignore_resolution_test.cpp
   bdn_forced_test.cpp
   tight_ods_test.cpp
+  bdn_graphic_size_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../../src/opensup/cli/cli_parser.cpp
 )
 
