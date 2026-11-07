@@ -57,7 +57,7 @@ TEST(Transparency, SemiAlpha64IsRealPaletteEntry) {
         set_px(f, 3, y, 200, 60, 60, 255);
     }
     group_solution_t sol;
-    ASSERT_TRUE(solve_group({f}, 255, sol));
+    ASSERT_TRUE(solve_group({f}, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.palettes.size(), 1u);
     EXPECT_TRUE(has_alpha(sol.palettes[0], 64));
     EXPECT_TRUE(has_alpha(sol.palettes[0], 255));
@@ -79,7 +79,7 @@ TEST(Transparency, AlphaZeroUses0xFFAndOmitsPaletteRow) {
         for (int x = 1; x <= 2; x++) set_px(f, x, y, 200, 60, 60, 255);
     }
     group_solution_t sol;
-    ASSERT_TRUE(solve_group({f}, 255, sol));
+    ASSERT_TRUE(solve_group({f}, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.palettes.size(), 1u);
     EXPECT_EQ(sol.bitmap[0], 0xFF);               // transparent -> reserved index
     EXPECT_FALSE(sol.palettes[0].has(0));         // index 0 unused
@@ -105,7 +105,7 @@ TEST(Transparency, OpaqueOnlyKeepsIndexZeroFree) {
         }
     }
     group_solution_t sol;
-    ASSERT_TRUE(solve_group({f}, 255, sol));
+    ASSERT_TRUE(solve_group({f}, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.palettes.size(), 1u);
     EXPECT_FALSE(sol.palettes[0].has(0));
     EXPECT_FALSE(has_alpha(sol.palettes[0], 0));
@@ -129,8 +129,8 @@ TEST(Transparency, Deterministic) {
     frames.push_back(std::move(f1));
 
     group_solution_t a, b;
-    ASSERT_TRUE(solve_group(frames, 255, a));
-    ASSERT_TRUE(solve_group(frames, 255, b));
+    ASSERT_TRUE(solve_group(frames, 255, a, "bt709", {}, -1));
+    ASSERT_TRUE(solve_group(frames, 255, b, "bt709", {}, -1));
     EXPECT_EQ(a.bitmap, b.bitmap);
     ASSERT_EQ(a.palettes.size(), b.palettes.size());
     for (size_t i = 0; i < a.palettes.size(); i++) {

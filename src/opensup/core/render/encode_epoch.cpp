@@ -252,8 +252,8 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
         return true;
     };
 
-    // Default (id 3) maps to the LIQ backend at index 0, keeping the stream
-    // byte-identical to the pre-032 encoding.
+    // id 2 (default) maps to LIQ index 0, keeping the stream byte-identical
+    // to the pre-032 encoding.
     int idx = media::optimiser_c::index_for(m_quantizer_id);
     size_t qid = idx < 0 ? 0u : static_cast<size_t>(idx);
     if (try_quantize(qid)) return true;
@@ -261,6 +261,9 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
     // Fall back to the next backend in get_available() order (count varies).
     for (size_t step = 1; step < opt.size(); step++) {
         const size_t fallback_id = (qid + step) % opt.size();
+        logger_c::instance().warn(
+            "Quantizer " + opt[(qid + step - 1) % opt.size()]->name() +
+            " failed; falling back to " + opt[fallback_id]->name());
         if (try_quantize(fallback_id)) return true;
     }
     return false;
@@ -820,9 +823,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             frames.push_back(std::move(f));
         }
         media::group_solution_t sol;
+        int qid = media::optimiser_c::index_for(m_quantizer_id);
+        if (qid < 0) qid = 0;
         // Reserved slot 0xFF stays constant; -p only selects full-PDS output.
         const bool solved = media::solve_group(
-            frames, 254, sol, m_bt_matrix, m_liq_options);
+            frames, 254, sol, m_bt_matrix, m_liq_options, qid);
         if (!solved || sol.palettes.size() != chain.size()) {
             // Fallback: emit each event standalone (fresh ODS each).
             logger_c::instance().warn(

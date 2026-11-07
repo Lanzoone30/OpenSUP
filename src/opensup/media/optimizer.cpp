@@ -246,7 +246,7 @@ uint64_t seq_l2(const uint8_t* a, const uint8_t* b, size_t n) noexcept
 bool
 solve_group(const std::vector<group_frame_t>& frames, int max_colors,
             group_solution_t& out, std::string_view matrix,
-            const liq_options_t& opts)
+            const liq_options_t& opts, int quantizer_idx)
 {
     if (frames.empty() || max_colors < 1 || max_colors > 255) return false;
     const int w = frames[0].width, h = frames[0].height;
@@ -263,24 +263,40 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     // A single-frame group is the single-bitmap case: full quality and
     // dithering, no sequence scaling.
     const bool single_bitmap = (F == 1);
+    // One backend for the whole group: if any frame fails, every frame moves
+    // to the next backend; engines are never mixed inside a group.
+    const size_t start =
+        (quantizer_idx >= 0 && static_cast<size_t>(quantizer_idx) < opt.size())
+            ? static_cast<size_t>(quantizer_idx)
+            : 0u;
     std::vector<std::vector<uint8_t>> indexed(F);
     std::vector<std::vector<uint8_t>> clut(F); // 256*4 YCrCbA per frame
-    for (size_t ke = 0; ke < F; ke++) {
-        quantize_result_t qr;
-        bool ok = false;
-        for (const auto& qz : opt) {
-            qr = qz->quantize(frames[ke].rgba, w, h, max_colors, single_bitmap,
-                              matrix, opts);
-            if (qr.indexed.size() == np) { ok = true; break; }
+    bool quantized = false;
+    for (size_t step = 0; step < opt.size() && !quantized; step++) {
+        const size_t qid = (start + step) % opt.size();
+        quantized = true;
+        for (size_t ke = 0; ke < F && quantized; ke++) {
+            quantize_result_t qr = opt[qid]->quantize(
+                frames[ke].rgba, w, h, max_colors, single_bitmap, matrix, opts);
+            if (qr.indexed.size() != np) {
+                quantized = false;
+                break;
+            }
+            indexed[ke] = std::move(qr.indexed);
+            clut[ke].assign(256 * 4, 0);
+            for (const auto& [idx, e] : qr.palette.entries()) {
+                auto* c = &clut[ke][static_cast<size_t>(idx) * 4];
+                c[0] = e.y; c[1] = e.cr; c[2] = e.cb; c[3] = e.alpha;
+            }
         }
-        if (!ok) return false;
-        indexed[ke] = std::move(qr.indexed);
-        clut[ke].assign(256 * 4, 0);
-        for (const auto& [idx, e] : qr.palette.entries()) {
-            auto* c = &clut[ke][static_cast<size_t>(idx) * 4];
-            c[0] = e.y; c[1] = e.cr; c[2] = e.cb; c[3] = e.alpha;
+        if (!quantized && step + 1 < opt.size()) {
+            const size_t next = (start + step + 1) % opt.size();
+            logger_c::instance().warn("Quantizer " + opt[qid]->name() +
+                                      " failed; falling back to " +
+                                      opt[next]->name());
         }
     }
+    if (!quantized) return false;
 
     // Per-pixel color sequences across frames (F*4 YCrCbA bytes each).
     std::vector<uint8_t> seq_data(np * F * 4);
@@ -350,7 +366,8 @@ solve_group(const std::vector<group_frame_t>& frames, int max_colors,
     if (t == -1 && nseq >= static_cast<size_t>(max_colors)) {
         // All slots used and no reserved transparent index: lower the color
         // count and retry.
-        return solve_group(frames, max_colors - 1, out, matrix, opts);
+        return solve_group(frames, max_colors - 1, out, matrix, opts,
+                           quantizer_idx);
     }
 
     // Assign ranks, remapping overflow sequences to their nearest kept one.

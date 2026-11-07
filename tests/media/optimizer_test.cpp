@@ -38,6 +38,27 @@ group_frame_t make_frame(int w, int h, uint8_t gray, bool opaque_bg)
     return f;
 }
 
+// Opaque gradient with a transparent border: enough distinct colors for the
+// backends to disagree at the test's palette cap.
+group_frame_t make_gradient_frame(int w, int h, int seed)
+{
+    group_frame_t f;
+    f.width = w;
+    f.height = h;
+    f.rgba.assign(static_cast<size_t>(w) * h * 4, 0);
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            if (x == 0 || y == 0 || x == w - 1 || y == h - 1) continue;
+            size_t p = static_cast<size_t>(y) * w + x;
+            f.rgba[p * 4 + 0] = static_cast<uint8_t>(x * 37 + y * 11 + seed * 13);
+            f.rgba[p * 4 + 1] = static_cast<uint8_t>(x * 7 + y * 41 + seed * 23);
+            f.rgba[p * 4 + 2] = static_cast<uint8_t>(x * 19 + y * 29 + seed * 31);
+            f.rgba[p * 4 + 3] = 255;
+        }
+    }
+    return f;
+}
+
 std::vector<uint8_t> make_pattern(int w, int h)
 {
     std::vector<uint8_t> rgba(static_cast<size_t>(w) * h * 4);
@@ -77,7 +98,7 @@ TEST(SolveGroup, FadeChainPressureUnionBitmap) {
         make_frame(4, 4, 44, false),
     };
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 255, sol));
+    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.bitmap.size(), 16u);
     ASSERT_EQ(sol.palettes.size(), 3u);
 
@@ -112,7 +133,7 @@ TEST(SolveGroup, IdenticalFramesYieldNoDiffs) {
         make_frame(4, 4, 40, false),  // byte-identical
     };
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 255, sol));
+    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.palettes.size(), 2u);
     EXPECT_FALSE(sol.palettes[0].empty());
     EXPECT_TRUE(sol.palettes[1].empty()) << "no color change -> no palette diff";
@@ -124,7 +145,7 @@ TEST(SolveGroup, NoTransparencyKeepsAllIndices) {
         make_frame(4, 4, 44, true),
     };
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 255, sol));
+    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", {}, -1));
     ASSERT_FALSE(sol.bitmap.empty());
     bool saw_ff = false;
     for (uint8_t b : sol.bitmap) {
@@ -141,14 +162,39 @@ TEST(SolveGroup, Deterministic) {
         make_frame(8, 4, 44, false),
     };
     group_solution_t a, b;
-    ASSERT_TRUE(solve_group(frames, 255, a));
-    ASSERT_TRUE(solve_group(frames, 255, b));
+    ASSERT_TRUE(solve_group(frames, 255, a, "bt709", {}, -1));
+    ASSERT_TRUE(solve_group(frames, 255, b, "bt709", {}, -1));
     EXPECT_EQ(frame_hash(a), frame_hash(b));
+}
+
+TEST(SolveGroup, HonorsSelectedQuantizer) {
+    std::vector<group_frame_t> frames{
+        make_gradient_frame(16, 16, 0),
+        make_gradient_frame(16, 16, 37),
+        make_gradient_frame(16, 16, 74),
+    };
+    const int liq_idx = optimiser_c::index_for(2);
+    ASSERT_GE(liq_idx, 0);
+    group_solution_t liq, liq2;
+    ASSERT_TRUE(solve_group(frames, 64, liq, "bt709", {}, liq_idx));
+    ASSERT_TRUE(solve_group(frames, 64, liq2, "bt709", {}, liq_idx));
+    EXPECT_EQ(frame_hash(liq), frame_hash(liq2));
+
+    for (int id : {0, 1, 3}) {
+        SCOPED_TRACE("quantizer id " + std::to_string(id));
+        const int idx = optimiser_c::index_for(id);
+        ASSERT_GE(idx, 0);
+        group_solution_t a, b;
+        ASSERT_TRUE(solve_group(frames, 64, a, "bt709", {}, idx));
+        ASSERT_TRUE(solve_group(frames, 64, b, "bt709", {}, idx));
+        EXPECT_EQ(frame_hash(a), frame_hash(b));
+        EXPECT_NE(frame_hash(a), frame_hash(liq));
+    }
 }
 
 TEST(SolveGroup, SingleFrameWorks) {
     group_solution_t sol;
-    ASSERT_TRUE(solve_group({make_frame(4, 4, 60, false)}, 255, sol));
+    ASSERT_TRUE(solve_group({make_frame(4, 4, 60, false)}, 255, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.palettes.size(), 1u);
     EXPECT_FALSE(sol.palettes[0].empty());
 }
@@ -159,8 +205,8 @@ TEST(SolveGroup, RejectsMismatchedFrames) {
         make_frame(4, 4, 20, false),
         make_frame(8, 4, 30, false),
     };
-    EXPECT_FALSE(solve_group(frames, 255, sol));
-    EXPECT_FALSE(solve_group({}, 255, sol));
+    EXPECT_FALSE(solve_group(frames, 255, sol, "bt709", {}, -1));
+    EXPECT_FALSE(solve_group({}, 255, sol, "bt709", {}, -1));
 }
 
 TEST(LiqOptions, SequenceScalingParity) {
@@ -194,7 +240,7 @@ TEST(LiqOptions, SolveGroupForwardsOptions) {
     liq.speed = 10;
     liq.dither_pct = 30;
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", liq));
+    ASSERT_TRUE(solve_group(frames, 255, sol, "bt709", liq, -1));
     EXPECT_EQ(sol.palettes.size(), 2u);
 }
 
@@ -280,7 +326,7 @@ TEST(QtzrUtc, GroupFramesKeepCapAndTransparentSlot) {
         make_frame(8, 8, 120, false),
     };
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 4, sol, "bt709", {}));
+    ASSERT_TRUE(solve_group(frames, 4, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.bitmap.size(), 64u);
     EXPECT_EQ(sol.bitmap[0], 0xFF);          // transparent border keeps its slot
     EXPECT_LE(sol.palettes[0].size(), 4u);
@@ -382,7 +428,7 @@ TEST(Wu, GroupFramesKeepCapAndTransparentSlot) {
         make_frame(8, 8, 120, false),
     };
     group_solution_t sol;
-    ASSERT_TRUE(solve_group(frames, 4, sol, "bt709", {}));
+    ASSERT_TRUE(solve_group(frames, 4, sol, "bt709", {}, -1));
     ASSERT_EQ(sol.bitmap.size(), 64u);
     EXPECT_EQ(sol.bitmap[0], 0xFF);          // transparent border keeps its slot
     EXPECT_LE(sol.palettes[0].size(), 4u);
