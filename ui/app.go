@@ -12,7 +12,6 @@ import (
 
 	"github.com/Lanzoone30/OpenSUP-go/ui/config"
 	"github.com/Lanzoone30/OpenSUP-go/ui/engine"
-	"github.com/Lanzoone30/OpenSUP-go/ui/i18n"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -206,29 +205,6 @@ func (a *App) SaveSettings(s config.Settings) (bool, error) {
 	}
 	a.settings = s
 	return true, nil
-}
-
-// GetTranslations returns the full i18n table keyed by language code
-// ("en" or "es") so the frontend can lazy-load strings.
-func (a *App) GetTranslations(lang int) (map[string]string, error) {
-	l := i18n.EN
-	if lang == 1 {
-		l = i18n.ES
-	}
-	out := make(map[string]string, len(i18n.Table))
-	for k, v := range i18n.Table {
-		if l == i18n.ES {
-			out[k] = v[1]
-		} else {
-			out[k] = v[0]
-		}
-	}
-	return out, nil
-}
-
-// Version returns the current UI version string.
-func (a *App) Version() string {
-	return i18n.Version
 }
 
 // PhysicalCores returns the number of physical CPU cores for the threads
