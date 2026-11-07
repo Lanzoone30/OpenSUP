@@ -192,6 +192,15 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
             std::to_string(m_height) + ", continuing anyway.");
     }
 
+    if (m_fps.denominator() == 1001) {
+        logger_c::instance().warn(
+            "FrameRate " + fps_s + " is fractional NTSC: InTC/OutTC are read as "
+            "SMPTE non-drop-frame timecode (1 TC second = " +
+            std::to_string(common::tc_t::nominal_rate(m_fps)) +
+            " frames = 1.001 s). Timecodes written in real time by older "
+            "exporters (e.g. Subtitle Edit < 4.0.1) will drift.");
+    }
+
     auto path = std::filesystem::path(filepath);
     m_folder = path.parent_path().string();
 

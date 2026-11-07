@@ -10,7 +10,9 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
+#include "opensup/common/logger.h"
 #include "opensup/common/timecode.h"
 #include "opensup/core/filestreams.h"
 
@@ -34,13 +36,14 @@ int64_t pts_ticks(const tc_t& t) {
 }
 
 void
-write_bdn(const std::string& path, const std::string& events)
+write_bdn(const std::string& path, const std::string& events,
+          const std::string& rate = "24000/1001")
 {
     std::ofstream out(path);
     out << R"(<?xml version="1.0" encoding="UTF-8"?>
 <BDN Version="0.012" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="BD-03-006-006-01-xx-BDN.xml">
 <Description>
-<Format VideoFormat="1920x1080" FrameRate="24000/1001" DropFrame="false" Type="Graphic"/>
+<Format VideoFormat="1920x1080" FrameRate=")" << rate << R"(" DropFrame="false" Type="Graphic"/>
 </Description>
 <Events>
 )" << events << R"(</Events>
@@ -138,4 +141,39 @@ TEST(BdnNdfConvention, NominalRateForAllNtscFractions)
 
     EXPECT_EQ(tc_t::nominal_rate(ntsc_i), 60);
     EXPECT_EQ(pts_ticks(tc_t::from_hmsf(0, 0, 1, 0, ntsc_i)), 90090);
+}
+
+// Fractional NTSC rates are parsed as NDF timecode; integer rates stay silent.
+TEST(BdnNdfConvention, WarnsOnFractionalNtscRate)
+{
+    const std::string folder = std::string(OPENDSUP_TEST_OUTPUT_DIR) + "/bdn_ndf_warn";
+    fs::create_directories(folder);
+    const std::string events =
+        "<Event Forced=\"false\" InTC=\"00:00:01:00\" OutTC=\"00:00:04:00\">"
+        "<Graphic Width=\"64\" Height=\"64\" X=\"10\" Y=\"10\">missing.png</Graphic></Event>\n";
+
+    auto& log = common::logger_c::instance();
+    std::vector<std::string> warnings;
+    log.set_callback([&](const std::string& msg, int level) {
+        if (level == static_cast<int>(common::log_level_e::warn)) warnings.push_back(msg);
+    });
+
+    const std::string ntsc_path = folder + "/ntsc.xml";
+    write_bdn(ntsc_path, events);
+    core::bdn_xml_c ntsc;
+    const bool ntsc_parsed = ntsc.parse(ntsc_path);
+    const auto ntsc_warnings = warnings.size();
+
+    const std::string pal_path = folder + "/pal.xml";
+    write_bdn(pal_path, events, "25");
+    core::bdn_xml_c pal;
+    const bool pal_parsed = pal.parse(pal_path);
+    log.set_callback(nullptr);
+
+    ASSERT_TRUE(ntsc_parsed);
+    ASSERT_TRUE(pal_parsed);
+    ASSERT_EQ(ntsc_warnings, 1u);
+    EXPECT_EQ(warnings.size(), ntsc_warnings);
+    EXPECT_NE(warnings[0].find("non-drop-frame timecode"), std::string::npos);
+    EXPECT_NE(warnings[0].find("1.001 s"), std::string::npos);
 }
