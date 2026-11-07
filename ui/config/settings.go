@@ -56,11 +56,11 @@ type Settings struct {
 	SingleObjectDs   bool `json:"single_object_ds"`
 	Quantizer        int  `json:"quantizer"`
 	// Quantizer id space of the file: 1 = {0 Qtzr, 1 HexTree, 2 libimage, 3 Wu}; 0 = pre-renumber.
-	Scheme           int  `json:"settings_scheme"`
-	WindowWidth      int  `json:"window_width"`
-	WindowHeight     int  `json:"window_height"`
-	WindowX          int  `json:"window_x"`
-	WindowY          int  `json:"window_y"`
+	Scheme       int `json:"settings_scheme"`
+	WindowWidth  int `json:"window_width"`
+	WindowHeight int `json:"window_height"`
+	WindowX      int `json:"window_x"`
+	WindowY      int `json:"window_y"`
 	// Separates "no saved position" from (0,0).
 	WindowPositioned bool `json:"window_positioned"`
 	WindowMaximised  bool `json:"window_maximised"`
