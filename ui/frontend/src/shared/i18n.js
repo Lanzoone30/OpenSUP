@@ -1,6 +1,7 @@
-// Bilingual string table, mirrored by the Go table in ui/i18n/strings.go.
+// Bilingual string table.
 
-const VERSION = "2.3.0";
+// __APP_VERSION__ comes from project(VERSION) in CMakeLists.txt via vite.config.js.
+const VERSION = __APP_VERSION__;
 
 const Table = {
   // -- Header --
