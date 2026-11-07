@@ -130,12 +130,15 @@ struct group_solution_t {
  * @param out        Bitmap + per-frame palette diffs (frame 0 carries all).
  * @param matrix     YCbCr conversion matrix (bt601|bt709|bt2020).
  * @param opts       libimagequant tuning forwarded to the backend.
+ * @param quantizer_idx Backend index from optimiser_c::index_for(); -1 starts
+ *        at index 0 (libimagequant).
  * @return true on success.
  */
 [[nodiscard]] bool solve_group(const std::vector<group_frame_t>& frames,
                                int max_colors, group_solution_t& out,
                                std::string_view matrix = "bt709",
-                               const liq_options_t& opts = {});
+                               const liq_options_t& opts = {},
+                               int quantizer_idx = -1);
 
 /**
  * @brief Factory of quantizers available in this build.
