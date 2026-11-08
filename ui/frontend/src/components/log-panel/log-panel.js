@@ -15,7 +15,7 @@ export function appendLog(level, msg, extraClass) {
   entry.className = "log-entry " + levelNameToCss(level) + (extraClass ? " " + extraClass : "");
   entry.textContent = formatLogLine(level, msg) + "\n";
   area.appendChild(entry);
-  if (followLog) area.scrollTop = area.scrollHeight;
+  if (followLog && !followAnimating) area.scrollTop = area.scrollHeight;
   state.logEntries++;
   updateLogCount();
   // Remove empty-state once we have content
@@ -33,7 +33,7 @@ export function appendLogSeparator() {
   entry.className = "log-entry log-sep";
   entry.textContent = "-".repeat(60) + "\n";
   area.appendChild(entry);
-  if (followLog) area.scrollTop = area.scrollHeight;
+  if (followLog && !followAnimating) area.scrollTop = area.scrollHeight;
   state.logEntries++;
   updateLogCount();
 }
@@ -116,7 +116,10 @@ export function updateLogPlaceholder() {
 }
 
 const LOG_FOLLOW_THRESHOLD = 40;
+const FOLLOW_SCROLL_MS = 180;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let followLog = true;
+let followAnimating = false;
 
 function isLogNearBottom() {
   const area = $("txt_log");
@@ -131,19 +134,44 @@ function updateLogFollowBtn() {
   btn.hidden = followLog;
 }
 
+export function followLogTail() {
+  const area = $("txt_log");
+  if (!area || followAnimating) return;
+  followLog = true;
+  const btn = $("btn_log_follow");
+  if (btn) btn.hidden = true;
+  if (reduceMotion.matches) {
+    area.scrollTop = area.scrollHeight;
+    updateLogFollowBtn();
+    return;
+  }
+  const start = area.scrollTop;
+  const t0 = performance.now();
+  followAnimating = true;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / FOLLOW_SCROLL_MS);
+    const end = Math.max(0, area.scrollHeight - area.clientHeight);
+    area.scrollTop = start + (end - start) * (1 - Math.pow(1 - p, 3));
+    if (p < 1) {
+      requestAnimationFrame(step);
+    } else {
+      followAnimating = false;
+      updateLogFollowBtn();
+    }
+  };
+  requestAnimationFrame(step);
+}
+
 function wireLogFollow() {
   const area = $("txt_log");
   const btn = $("btn_log_follow");
   if (!area || !btn) return;
   area.addEventListener("scroll", () => {
+    if (followAnimating) return;
     followLog = isLogNearBottom();
     updateLogFollowBtn();
   });
-  btn.addEventListener("click", () => {
-    area.scrollTop = area.scrollHeight;
-    followLog = true;
-    updateLogFollowBtn();
-  });
+  btn.addEventListener("click", followLogTail);
 }
 
 async function copyLog() {

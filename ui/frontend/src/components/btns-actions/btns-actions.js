@@ -5,7 +5,7 @@ import { state } from "../../shared/state.js";
 import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
-import { appendLog, appendLogSeparator, updateLogButtons } from "../log-panel/log-panel.js";
+import { appendLog, appendLogSeparator, updateLogButtons, followLogTail } from "../log-panel/log-panel.js";
 import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
 import { t } from "../../shared/i18n.js";
@@ -115,6 +115,7 @@ export function startEncode() {
   if (area) area.removeAttribute("data-empty");
 
   logSummary(cfg);
+  followLogTail();
 
   // Persist the checkbox/quantizer state on each run: there is no settings dialog.
   saveSettings();
