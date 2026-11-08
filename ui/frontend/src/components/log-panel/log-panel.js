@@ -9,10 +9,10 @@ const LEVEL_NAMES = { debug: "DEBUG", info: "INFO", warn: "WARN", pass: "PASS", 
 
 const RESOLUTION_SUFFIX = "Use --ignore-resolution or the checkbox in the GUI.";
 
-export function appendLog(level, msg) {
+export function appendLog(level, msg, extraClass) {
   const area = $("txt_log");
   const entry = document.createElement("span");
-  entry.className = "log-entry " + levelNameToCss(level);
+  entry.className = "log-entry " + levelNameToCss(level) + (extraClass ? " " + extraClass : "");
   entry.textContent = formatLogLine(level, msg) + "\n";
   area.appendChild(entry);
   if (followLog) area.scrollTop = area.scrollHeight;
@@ -22,6 +22,20 @@ export function appendLog(level, msg) {
   if (area.dataset.empty && area.children.length > 0) {
     area.removeAttribute("data-empty");
   }
+}
+
+// Plain-text divider between runs. No level or timestamp so it stays a
+// readable marker when the log is pasted elsewhere.
+export function appendLogSeparator() {
+  if (state.logEntries === 0) return;
+  const area = $("txt_log");
+  const entry = document.createElement("span");
+  entry.className = "log-entry log-sep";
+  entry.textContent = "-".repeat(60) + "\n";
+  area.appendChild(entry);
+  if (followLog) area.scrollTop = area.scrollHeight;
+  state.logEntries++;
+  updateLogCount();
 }
 
 // Formats as "HH:mm:ss │ LEVEL │ text"; the engine prefixes

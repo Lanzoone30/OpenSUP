@@ -5,7 +5,7 @@ import { state } from "../../shared/state.js";
 import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
-import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
+import { appendLog, appendLogSeparator, updateLogButtons } from "../log-panel/log-panel.js";
 import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
 import { t } from "../../shared/i18n.js";
@@ -34,6 +34,44 @@ export function setEncodingState(encoding) {
 export function updateReadyState() {
   $("btn_encode").disabled =
     state.isEncoding || !state.inputPath || !state.outputPath;
+}
+
+function selectedText(id) {
+  const sel = $(id);
+  return sel?.selectedOptions?.[0]?.textContent?.trim() || "";
+}
+
+// Mirrors the chosen options so a pasted log is enough to reproduce the run.
+function logSummary(cfg) {
+  const label = (key) => (t(key) + ":").padEnd(10);
+  appendLogSeparator();
+  const parts = [
+    selectedText("combo_quantizer") || String(cfg.Quantizer),
+    selectedText("combo_colorspace") || cfg.BTMatrix,
+    cfg.Threads === 0 ? t("auto") : String(cfg.Threads),
+    "comp " + cfg.Compression,
+  ];
+  if (cfg.MaxKbps > 0) parts.push(t("logMax") + " " + cfg.MaxKbps + " kbps");
+  if (cfg.SsimTol !== 0) parts.push("SSIM " + cfg.SsimTol);
+  if (cfg.Acqrate !== 100) parts.push("acq " + cfg.Acqrate);
+  if (cfg.ExtraAcq !== 2) parts.push("+" + cfg.ExtraAcq + " acq");
+  if (cfg.RedrawPeriod > 0) parts.push("redraw " + cfg.RedrawPeriod);
+
+  const flags = [];
+  if (cfg.BothFormats) flags.push("both-formats");
+  if (cfg.IgnoreResolution) flags.push("ignore-resolution");
+  if (cfg.AllowNormalCase) flags.push("allow-normal");
+  if (cfg.PreferNormalCase) flags.push("prefer-normal");
+  if (cfg.FullPalette) flags.push("full-palette");
+  if (cfg.Overlap) flags.push("overlap");
+  if (cfg.AlternateOids) flags.push("alternate-oids");
+  if (cfg.TightOds) flags.push("tight-ods");
+  if (cfg.SingleObjectDs) flags.push("single-object-ds");
+
+  appendLog("info", label("logBdn") + cfg.InputPath, "log-summary");
+  appendLog("info", label("logOutput") + cfg.OutputPath, "log-summary");
+  appendLog("info", label("logEngine") + parts.join(" · "), "log-summary");
+  appendLog("info", label("logSettings") + (flags.length ? flags.map((f) => "--" + f).join(" ") : t("none")), "log-summary");
 }
 
 export function startEncode() {
@@ -75,6 +113,8 @@ export function startEncode() {
   // Remove log empty-state
   const area = $("txt_log");
   if (area) area.removeAttribute("data-empty");
+
+  logSummary(cfg);
 
   // Persist the checkbox/quantizer state on each run: there is no settings dialog.
   saveSettings();

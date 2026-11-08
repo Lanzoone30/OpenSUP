@@ -71,6 +71,12 @@ const Table = {
   copyLog:        { en: "Copy log",                       es: "Copiar registro" },
   logLines:       { en: "[%1 lines]",                     es: "[%1 líneas]" },
   logLine:        { en: "[%1 line]",                      es: "[%1 línea]" },
+  logBdn:         { en: "BDN",                            es: "BDN" },
+  logOutput:      { en: "Output",                         es: "Salida" },
+  logEngine:      { en: "Engine",                         es: "Motor" },
+  logSettings:    { en: "Settings",                       es: "Ajustes" },
+  logMax:         { en: "max",                            es: "máx" },
+  none:           { en: "none",                           es: "ninguno" },
 
   // -- Encode --
   progress:       { en: "Progress",                      es: "Progreso" },
