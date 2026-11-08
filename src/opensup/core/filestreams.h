@@ -85,6 +85,7 @@ public:
 
     [[nodiscard]] const std::vector<bdn_xml_event_c>& events() const noexcept { return m_events; }
     [[nodiscard]] common::fps_e fps() const noexcept { return m_fps; }
+    [[nodiscard]] bool dropframe() const noexcept { return m_dropframe; }
     [[nodiscard]] int width() const noexcept { return m_width; }
     [[nodiscard]] int height() const noexcept { return m_height; }
     [[nodiscard]] const std::string& folder() const noexcept { return m_folder; }
