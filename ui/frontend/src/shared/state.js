@@ -8,5 +8,6 @@ export const state = {
   lastOutDir: "",
   statusMode: "standing",
   lastProgressAt: 0,
+  elapsedTimer: 0,
   ledBurstTimer: 0,
 };
