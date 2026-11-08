@@ -25,6 +25,7 @@ add_executable(opensup_test_core
   drought_acquisition_test.cpp
   cli_parser_test.cpp
   interface_bitrate_test.cpp
+  interface_log_test.cpp
   flags_gate_test.cpp
   single_pass_ds_parity_test.cpp
   d7_cobjs_reacq_parity_test.cpp

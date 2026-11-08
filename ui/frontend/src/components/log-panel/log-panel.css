@@ -161,6 +161,23 @@
   color: var(--log-info);
 }
 
+/* Run summary: four metadata lines shown after the divider. */
+.log-entry.log-summary {
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  padding-left: 4px;
+  background: var(--accent-soft);
+}
+
+.log-entry.log-summary:hover {
+  background: var(--accent-soft);
+}
+
+.log-entry.log-sep {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
 .log-entry.warn {
   color: var(--log-warn);
   background: var(--log-warn-bg);

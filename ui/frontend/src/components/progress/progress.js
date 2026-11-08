@@ -4,9 +4,22 @@ import { $ } from "../../shared/dom.js";
 import { state } from "../../shared/state.js";
 import { t } from "../../shared/i18n.js";
 
+function fmtElapsed(ms) {
+  const total = Math.floor(ms / 1000);
+  return String(Math.floor(total / 60)).padStart(2, "0") + ":" +
+         String(total % 60).padStart(2, "0");
+}
+
+function stopElapsedTimer() {
+  clearInterval(state.elapsedTimer);
+  state.elapsedTimer = 0;
+}
+
 export function setStatus(mode) {
   const led = $("status_led");
   const label = $("lbl_progress_text");
+  const card = document.querySelector(".card-progress");
+  const track = document.querySelector(".progress-track");
   const map = {
     standing: { cls: "led-standing", key: "standingBy" },
     working:  { cls: "led-working",  key: "working" },
@@ -20,6 +33,17 @@ export function setStatus(mode) {
     const pop = mode === "finished" && !led.classList.contains("led-finished") ? " led-pop" : "";
     led.className = "led " + s.cls + pop;
     clearTimeout(state.ledBurstTimer);
+  }
+  stopElapsedTimer();
+  if (card) card.classList.toggle("working", mode === "working");
+  if (track) track.classList.toggle("pending", mode === "working");
+  if (mode === "working") {
+    const eta = $("lbl_eta");
+    const tick = () => {
+      if (eta) eta.textContent = fmtElapsed(Date.now() - state.encodingStart);
+    };
+    tick();
+    state.elapsedTimer = setInterval(tick, 250);
   }
   if (mode === "working") state.lastProgressAt = 0;
   if (label) label.textContent = t(s.key);
@@ -45,7 +69,7 @@ export function updateProgress(percent, epoch, total) {
   // Glow tick per epoch; min 0.4 s (max 2.5 ticks/s) and never restart while
   // one is still running, so fast epochs cannot flicker.
   const led = $("status_led");
-  if (led && state.isEncoding && !led.classList.contains("led-tick")) {
+  if (led && state.isEncoding && epoch > 0 && !led.classList.contains("led-tick")) {
     const now = Date.now();
     const dt = state.lastProgressAt ? now - state.lastProgressAt : 0;
     state.lastProgressAt = now;
@@ -56,6 +80,15 @@ export function updateProgress(percent, epoch, total) {
     state.ledBurstTimer = setTimeout(() => {
       led.classList.remove("led-tick");
     }, dur * 1000 + 50);
+  }
+
+  // Real epoch progress replaces the pending sweep and the elapsed clock.
+  if (epoch > 0) {
+    stopElapsedTimer();
+    const card = document.querySelector(".card-progress");
+    const track = document.querySelector(".progress-track");
+    if (card) card.classList.remove("working");
+    if (track) track.classList.remove("pending");
   }
 
   if (total > 0 && epoch > 0) {
