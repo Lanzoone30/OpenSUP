@@ -38,7 +38,20 @@
     <div class="about-footer">
       <a href="https://github.com/Lanzoone30/OpenSUP" class="about-link" data-external>Source code</a>
       <span class="about-sep">·</span>
-      <a href="https://www.gnu.org/licenses/gpl-3.0.html" class="about-link" data-external>License text</a>
+      <button type="button" class="about-link about-link-button" id="btn_license">License text</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="license_dialog" aria-labelledby="license_title" lang="en">
+  <div class="license-card">
+    <div class="license-header">
+      <div class="about-title-group">
+        <h2 id="license_title" class="about-title">License</h2>
+        <span class="about-subtitle">GPL-3.0-or-later</span>
+      </div>
+      <button type="button" class="about-close" id="btn_license_close" aria-label="Close">×</button>
+    </div>
+    <pre id="license_text" class="license-text" tabindex="0"></pre>
   </div>
 </dialog>

@@ -1,12 +1,17 @@
 import { $ } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime.js';
+import licenseText from './LICENSE.txt?raw';
 
 export function wireAbout() {
   const dialog = $('about_dialog');
   const trigger = $('btn_about');
   const closeBtn = $('btn_about_close');
   const versionLink = $('about_version');
+  const licenseDialog = $('license_dialog');
+  const licenseTrigger = $('btn_license');
+  const licenseCloseBtn = $('btn_license_close');
+  const licenseBody = $('license_text');
 
   if (!dialog || !trigger) return;
 
@@ -14,6 +19,29 @@ export function wireAbout() {
     const version = t('version');
     versionLink.href = `https://github.com/Lanzoone30/OpenSUP/releases/tag/${version}`;
     versionLink.setAttribute('aria-label', `Release notes for ${version}`);
+  }
+
+  if (licenseBody) {
+    licenseBody.textContent = licenseText;
+  }
+
+  if (licenseDialog && licenseTrigger) {
+    licenseTrigger.addEventListener('click', () => {
+      licenseDialog.showModal();
+      licenseCloseBtn?.focus();
+    });
+
+    licenseCloseBtn?.addEventListener('click', () => {
+      licenseDialog.close();
+    });
+
+    licenseDialog.addEventListener('click', (e) => {
+      if (e.target === licenseDialog) licenseDialog.close();
+    });
+
+    licenseDialog.addEventListener('close', () => {
+      licenseTrigger.focus();
+    });
   }
 
   let isClosing = false;
