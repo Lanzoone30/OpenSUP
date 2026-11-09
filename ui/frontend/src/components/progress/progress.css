@@ -1,4 +1,4 @@
-/* ── Status LED (base + states) ── */
+/* Status LED (base + states) */
 .led {
   display: inline-block;
   width: 12px;
@@ -90,7 +90,7 @@
   }
 }
 
-/* ── Progress card ── */
+/* Progress card */
 .card-progress {
   gap: 10px;
 }

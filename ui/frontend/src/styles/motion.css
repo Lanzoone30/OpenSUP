@@ -1,4 +1,4 @@
-/* ── Load entrance animation ── */
+/* Load entrance animation */
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -46,7 +46,7 @@
   animation-delay: 0.20s;
 }
 
-/* ── Reduced motion: keep state changes, drop decorative animation ── */
+/* Reduced motion: keep state changes, drop decorative animation */
 @media (prefers-reduced-motion: reduce) {
 
   .progress-fill,

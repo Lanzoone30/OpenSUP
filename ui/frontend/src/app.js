@@ -1,5 +1,4 @@
 // app.js — Main entry point. Vanilla JS, no framework.
-// Orchestrates the per-component modules and shared utilities.
 
 import './app.css';
 import { t, getLang } from './shared/i18n.js';
@@ -21,7 +20,7 @@ import { loadSettings } from './shared/settings.js';
 import { wireUiActions } from './components/ui-actions/ui-actions.js';
 import { wireAbout } from './components/about/about.js';
 
-// ── i18n: translate all [data-i18n] elements ──
+// i18n: translate all [data-i18n] elements
 function applyI18n() {
   document.documentElement.lang = getLang() === 1 ? "es" : "en";
   document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -54,7 +53,6 @@ function applyI18n() {
     el.title = label;
     el.setAttribute("aria-label", label);
   });
-  // Tooltips for selects
   const cs = $("combo_colorspace");
   if (cs) cs.title = t("colorSpaceTip");
   const qz = $("combo_quantizer");
@@ -72,7 +70,6 @@ function applyI18n() {
     fl.title = t("jumpToLive");
     fl.setAttribute("aria-label", t("jumpToLive"));
   }
-  // Update log count + empty-state text
   updateLogCount();
   updateLogPlaceholder();
   // Re-translate the status LED label in the new language.
@@ -82,7 +79,6 @@ function applyI18n() {
   document.querySelectorAll(".dropdown").forEach((dd) => refreshDropdown(dd.id));
 }
 
-// ── Wire up Wails engine events ──
 function wireEngineEvents() {
   EventsOn("engine:log", (data) => {
     if (data && data.level && data.msg) {
@@ -119,7 +115,6 @@ function wireEngineEvents() {
   });
 }
 
-// ── Wire up OS drag & drop ──
 function wireDragAndDrop() {
   OnFileDrop((x, y, paths) => {
     if (!paths?.length || state.isEncoding) return;
@@ -133,7 +128,6 @@ function wireDragAndDrop() {
   });
 }
 
-// ── Wire up DOM events ──
 function wireDomEvents() {
   wireUiActions(applyI18n);
   wireButtons();
@@ -143,7 +137,7 @@ function wireDomEvents() {
   wireAbout();
 }
 
-// Inyect SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.
+// Inject SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.
 function injectIcons() {
   const icons = { folder: folderIcon, eraser: eraserIcon, monitor: monitorIcon, sun: sunIcon, moon: moonIcon };
   document.querySelectorAll("[data-icon]").forEach((el) => {

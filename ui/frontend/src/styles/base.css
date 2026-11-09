@@ -1,4 +1,4 @@
-/* ── Reset ── */
+/* Reset */
 *,
 *::before,
 *::after {
@@ -7,7 +7,7 @@
   padding: 0;
 }
 
-/* ── Base ── */
+/* Base */
 html,
 body {
   height: 100%;
@@ -21,7 +21,7 @@ body {
   font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
 }
 
-/* ── Scrollbars — hidden, subtle on hover ── */
+/* Scrollbars — hidden, subtle on hover */
 * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;

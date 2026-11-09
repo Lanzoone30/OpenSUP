@@ -43,7 +43,7 @@ func TestParse_DoneSuccess(t *testing.T) {
 }
 
 func TestParse_DoneStreamCensus(t *testing.T) {
-	// 034/US3: the engine appends a stream census to the done event.
+	// The engine appends a stream census to the done event.
 	line := `{"type":"done","success":true,"events":2,"epochs":1,"segments":17,` +
 		`"duration_ms":1536,"es":1,"acq":1,"nc":1,"nc_ods":0,"pu":0,"pu_buffered":0,` +
 		`"display_sets":3,"reuse_candidates":0}`

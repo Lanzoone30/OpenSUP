@@ -61,7 +61,7 @@ type DoneEvent struct {
 	Epochs     int    `json:"epochs,omitempty"`
 	Segments   int    `json:"segments,omitempty"`
 	DurationMs int64  `json:"duration_ms,omitempty"`
-	// 034/US3: census of the emitted stream (mirror of the engine counters).
+	// Census of the emitted stream (mirror of the engine counters).
 	ES              int `json:"es,omitempty"`
 	ACQ             int `json:"acq,omitempty"`
 	NC              int `json:"nc,omitempty"`

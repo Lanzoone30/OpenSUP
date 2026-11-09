@@ -145,7 +145,6 @@ export function abortEncode() {
   setStatus("aborted");
 }
 
-// Wire the action buttons.
 export function wireButtons() {
   $("btn_select_bdn").addEventListener("click", selectBDN);
   $("btn_set_output").addEventListener("click", setOutput);

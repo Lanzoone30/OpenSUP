@@ -20,7 +20,7 @@
 }
 
 
-/* ── Right column: monitoring panel ── */
+/* Right column: monitoring panel */
 .log-panel {
   display: flex;
   flex-direction: column;
@@ -29,7 +29,6 @@
   min-width: 0;
 }
 
-/* Log card */
 .log-card {
   position: relative;
   display: flex;
@@ -139,7 +138,7 @@
   border-color: var(--accent);
 }
 
-/* ── Log entries ── */
+/* Log entries */
 .log-entry {
   display: block;
   white-space: pre-wrap;

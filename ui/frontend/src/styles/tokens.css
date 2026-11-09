@@ -1,5 +1,5 @@
 
-/* ── Design tokens (light) ── */
+/* Design tokens (light) */
 :root {
   /* Ground */
   --bg: #F5F4F1;
@@ -123,7 +123,7 @@
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23928F8B' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-/* ── Dark palette ── */
+/* Dark palette */
 [data-theme="dark"] {
   --bg: #131316;
   --surface: #1C1C21;
@@ -212,7 +212,7 @@
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368686F' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-/* ── System: follow OS ── */
+/* System: follow OS */
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
     --bg: #131316;

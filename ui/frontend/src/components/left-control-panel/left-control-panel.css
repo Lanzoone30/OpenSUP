@@ -1,4 +1,3 @@
-/* ── File label ── */
 .file-label {
   color: var(--text-muted);
   font-size: 11.5px;
@@ -17,7 +16,7 @@
   font-style: normal;
 }
 
-/* ── Help tip (?) tooltip ── */
+/* Help tip (?) tooltip */
 .help-tip {
   display: inline-flex;
   align-items: center;
@@ -49,7 +48,7 @@
   transform: translate(-50%, -50%);
 }
 
-/* ── Compact numeric input (Redraw period) ── */
+/* Compact numeric input (Redraw period) */
 .input-num {
   width: 72px;
   padding: 6px 10px;
@@ -92,7 +91,6 @@
   height: 100%;
 }
 
-/* Secondary */
 .btn-secondary {
   background: var(--surface);
   color: var(--text-secondary);
@@ -115,7 +113,7 @@
   box-shadow: none;
 }
 
-/* ── Parameter rows ── */
+/* Parameter rows */
 .param-row {
   display: flex;
   align-items: center;
@@ -141,7 +139,7 @@
   margin-top: 12px;
 }
 
-/* ── Checkbox list ── */
+/* Checkbox list */
 .check-list {
   display: flex;
   flex-direction: column;
@@ -205,12 +203,12 @@
   outline-offset: 2px;
 }
 
-/* ── Output row (Set SUP Output full width) ── */
+/* Output row (Set SUP Output full width) */
 .output-row {
   display: flex;
 }
 
-/* ── Output file label + reveal folder icon ── */
+/* Output file label + reveal folder icon */
 .output-file-row {
   display: flex;
   align-items: center;
@@ -301,7 +299,7 @@
   color: var(--success);
 }
 
-/* ── Drop zones ── */
+/* Drop zones */
 .drop-zone {
   --wails-drop-target: drop;
   position: relative;
@@ -366,7 +364,7 @@
 }
 
 
-/* ── Left column: controls ── */
+/* Left column: controls */
 .controls {
   display: flex;
   flex-direction: column;
@@ -408,7 +406,7 @@
   cursor: not-allowed;
 }
 
-/* ── Collapsible cards (details/summary accordions) ── */
+/* Collapsible cards (details/summary accordions) */
 summary {
   list-style: none;
   cursor: pointer;
@@ -506,7 +504,7 @@ details[open]>summary.adv-title::before {
   transform: rotate(45deg);
 }
 
-/* ── Card head with the clear-scope icon ── */
+/* Card head with the clear-scope icon */
 .card-head {
   display: flex;
   align-items: center;
@@ -517,7 +515,7 @@ details[open]>summary.adv-title::before {
   flex: 1;
 }
 
-/* ── Scope readiness chips ── */
+/* Scope readiness chips */
 .encode-hint {
   display: flex;
   gap: 12px;

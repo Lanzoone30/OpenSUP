@@ -4,12 +4,10 @@
 const VERSION = __APP_VERSION__;
 
 const Table = {
-  // -- Header --
   subtitle:       { en: "PGS Subtitle Encoder",           es: "PGS Subtitle Encoder" },
   version:        { en: "v" + VERSION,                    es: "v" + VERSION },
   windowTitle:    { en: "OpenSUP v" + VERSION,            es: "OpenSUP v" + VERSION },
 
-  // -- Project Scope --
   projectScope:   { en: "Project Scope",                  es: "Proyecto" },
   selectBdn:      { en: "Select BDN XML file",            es: "Seleccionar archivo BDN XML" },
   dropBdn:        { en: "Drag & drop a BDN XML file here", es: "Arrastra y suelta un archivo BDN XML aquí" },
@@ -23,7 +21,6 @@ const Table = {
   clearSelections:{ en: "Clear selections",               es: "Limpiar selecciones" },
   resolutionHint: { en: "Enable the \"Ignore resolution validation\" option to process anyway.", es: "Activa la opción \"Ignorar validación de resolución\" para procesar de todas maneras." },
 
-  // -- Parameters --
   parameters:     { en: "Parameters",                     es: "Parámetros" },
   advancedOptions:{ en: "Advanced Options",              es: "Opciones avanzadas" },
   colorSpace:     { en: "Color space",                    es: "Espacio de color" },
@@ -50,7 +47,6 @@ const Table = {
   extraAcq:       { en: "Extra acquisition",                    es: "Adquisición extra" },
   extraAcqTip:    { en: "Force acquisition after N palette updates (0-100). 2 recommended (default). 0 = disabled.", es: "Forzar adquisición tras N actualizaciones de paleta (0-100). Recomendado 2 (por defecto). 0 = desactivado." },
 
-  // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
   allowNormal:    { en: "Allow normal case object redefinition.", es: "Permitir redefinición normal case" },
   preferNormal:   { en: "Prefer normal case object redefinition.", es: "Preferir redefinición normal case" },
@@ -63,7 +59,6 @@ const Table = {
   tightOds:       { en: "Fit ODS box to text",               es: "Ajustar caja al texto" },
   singleObjectDs: { en: "One object per display set (Android TV compatibility)", es: "Un objeto por display set (compatibilidad Android TV)" },
 
-  // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
   copy:           { en: "Copy",                           es: "Copiar" },
   clear:          { en: "Clear",                          es: "Limpiar" },
@@ -78,7 +73,6 @@ const Table = {
   logMax:         { en: "max",                            es: "máx" },
   none:           { en: "none",                           es: "ninguno" },
 
-  // -- Encode --
   progress:       { en: "Progress",                      es: "Progreso" },
   standingBy:     { en: "Standing by",                    es: "En espera" },
   working:        { en: "Working",                        es: "Procesando" },
@@ -95,12 +89,10 @@ const Table = {
   reqBdn:         { en: "BDN file",                       es: "Archivo BDN" },
   reqSupOutput:   { en: "SUP output",                     es: "Salida SUP" },
 
-  // -- Theme --
   themeSystem:    { en: "System",                         es: "Sistema" },
   themeLight:     { en: "Light",                          es: "Claro" },
   themeDark:      { en: "Dark",                           es: "Oscuro" },
 
-  // -- Checkbox tooltips --
   tipAllowNormal:  { en: "Update only one composition out of the two, whenever updating both is not possible due to time constraints. This exploits the PG object buffer capabilities as intended by the format designers. Stream shall NOT be Built or Rebuilt at the authoring stage.", es: "Actualizar solo una de las dos composiciones, cuando no sea posible actualizar ambas debido a limitaciones de tiempo. Esto aprovecha las capacidades del búfer de objetos PG tal como lo concibieron los diseñadores del formato. El stream NO debe ser Built ni Rebuilt en la etapa de autoría." },
   tipPreferNormal: { en: "Update only one composition out of the two, even when decoding time is sufficient to refresh both. It can reduce the bitrate, but the palette is not shared across composition objects whenever it occurs.", es: "Actualizar solo una de las dos composiciones, incluso cuando el tiempo de decodificación es suficiente para refrescar ambas. Puede reducir el bitrate, pero la paleta no se comparte entre los objetos de composición cuando esto ocurre." },
   tipFullPalette:  { en: "Some authoring suites meddle with the imported files and may mess up the palette assignments. Writing the full palette everytime ensures palette data consistency throughout the stream.", es: "Algunas suites de autoría manipulan los archivos importados y pueden alterar las asignaciones de paleta. Escribir la paleta completa cada vez garantiza la consistencia de los datos de paleta en todo el stream." },

@@ -5,7 +5,7 @@
   margin-left: auto;
 }
 
-/* ── Segmented controls (language / theme) ── */
+/* Segmented controls (language / theme) */
 .seg-group {
   --count: 2;
   position: relative;
