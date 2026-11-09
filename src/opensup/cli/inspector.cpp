@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -185,6 +185,7 @@ int run_inspect(const std::string& path, int only_ds)
         return 2;
     }
     for (auto& e : stream.errors) std::cerr << "inspect: " << e << "\n";
+    if (stream.missing_final_ends) std::cerr << "inspect: missing final ENDS\n";
     return 0;
 }
 

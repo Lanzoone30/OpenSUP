@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -94,7 +94,7 @@ sup_stream_t parse_sup(const std::vector<uint8_t>& data)
         }
     }
     if (!current.empty()) {
-        stream.errors.push_back("trailing display set without ENDS");
+        stream.missing_final_ends = true;
         stream.display_sets.emplace_back(current);
     }
     stream.trailing_bytes = data.size() - i;

@@ -5,18 +5,27 @@ import { state } from "../../shared/state.js";
 import { numOr } from "../../shared/dom.js";
 import { go } from "../../shared/bridge.js";
 import { setProgressClip, setStatus } from "../progress/progress.js";
-import { appendLog, updateLogButtons } from "../log-panel/log-panel.js";
-import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope } from "../left-control-panel/left-control-panel.js";
+import { appendLog, appendLogSeparator, updateLogButtons, followLogTail } from "../log-panel/log-panel.js";
+import { selectBDN, setOutput, revealOutputFolder, updateOutputActions, clearScope, clearOutputFlash } from "../left-control-panel/left-control-panel.js";
 import { saveSettings } from "../../shared/settings.js";
+import { t } from "../../shared/i18n.js";
 
 export function setEncodingState(encoding) {
   state.isEncoding = encoding;
-  $("btn_encode").disabled = encoding;
+  const encode = $("btn_encode");
+  encode.disabled = encoding;
+  encode.textContent = t(encoding ? "encodeRunning" : "initEncode");
+  encode.setAttribute("aria-busy", String(encoding));
+  if (encoding) clearOutputFlash();
   $("btn_abort").disabled = !encoding;
   $("btn_select_bdn").disabled = encoding;
   $("btn_set_output").disabled = encoding;
   const sc = document.querySelector(".controls-scroll");
-  if (sc) sc.inert = encoding;
+  if (sc) {
+    // Lock the cards, not the scroll container, so the sidebar still scrolls.
+    sc.classList.toggle("is-encoding", encoding);
+    for (const card of sc.children) card.inert = encoding;
+  }
   updateOutputActions();
   updateLogButtons();
 }
@@ -25,6 +34,44 @@ export function setEncodingState(encoding) {
 export function updateReadyState() {
   $("btn_encode").disabled =
     state.isEncoding || !state.inputPath || !state.outputPath;
+}
+
+function selectedText(id) {
+  const sel = $(id);
+  return sel?.selectedOptions?.[0]?.textContent?.trim() || "";
+}
+
+// Mirrors the chosen options so a pasted log is enough to reproduce the run.
+function logSummary(cfg) {
+  const label = (key) => (t(key) + ":").padEnd(10);
+  appendLogSeparator();
+  const parts = [
+    selectedText("combo_quantizer") || String(cfg.Quantizer),
+    selectedText("combo_colorspace") || cfg.BTMatrix,
+    cfg.Threads === 0 ? t("auto") : String(cfg.Threads),
+    "comp " + cfg.Compression,
+  ];
+  if (cfg.MaxKbps > 0) parts.push(t("logMax") + " " + cfg.MaxKbps + " kbps");
+  if (cfg.SsimTol !== 0) parts.push("SSIM " + cfg.SsimTol);
+  if (cfg.Acqrate !== 100) parts.push("acq " + cfg.Acqrate);
+  if (cfg.ExtraAcq !== 2) parts.push("+" + cfg.ExtraAcq + " acq");
+  if (cfg.RedrawPeriod > 0) parts.push("redraw " + cfg.RedrawPeriod);
+
+  const flags = [];
+  if (cfg.BothFormats) flags.push("both-formats");
+  if (cfg.IgnoreResolution) flags.push("ignore-resolution");
+  if (cfg.AllowNormalCase) flags.push("allow-normal");
+  if (cfg.PreferNormalCase) flags.push("prefer-normal");
+  if (cfg.FullPalette) flags.push("full-palette");
+  if (cfg.Overlap) flags.push("overlap");
+  if (cfg.AlternateOids) flags.push("alternate-oids");
+  if (cfg.TightOds) flags.push("tight-ods");
+  if (cfg.SingleObjectDs) flags.push("single-object-ds");
+
+  appendLog("info", label("logBdn") + cfg.InputPath, "log-summary");
+  appendLog("info", label("logOutput") + cfg.OutputPath, "log-summary");
+  appendLog("info", label("logEngine") + parts.join(" · "), "log-summary");
+  appendLog("info", label("logSettings") + (flags.length ? flags.map((f) => "--" + f).join(" ") : t("none")), "log-summary");
 }
 
 export function startEncode() {
@@ -67,6 +114,9 @@ export function startEncode() {
   const area = $("txt_log");
   if (area) area.removeAttribute("data-empty");
 
+  logSummary(cfg);
+  followLogTail();
+
   // Persist the checkbox/quantizer state on each run: there is no settings dialog.
   saveSettings();
   app.StartEncode(cfg).then(() => {
@@ -95,7 +145,6 @@ export function abortEncode() {
   setStatus("aborted");
 }
 
-// Wire the action buttons.
 export function wireButtons() {
   $("btn_select_bdn").addEventListener("click", selectBDN);
   $("btn_set_output").addEventListener("click", setOutput);
@@ -143,8 +192,8 @@ export function wireOptions() {
   $("chk_both_formats").addEventListener("change", syncFullPalette);
 
   // Single-object display sets are incompatible with -d/--ahead and inert
-  // with normal-case refreshes; full palette is forced engine-side. Pre-state
-  // is captured so toggling off restores what the user had.
+  // with normal-case refreshes; full palette and tight ODS boxes are forced
+  // engine-side. Pre-state is captured so toggling off restores the user's.
   let singleOnRestore = null;
 
   $("chk_single_object_ds").addEventListener("change", (e) => {
@@ -154,20 +203,24 @@ export function wireOptions() {
         overlap: $("chk_overlap").checked,
         allowNormal: $("chk_allow_normal").checked,
         preferNormal: $("chk_prefer_normal").checked,
+        tightOds: $("chk_tight_ods").checked,
       };
       $("chk_overlap").checked = false;
       $("chk_allow_normal").checked = false;
       $("chk_prefer_normal").checked = false;
+      $("chk_tight_ods").checked = true;
     } else if (singleOnRestore) {
       $("chk_prefer_normal").checked = singleOnRestore.preferNormal;
       $("chk_allow_normal").checked = singleOnRestore.preferNormal || singleOnRestore.allowNormal;
       $("chk_overlap").checked = singleOnRestore.overlap;
       allowBeforePrefer = singleOnRestore.preferNormal;
+      $("chk_tight_ods").checked = singleOnRestore.tightOds;
       singleOnRestore = null;
     }
     $("chk_overlap").disabled = on;
     $("chk_prefer_normal").disabled = on;
     $("chk_allow_normal").disabled = on || $("chk_prefer_normal").checked;
+    $("chk_tight_ods").disabled = on;
     if ($("chk_prefer_normal").checked) $("chk_allow_normal").checked = true;
     syncFullPalette();
   });

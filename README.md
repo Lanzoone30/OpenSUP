@@ -4,7 +4,7 @@
 
 **Turn BDN XML subtitles into Blu-ray compliant .sup / .pes streams**
 
-[![Version](https://img.shields.io/badge/version-2.3.0-blue?style=flat-square)](https://github.com/Lanzoone30/OpenSUP/releases)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue?style=flat-square)](https://github.com/Lanzoone30/OpenSUP/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux-666666?style=flat-square)](https://github.com/Lanzoone30/OpenSUP/releases)
 
@@ -22,7 +22,6 @@
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
-- [Technical notes](#technical-notes)
 - [License](#license)
 - [Credits](#credits)
 
@@ -48,12 +47,13 @@ embedded engine.
 
 - **Blu-ray ready**: converts BDN XML subtitles, images included, into compliant .sup streams
 - **Two output formats**: .sup and .pes/.mui, or both in a single run
-- **Quality or speed**: two quantization engines, one tuned for maximum quality and one for faster
-  encoding
+- **Quality or speed**: four quantization engines, libimage (default), Qtzr, HexTree and Wu
 - **Color accuracy**: BT.709 / BT.601 / BT.2020 color space presets
 - **Bitrate control**: validate the output against a maximum bitrate and tune quality/speed
   trade-offs
-- **Activity log**: see every step with color-coded results; copy or clear it
+- **Activity log**: engine phases, grouping progress and a per-run summary, with color-coded
+  results; copy or clear it
+- **Window memory**: size, position and maximized state are restored on the next launch
 - **Command line support**: for scripting and batch jobs, with NDJSON output for automation
 
 ---
@@ -61,12 +61,8 @@ embedded engine.
 ## Screenshot
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/images-preview/GUI-Preview_light.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/images-preview/GUI-Preview_dark.png">
-    <img src="assets/images-preview/GUI-Preview_dark.png" alt="OpenSUP GUI" width="700"/>
-  </picture>
-  <p><em>OpenSUP GUI</em></p>
+  <img src="assets/images-preview/GUI-Preview_dark.png" alt="OpenSUP GUI in dark mode" width="700"/>
+  <p><em>OpenSUP GUI in dark mode</em></p>
 </div>
 
 ---
@@ -78,19 +74,19 @@ Prebuilt builds are available on the
 
 **Windows** (x86_64)
 
-- **GUI ZIP**: `OpenSUP-GUI-2.3.0-windows-amd64.zip` — extract and run `OpenSUP.exe`
+- **GUI ZIP**: `OpenSUP-GUI-2.4.0-windows-amd64.zip`: extract and run `OpenSUP.exe`
 
 **Linux** (x86_64)
 
-- **GUI RPM**: `sudo dnf install ./opensup-gui-2.3.0-1.x86_64.rpm`
-- **GUI DEB**: `sudo apt install ./opensup-gui_2.3.0_amd64.deb`
+- **GUI RPM**: `sudo dnf install ./OpenSUP-GUI-2.4.0-linux-x86_64.rpm`
+- **GUI DEB**: `sudo apt install ./OpenSUP-GUI-2.4.0-linux-amd64.deb`
 
 Both Linux packages register OpenSUP in your application menu. They require
 `webkit2gtk 4.1` and `GTK 3`, installed automatically as dependencies.
 
 **CLI** (Windows and Linux, x86_64)
 
-- `OpenSUP-CLI-2.3.0-windows-amd64.zip` and `OpenSUP-CLI-2.3.0-linux-amd64.zip`
+- `OpenSUP-CLI-2.4.0-windows-amd64.zip` and `OpenSUP-CLI-2.4.0-linux-amd64.zip`
   contain the standalone `opensup_cli`; no GUI needed.
 
 ---
@@ -119,7 +115,7 @@ A BDN XML file can also be dragged and dropped onto the left panel.
 
 | Control         | Options                   | Function                                                           |
 | --------------- | ------------------------- | ------------------------------------------------------------------ |
-| **Quantizer**   | libimage (best, fast) / HexTree (good, very fast) | Quantization backend: libimage for quality, HexTree for speed |
+| **Quantizer**   | libimage (best, fast) / Qtzr (high quality, fast) / HexTree (good, very fast) / Wu (variance-optimal) | Quantization backend; see [Quantizer engines](#quantizer-engines) |
 | **Color Space** | BT.709 / BT.601 / BT.2020 | Color matrix for YCbCr conversion                                  |
 
 <details open>
@@ -149,7 +145,7 @@ A BDN XML file can also be dragged and dropped onto the left panel.
 | **Overlap Buffering**            | Buffers palette updates whenever possible so fewer events are dropped. The stream shall NOT be Built or Rebuilt at the authoring stage.                                                           |
 | **Write Full Palette**           | Writes the full 256-entry palette for every epoch instead of an optimized subset. Can improve quality at the cost of a larger output.                                                             |
 | **Fit ODS Box to Text**          | Sets the ODS box to the event content instead of the whole window slot, for authoring tools that crop or rescale graphics.                                                                        |
-| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window, so every display set contains only one object. This option is useful when your Android TV client is Media3-based (Wholphin, Moonfin). When on, it forces Full Palette and turns Overlap Buffering and Normal Case off. | 
+| **One Object per Display Set (Android TV compatibility)** | Collapses each event into a single window, so every display set contains only one object. This option is useful when your Android TV client is Media3-based (Wholphin, Moonfin). When on, it forces Full Palette and Fit ODS Box to Text, and turns Overlap Buffering and Normal Case off. |
 | **Alternate OIDs**               | Forces legacy global object ids 0/1. The default is per-window ids, which keeps multi-window compositions out of trouble.                                                                         |
 | **Both SUP + PES/MUI**           | Also exports a .pes/.mui file alongside the .sup file in a single run.                                                                                                                            |
 | **Ignore Resolution Validation** | By default, encoding fails if the video resolution is not one of the standard Blu-ray resolutions (1920×1080, 1280×720, 720×576, 720×480). Enable to ignore Blu-ray standards and encode anyway.  |
@@ -179,6 +175,8 @@ A BDN XML file can also be dragged and dropped onto the left panel.
 | **Theme**    | System / Light / Dark |
 | **Language** | English / Spanish     |
 
+Click the logo to open About: version, author, acknowledgements, components and license links.
+
 ---
 
 ## CLI Reference
@@ -193,7 +191,7 @@ The CLI shares the exact same engine as the GUI.
 | --------------------- | --------------------------------------------------------------------- |
 | `-i, --input`         | BDN XML input file (required)                                         |
 | `output`              | Output .sup file path (positional, required)                          |
-| `-q, --quantizer`     | Quantizer: `0` QtzrUTC, `1` Pillow, `2` HexTree, `3` PNGQ/LIQ (default 3; only 2 and 3 are built in) |
+| `-q, --quantizer`     | Quantizer: `0` qtzr, `1` hextree, `2` libimage (default), `3` wu |
 | `-b, --bt`            | Color space: bt601, bt709, bt2020 (default bt709)                     |
 | `-y, --yes`           | Overwrite existing output                                             |
 | `-w, --withsup`       | Generate both .sup and .pes/.mui                                      |
@@ -203,7 +201,7 @@ The CLI shares the exact same engine as the GUI.
 | `-d, --ahead`         | Allow palette update buffering (alias `--overlap`, deprecated)        |
 | `--alternate-oids`    | Force legacy global object ids 0/1 (default: per-window ids)          |
 | `--ignore-resolution` | Accept non-standard video resolutions                                  |
-| `--tight-ods`         | Crop each event's ODS box tight to its text (default: off)            |
+| `--tight-ods`         | Crop each event's ODS box tight to its text (default: off; forced by `--single-object-ds`) |
 | `--single-object-ds`  | Emit at most one object per display set (Media3/Android TV compat)    |
 | `--redraw-period`     | Anchor interval in seconds (0 = disable, minimum 1)                   |
 | `-m, --max-kbps`      | Validate against a max bitrate in Kbps [0-48000, 0 = off] (default 0) |
@@ -212,9 +210,21 @@ The CLI shares the exact same engine as the GUI.
 | `-a, --acqrate`       | Acquisition rate [0-100] (default 100)                                |
 | `--ssim-tol`          | SSIM tolerance [-100..100] (default 0)                                |
 | `-e, --extra-acq`     | Insert acquisition after N palette updates [0 = off] (default 2)      |
-| `--config`            | INI overrides for libimagequant ([PILIQ] quality/speed/dither)        |
+| `--config`            | `[PILIQ]` overrides: quality/speed for libimagequant, dither for libimage, Qtzr and Wu |
 | `--json`              | Emit NDJSON events to stdout (log / progress / done)                  |
 | `-v, --version`       | Print version and exit                                                |
+
+### Quantizer engines
+
+| ID | Engine   | Dithering                        | Quality / speed                                    |
+| --- | -------- | -------------------------------- | -------------------------------------------------- |
+| 0  | qtzr     | Dither on/off from `[PILIQ]`     | High quality, fast; fixed effort                   |
+| 1  | hextree  | Atkinson                         | Good, very fast                                    |
+| 2  | libimage | libimagequant dither from `[PILIQ]` | Best quality, fast; `quality`/`speed` apply     |
+| 3  | wu       | Atkinson (when dithering enabled) | Variance-optimal palette, no native dither control |
+
+Unknown ids fall back to `2` with a warning. Settings saved before this
+renumbering (`2` hextree, `3` libimage, `5` wu) are remapped on load.
 
 ### Inspector
 
@@ -229,7 +239,7 @@ The CLI can read a finished `.sup` without re-encoding it:
 | Subcommand | Options                | Description                                                        |
 | ---------- | ---------------------- | ------------------------------------------------------------------ |
 | `inspect`  | `--ds N`               | Dump the structure of a `.sup` file, one display set or all        |
-| `validate` | `--json`, `--max-kbps` | Check PTS/DTS ordering, truncation and (optionally) decoder buffer |
+| `validate` | `--json`, `--max-kbps` | Check PTS/DTS ordering, truncation, PCS/ENDS structure and (optionally) decoder buffer |
 | `stats`    | `--json`               | Census counters: segments, display sets, epochs, object sizes      |
 
 **Exit codes:** `0` on success, `1` on failure (parse error, output exists without `-y`, encode
@@ -267,11 +277,14 @@ serves the read-only inspector subcommands (`inspect` / `validate` / `stats`), w
 │   │   ├── ssim          SSIM comparison
 │   │   └── timecode      Timecode / PTS helpers
 │   ├── media/            PGS media layer
+│   │   ├── dither        Atkinson error diffusion shared by HexTree and Wu
 │   │   ├── hextree_impl  HexTree quantizer core (ported from brule, MIT)
-│   │   ├── optimizer     Quantization backends (libimagequant / HexTree)
+│   │   ├── optimizer     Quantization backends (libimagequant, Qtzr, HexTree, Wu)
 │   │   ├── palette       Palette and palette-entry handling
 │   │   ├── pgraphics     PGS graphics RLE encoder
-│   │   └── rle_decode    RLE decoder for the inspector
+│   │   ├── qtzrutc_core  QtzrUTC quantizer core (ported from cubicibo, MIT)
+│   │   ├── rle_decode    RLE decoder for the inspector
+│   │   └── wuquant_core  Wu variance-minimization quantizer core
 │   ├── core/             Core engine
 │   │   ├── ctu           Recursive area-weighted SSIM comparison
 │   │   ├── filestreams   BDN XML parser, .sup / .pes writers
@@ -287,7 +300,7 @@ serves the read-only inspector subcommands (`inspect` / `validate` / `stats`), w
 │   ├── app.go            Go binding layer
 │   ├── config/           Settings persistence + physical-core detection
 │   ├── engine/           Engine runner and embedded per-OS binaries
-│   ├── i18n/             English / Spanish strings
+│   ├── window.go         Window geometry and maximized-state persistence
 │   └── frontend/         Vanilla HTML/CSS/JS frontend (Vite)
 ├── cmake/                Toolchains and version header template
 └── CMakeLists.txt        Build entry point
@@ -307,16 +320,6 @@ serves the read-only inspector subcommands (`inspect` / `validate` / `stats`), w
 
 ---
 
-## Technical notes
-
-- **Determinism**: multithreaded encoding (`-t N`) is byte-identical to sequential (`-t 1`).
-- **Parity**: the generated `.sup` structure matches the original SUPer output; the CLI is verified
-  against a SubtitleEdit reference stream.
-- **Compactness**: output was measured smaller than the SubtitleEdit reference on the test corpus
-  used during development.
-
----
-
 ## License
 
 GPL v3, see [LICENSE](LICENSE).
@@ -330,7 +333,10 @@ Copyright (C) 2026 Lanzoone30. Based on [SUPer](https://github.com/cubicibo/SUPe
   adapted into OpenSUP
 - **[libimagequant](https://github.com/ImageOptim/libimagequant)**: high-quality palette
   quantization
+- **QtzrUTC**: original quantizer algorithm by cubicibo (MIT)
 - **[brule](https://github.com/cubicibo/brule)**: HexTree quantizer and layout engine core (MIT)
+- **Xiaolin Wu**: variance-minimization quantizer (`cq.c`)
+- **[stb_image](https://github.com/nothings/stb)**: PNG image loading
 - **[CLI11](https://github.com/CLIUtils/CLI11)** and **[pugixml](https://github.com/zeux/pugixml)**:
   CLI parsing and XML
 - **[Wails](https://wails.io)**: Go desktop application framework

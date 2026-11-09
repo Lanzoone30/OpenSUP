@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -195,6 +195,8 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
     };
 
     for (auto& e : stream.errors) add(0, true, "stream", e);
+    if (stream.missing_final_ends)
+        add(0, true, "stream", "trailing display set without ENDS");
     if (stream.trailing_bytes)
         add(0, true, "stream",
             "trailing bytes after the last segment: " + std::to_string(stream.trailing_bytes));
@@ -206,50 +208,66 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
     for (auto& ep : epochs) {
         if (ep.empty()) continue;
         const size_t first = ep[0];
-        auto& first_ds = stream.display_sets[first];
-        auto* fpcs = pcs_of(first_ds);
-        if (!fpcs) continue;
 
-        // The PCS stores an fps *code* (0x10 = 23.976 ...); frame_duration needs
-        // the real rate, exactly as the oracle receives the BDN fps.
-        const double fps = common::fps_e::from_pcsfps(static_cast<int32_t>(fpcs->fps())).to_double();
-        const uint32_t frame_duration = static_cast<uint32_t>(std::floor(media::pg_decoder_t::FREQ / fps));
-
-        // --- epoch level (oracle is_compliant / check_pts_dts_sanity) --------
-        if ((static_cast<uint8_t>(fpcs->composition_state()) & 0x80) == 0)
-            add(first, true, "epoch/start", "first display set of the epoch is not an Epoch Start");
-
-        auto* fwds = wds_of(first_ds);
-        if (fwds) {
-            for (auto& w : fwds->windows) {
-                if (static_cast<uint32_t>(w.h_pos) + w.width > fpcs->video_width() ||
-                    static_cast<uint32_t>(w.v_pos) + w.height > fpcs->video_height())
-                    add(first, true, "epoch/window",
-                        "window out of screen: id=" + std::to_string(w.window_id));
-            }
-            if (fwds->windows.size() == 2) {
-                const auto& a = fwds->windows[0];
-                const auto& b = fwds->windows[1];
-                const int x0 = std::max<int>(a.h_pos, b.h_pos);
-                const int x1 = std::min<int>(a.h_pos + a.width, b.h_pos + b.width);
-                const int y0 = std::max<int>(a.v_pos, b.v_pos);
-                const int y1 = std::min<int>(a.v_pos + a.height, b.v_pos + b.height);
-                if (x1 > x0 && y1 > y0) add(first, true, "epoch/window", "overlapping windows in epoch");
-            }
+        // First display set with a PCS anchors the epoch; a leading display set
+        // without one is reported by the per-display-set rules below.
+        size_t anchor = first;
+        auto* fpcs = pcs_of(stream.display_sets[anchor]);
+        for (size_t kd = 1; !fpcs && kd < ep.size(); ++kd) {
+            anchor = ep[kd];
+            fpcs = pcs_of(stream.display_sets[anchor]);
         }
 
-        const uint32_t pts_delta = window_ticks(fwds);
-        const uint32_t wipe_duration = static_cast<uint32_t>(
-            std::ceil(static_cast<double>(fpcs->video_width()) * fpcs->video_height() *
-                      media::pg_decoder_t::FREQ / media::pg_decoder_t::RC));
+        uint32_t frame_duration = 0;
+        uint32_t pts_delta = 0;
+        uint32_t wipe_duration = 0;
+        if (fpcs) {
+            // The PCS stores an fps *code* (0x10 = 23.976 ...); frame_duration needs
+            // the real rate, exactly as the oracle receives the BDN fps.
+            const double fps =
+                common::fps_e::from_pcsfps(static_cast<int32_t>(fpcs->fps())).to_double();
+            frame_duration = static_cast<uint32_t>(std::floor(media::pg_decoder_t::FREQ / fps));
 
-        const uint32_t es_diff = md(fpcs->tdts(), prev_pts);
-        if (!(es_diff > 0 && es_diff < PTS_DIFF_BOUND))
-            add(first, true, "pts_dts/epoch_start",
-                "epoch start DTS does not follow the previous epoch PTS");
-        if (!(md(fpcs->tpts(), fpcs->tdts()) > wipe_duration))
-            add(first, true, "pts_dts/epoch_start",
-                "epoch start PTS-DTS delta does not exceed the wipe duration");
+            // epoch level (oracle is_compliant / check_pts_dts_sanity)
+            if (anchor == first &&
+                (static_cast<uint8_t>(fpcs->composition_state()) & 0x80) == 0)
+                add(first, true, "epoch/start", "first display set of the epoch is not an Epoch Start");
+
+            auto* fwds = wds_of(stream.display_sets[anchor]);
+            if (fwds) {
+                for (auto& w : fwds->windows) {
+                    if (static_cast<uint32_t>(w.h_pos) + w.width > fpcs->video_width() ||
+                        static_cast<uint32_t>(w.v_pos) + w.height > fpcs->video_height())
+                        add(anchor, true, "epoch/window",
+                            "window out of screen: id=" + std::to_string(w.window_id));
+                }
+                if (fwds->windows.size() == 2) {
+                    const auto& a = fwds->windows[0];
+                    const auto& b = fwds->windows[1];
+                    const int x0 = std::max<int>(a.h_pos, b.h_pos);
+                    const int x1 = std::min<int>(a.h_pos + a.width, b.h_pos + b.width);
+                    const int y0 = std::max<int>(a.v_pos, b.v_pos);
+                    const int y1 = std::min<int>(a.v_pos + a.height, b.v_pos + b.height);
+                    if (x1 > x0 && y1 > y0)
+                        add(anchor, true, "epoch/window", "overlapping windows in epoch");
+                }
+            }
+
+            pts_delta = window_ticks(fwds);
+            wipe_duration = static_cast<uint32_t>(
+                std::ceil(static_cast<double>(fpcs->video_width()) * fpcs->video_height() *
+                          media::pg_decoder_t::FREQ / media::pg_decoder_t::RC));
+
+            if (anchor == first) {
+                const uint32_t es_diff = md(fpcs->tdts(), prev_pts);
+                if (!(es_diff > 0 && es_diff < PTS_DIFF_BOUND))
+                    add(first, true, "pts_dts/epoch_start",
+                        "epoch start DTS does not follow the previous epoch PTS");
+                if (!(md(fpcs->tpts(), fpcs->tdts()) > wipe_duration))
+                    add(first, true, "pts_dts/epoch_start",
+                        "epoch start PTS-DTS delta does not exceed the wipe duration");
+            }
+        }
 
         std::map<uint8_t, uint8_t> pds_vn;
         std::map<uint8_t, media::palette_t> pals;
@@ -274,7 +292,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             }
             const uint8_t state = static_cast<uint8_t>(pcs->composition_state());
 
-            // --- test_diplayset -------------------------------------------------
+            // test_diplayset
             if (ds.segments.empty() || ds.segments[0]->type() != segment_type_e::pcs)
                 add(ep[kd], true, "test_diplayset/order", "PCS is not the first segment");
             if (pcs->n_objects() > 2 || pcs->n_objects() != pcs->cobjects.size())
@@ -300,10 +318,13 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                     add(ep[kd], true, "test_diplayset/wds",
                         "unsupported window count " + std::to_string(wds->windows.size()));
             }
-            if (ds.segments.empty() || ds.segments.back()->type() != segment_type_e::end)
+            const bool ends_present = has_type(ds, segment_type_e::end);
+            const bool trailing = !ends_present && ep[kd] + 1 == stream.display_sets.size();
+            // A trailing display set is reported once at stream level.
+            if (!trailing && (!ends_present || ds.segments.back()->type() != segment_type_e::end))
                 add(ep[kd], true, "test_diplayset/end", "ENDS is missing or not the last segment");
 
-            // --- segments in stream order (oracle is_compliant) -------------------
+            // segments in stream order (oracle is_compliant)
             if (state != 0) { // acquisition: past objects/palettes must not be accessed
                 ods_filled.clear();
                 pals.clear();
@@ -313,7 +334,8 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             for (auto& seg : ds.segments) {
                 switch (seg->type()) {
                     case segment_type_e::pcs: {
-                        if (pcs->composition_n() != ((prev_pcs_id + 1) & 0xFFFF) &&
+                        if (prev_pcs_id != 0xFFFF &&
+                            pcs->composition_n() != ((prev_pcs_id + 1) & 0xFFFF) &&
                             pcs->composition_n() != prev_pcs_id && state != 0x80)
                             add(ep[kd], false, "test_diplayset/comp_n",
                                 "composition number does not increment by one");
@@ -454,7 +476,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                 }
             }
 
-            // --- composition objects (oracle placement/expiry rules) --------------
+            // composition objects (oracle placement/expiry rules)
             if (auto* wds = wds_of(ds)) {
                 for (auto& cobj : pcs->cobjects) {
                     auto sit = slots.find(cobj.o_id);
@@ -499,7 +521,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                 }
             }
 
-            // --- composition number / duplicate PTS (soft) -----------------------
+            // composition number / duplicate PTS (soft)
             if (kd > 0) {
                 if ((state & 0x80) != 0)
                     add(ep[kd], true, "epoch/start", "epoch start in the middle of an epoch");
@@ -509,7 +531,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             }
             prev_pcs_id = pcs->composition_n();
 
-            // --- check_pts_dts_sanity --------------------------------------------
+            // check_pts_dts_sanity
             const int64_t ds_pts = pcs->tpts();
             const int64_t ds_dts = pcs->tdts();
             bool ds_comply = md(ds_dts, prev_dts) <= PTS_DIFF_BOUND &&

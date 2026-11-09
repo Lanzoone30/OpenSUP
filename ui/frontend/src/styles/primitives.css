@@ -1,4 +1,4 @@
-/* ── Selects (native) ── */
+/* Selects (native) */
 select {
   background: var(--surface);
   color: var(--text);
@@ -26,7 +26,8 @@ select:hover {
 
 select:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 select option {
@@ -34,7 +35,7 @@ select option {
   color: var(--text);
 }
 
-/* ── Icon helpers (seg) ── */
+/* Icon helpers (seg) */
 .seg-source {
   position: absolute;
   width: 1px;
@@ -46,7 +47,7 @@ select option {
   white-space: nowrap;
   border: 0;
 }
-/* ── Buttons ── */
+/* Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -72,7 +73,8 @@ select option {
 }
 
 .btn:focus-visible {
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -81,7 +83,7 @@ select option {
   pointer-events: none;
 }
 
-/* ── Custom dropdown (quantizer) ── */
+/* Custom dropdown (quantizer) */
 .dropdown {
   position: relative;
   min-width: 0;
@@ -114,10 +116,14 @@ select option {
   border-color: var(--accent);
 }
 
-.dd-btn:focus-visible,
+.dd-btn:focus-visible {
+  border-color: var(--border-focus);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
 .dd-btn.open {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .dd-list {
@@ -189,7 +195,8 @@ select option {
   }
 }
 
-.dd-list li:hover {
+.dd-list li:hover,
+.dd-list li.focus {
   background: var(--surface-alt);
   color: var(--text);
 }
@@ -199,7 +206,7 @@ select option {
   color: var(--text);
 }
 
-/* ── Cards ── */
+/* Cards */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -210,13 +217,12 @@ select option {
   gap: 12px;
   box-shadow: var(--shadow-xs);
   position: relative;
-  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
 .card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 
 .card-title {

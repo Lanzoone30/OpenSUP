@@ -1,5 +1,4 @@
 // app.js — Main entry point. Vanilla JS, no framework.
-// Orchestrates the per-component modules and shared utilities.
 
 import './app.css';
 import { t, getLang } from './shared/i18n.js';
@@ -11,16 +10,17 @@ import sunIcon from './components/ui-actions/assets/sun.svg?raw';
 import moonIcon from './components/ui-actions/assets/moon.svg?raw';
 import { $ } from './shared/dom.js';
 import { state } from './shared/state.js';
-import { appendLog, updateLogCount, updateLogPlaceholder, wireLogPanel, lockLogButtonWidths, updateLogButtons } from './components/log-panel/log-panel.js';
+import { appendLog, updateLogCount, updateLogPlaceholder, wireLogPanel, updateLogButtons } from './components/log-panel/log-panel.js';
 import { setStatus, setProgressClip, updateProgress } from './components/progress/progress.js';
-import { applyBDNPath, updateOutputActions, updateControlsFade, wireControlsFade, wireCardToggles, populateThreads, updateScopeHint } from './components/left-control-panel/left-control-panel.js';
+import { applyBDNPath, updateOutputActions, updateControlsFade, wireControlsFade, wireCardToggles, populateThreads, updateScopeHint, flashOutputReady } from './components/left-control-panel/left-control-panel.js';
 import { setEncodingState, updateReadyState, wireButtons, wireOptions } from './components/btns-actions/btns-actions.js';
 import { syncSeg } from './shared/segmented.js';
-import { syncDropdown } from './shared/dropdown.js';
+import { syncDropdown, refreshDropdown } from './shared/dropdown.js';
 import { loadSettings } from './shared/settings.js';
 import { wireUiActions } from './components/ui-actions/ui-actions.js';
+import { wireAbout } from './components/about/about.js';
 
-// ── i18n: translate all [data-i18n] elements ──
+// i18n: translate all [data-i18n] elements
 function applyI18n() {
   document.documentElement.lang = getLang() === 1 ? "es" : "en";
   document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -31,36 +31,28 @@ function applyI18n() {
     // The status LED label is dynamic (Working/Finished/etc): keep its
     // current state, it is re-applied at the end of this function.
     if (el.id === "lbl_progress_text") return;
+    if (el.id === "btn_encode" && state.isEncoding) {
+      el.textContent = t("encodeRunning");
+      return;
+    }
     if (el.classList.contains("help-tip")) {
       // Native tooltip (title): never clipped by the scrolling column.
       el.title = t(el.dataset.i18n);
+      el.setAttribute("aria-label", el.title);
       return;
     }
     el.textContent = t(el.dataset.i18n);
   });
-  // Tooltips for checkboxes
-  const tips = {
-    chk_allow_normal: "tipAllowNormal",
-    chk_prefer_normal: "tipPreferNormal",
-    chk_full_palette: "tipFullPalette",
-    chk_both_formats: "tipBothFormats",
-    chk_overlap: "tipOverlapBuf",
-    chk_alternate_oids: "tipAlternateOids",
-    chk_tight_ods: "tipTightOds",
-    chk_single_object_ds: "tipSingleObjectDs",
-    chk_ignore_resolution: "tipIgnoreResolution",
-  };
-  for (const [id, key] of Object.entries(tips)) {
-    const el = $(id);
-    if (el && el.parentElement) el.parentElement.title = t(key);
-  }
+  // Checkbox labels carry their tip as a native tooltip on the text itself.
+  document.querySelectorAll("[data-i18n-tip]").forEach((el) => {
+    el.title = t(el.dataset.i18nTip);
+  });
   const themeTips = { 0: "themeSystem", 1: "themeLight", 2: "themeDark" };
   document.querySelectorAll("#seg_theme .seg-opt").forEach((el) => {
     const label = t(themeTips[el.dataset.val]);
     el.title = label;
     el.setAttribute("aria-label", label);
   });
-  // Tooltips for selects
   const cs = $("combo_colorspace");
   if (cs) cs.title = t("colorSpaceTip");
   const qz = $("combo_quantizer");
@@ -78,16 +70,15 @@ function applyI18n() {
     fl.title = t("jumpToLive");
     fl.setAttribute("aria-label", t("jumpToLive"));
   }
-  // Update log count + empty-state text
   updateLogCount();
   updateLogPlaceholder();
-  lockLogButtonWidths();
   // Re-translate the status LED label in the new language.
   if (state.statusMode) setStatus(state.statusMode);
   updateScopeHint();
+  // Closed dropdown labels mirror their translated option text.
+  document.querySelectorAll(".dropdown").forEach((dd) => refreshDropdown(dd.id));
 }
 
-// ── Wire up Wails engine events ──
 function wireEngineEvents() {
   EventsOn("engine:log", (data) => {
     if (data && data.level && data.msg) {
@@ -109,6 +100,7 @@ function wireEngineEvents() {
     if (data && data.success) {
       setProgressClip(1);
       setStatus("finished");
+      flashOutputReady();
     } else if (data && data.cancelled) {
       appendLog("warn", t("abortLogMsg"));
       setStatus("aborted");
@@ -123,7 +115,6 @@ function wireEngineEvents() {
   });
 }
 
-// ── Wire up OS drag & drop ──
 function wireDragAndDrop() {
   OnFileDrop((x, y, paths) => {
     if (!paths?.length || state.isEncoding) return;
@@ -137,16 +128,16 @@ function wireDragAndDrop() {
   });
 }
 
-// ── Wire up DOM events ──
 function wireDomEvents() {
   wireUiActions(applyI18n);
   wireButtons();
   wireOptions();
   wireLogPanel();
   wireCardToggles();
+  wireAbout();
 }
 
-// Inyect SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.
+// Inject SVG icons (loaded ?raw from components/left-control-panel/assets/) into their hosts.
 function injectIcons() {
   const icons = { folder: folderIcon, eraser: eraserIcon, monitor: monitorIcon, sun: sunIcon, moon: moonIcon };
   document.querySelectorAll("[data-icon]").forEach((el) => {

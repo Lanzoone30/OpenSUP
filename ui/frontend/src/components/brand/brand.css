@@ -12,18 +12,38 @@
   width: 180px;
   height: 1px;
   background: linear-gradient(90deg,
-      transparent 0%, var(--border-strong) 30%,
-      var(--border-strong) 70%, transparent 100%);
+      transparent 0%, var(--border) 30%,
+      var(--border) 70%, transparent 100%);
 }
 
 .brand-top-line {
   margin-bottom: 2px;
 }
 
+.brand-trigger {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: var(--r-card);
+}
+
+.brand-trigger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
 #logo {
   height: var(--logo-h);
   width: var(--logo-w);
   object-fit: contain;
+  transition: transform var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+
+.brand:hover #logo {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 5px 10px var(--accent-ring));
 }
 
 .subtitle {

@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -33,7 +33,7 @@ parse_args(int argc, char** argv)
         ->required();
 
     app.add_option("-q,--quantizer", opts.quantizer,
-                    "Set image quantizer. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ] (def: 3)");
+                    "Set image quantizer. [0: qtzr, 1: hextree, 2: libimage (default), 3: wu]");
 
     app.add_option("-b,--bt", opts.bt_matrix,
                     "Color Space [BT.709, BT.601, BT.2020] (def: BT.709)");
@@ -221,14 +221,11 @@ options_to_config(const cli_options_t& opts)
     cfg.input_path = opts.input_path;
     cfg.output_path = opts.output_path;
     cfg.quantizer_id = opts.quantizer;
-    if (cfg.quantizer_id < 0 || cfg.quantizer_id > 4) {
+    if (cfg.quantizer_id != 0 && cfg.quantizer_id != 1 &&
+        cfg.quantizer_id != 2 && cfg.quantizer_id != 3) {
         common::logger_c::instance().warn(
-            "Invalid quantizer '" + std::to_string(opts.quantizer) + "', using PNGQ/LIQ (3).");
-        cfg.quantizer_id = 3;
-    } else if (cfg.quantizer_id != 2 && cfg.quantizer_id != 3) {
-        common::logger_c::instance().error(
-            "backend not available in this build (available: 2, 3)");
-        std::exit(1);
+            "Invalid quantizer '" + std::to_string(opts.quantizer) + "', using libimage (2).");
+        cfg.quantizer_id = 2;
     }
     cfg.overwrite = opts.overwrite;
     cfg.ignore_resolution = opts.ignore_resolution;

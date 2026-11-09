@@ -1,11 +1,9 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
 //
 // Port of brule's HexTree quantizer (MIT, (c) 2024 cubicibo).
-
-// The Python/numpy binding was removed; the C++ core is unchanged.
 
 #pragma once
 

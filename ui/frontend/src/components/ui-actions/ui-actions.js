@@ -45,4 +45,17 @@ function wireSeg(segId, selectId) {
     sel.dispatchEvent(new Event("change"));
     syncSeg(segId);
   });
+  seg.addEventListener("keydown", (e) => {
+    const opts = [...seg.querySelectorAll(".seg-opt")];
+    const current = opts.indexOf(document.activeElement);
+    if (current < 0) return;
+    let next;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (current + 1) % opts.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (current - 1 + opts.length) % opts.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = opts.length - 1;
+    else return;
+    e.preventDefault();
+    opts[next].focus();
+  });
 }

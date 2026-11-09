@@ -1,10 +1,10 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
 //
-// Quantization backends: libimagequant (GPL-3.0-or-later) and the
-// HexTree quantizer from cubicibo/brule (MIT, ported in hextree_impl.cpp).
+// Quantization backends: libimagequant (GPL-3.0-or-later), the HexTree
+// quantizer from cubicibo/brule (MIT), QtzrUTC and Wu.
 
 #pragma once
 
@@ -82,6 +82,28 @@ public:
     std::string name() const override { return "HexTree"; }
 };
 
+/// QtzrUTC backend (no external deps).
+class qtzrutc_t : public quantizer_base_c {
+public:
+    quantize_result_t quantize(const std::vector<uint8_t>& rgba,
+                               int width, int height, int max_colors,
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
+    std::string name() const override { return "QtzrUTC"; }
+};
+
+/// Wu backend: variance-minimizing palette, optional Atkinson dithering.
+class wuquant_t : public quantizer_base_c {
+public:
+    quantize_result_t quantize(const std::vector<uint8_t>& rgba,
+                               int width, int height, int max_colors,
+                               bool single_bitmap,
+                               std::string_view matrix,
+                               const liq_options_t& opts = {}) override;
+    std::string name() const override { return "Wu"; }
+};
+
 /// One frame of a subtitle animation group (raw trimmed RGBA).
 struct group_frame_t {
     std::vector<uint8_t> rgba;  ///< width*height*4, straight alpha.
@@ -108,12 +130,15 @@ struct group_solution_t {
  * @param out        Bitmap + per-frame palette diffs (frame 0 carries all).
  * @param matrix     YCbCr conversion matrix (bt601|bt709|bt2020).
  * @param opts       libimagequant tuning forwarded to the backend.
+ * @param quantizer_idx Backend index from optimiser_c::index_for(); -1 starts
+ *        at index 0 (libimagequant).
  * @return true on success.
  */
 [[nodiscard]] bool solve_group(const std::vector<group_frame_t>& frames,
                                int max_colors, group_solution_t& out,
                                std::string_view matrix = "bt709",
-                               const liq_options_t& opts = {});
+                               const liq_options_t& opts = {},
+                               int quantizer_idx = -1);
 
 /**
  * @brief Factory of quantizers available in this build.
@@ -124,8 +149,8 @@ class optimiser_c {
 public:
     static std::vector<std::unique_ptr<quantizer_base_c>> get_available();
 
-    /// SUPer quantizer id (2 = HexTree, 3 = LIQ) -> get_available() index,
-    /// or -1 when the backend is not compiled into this build.
+    /// Engine quantizer id (0 = QtzrUTC, 1 = HexTree, 2 = LIQ, 3 = Wu) ->
+    /// get_available() index, or -1 when not compiled into this build.
     static int index_for(int quantizer_id) noexcept;
 };
 

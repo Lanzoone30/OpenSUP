@@ -49,11 +49,33 @@ export async function setOutput() {
 export async function revealOutputFolder() {
   const app = go();
   if (!app?.RevealOutput || !state.outputPath) return;
+  clearOutputFlash();
   try {
     await app.RevealOutput(state.outputPath);
   } catch (err) {
     console.error("RevealOutput:", err);
   }
+}
+
+let readyTimer = 0;
+export function flashOutputReady() {
+  const btn = $("btn_reveal_output");
+  if (!btn || btn.disabled) return;
+  clearOutputFlash();
+  btn.classList.add("is-ready");
+  readyTimer = setTimeout(clearOutputFlash, 7000);
+}
+
+export function clearOutputFlash() {
+  if (readyTimer) {
+    clearTimeout(readyTimer);
+    readyTimer = 0;
+  }
+  const btn = $("btn_reveal_output");
+  if (!btn) return;
+  btn.classList.remove("is-ready");
+  btn.title = t("openOutputFolder");
+  btn.setAttribute("aria-label", t("openOutputFolder"));
 }
 
 // Enable/disable the reveal-folder icon based on whether an output exists.
@@ -68,14 +90,17 @@ export function updateScopeHint() {
   if (hint) {
     const hasBdn = Boolean(state.inputPath);
     const hasOut = Boolean(state.outputPath);
-    hint.hidden = hasBdn === hasOut;
+    hint.hidden = hasBdn && hasOut;
     $("hint_bdn").classList.toggle("done", hasBdn);
     $("hint_output").classList.toggle("done", hasOut);
   }
   const clear = $("btn_clear_scope");
   if (clear) clear.disabled = (!state.inputPath && !state.outputPath) || state.isEncoding;
   const dz = $("drop_bdn");
-  if (dz) dz.title = state.inputPath ? "" : t("dropBdn");
+  if (dz) {
+    dz.title = state.inputPath ? t("dropBdnReplace") : t("dropBdn");
+    dz.classList.toggle("has-file", Boolean(state.inputPath));
+  }
 }
 
 export function clearScope() {
@@ -87,6 +112,7 @@ export function clearScope() {
   $("lbl_output_file").title = "";
   updateReadyState();
   updateOutputActions();
+  clearOutputFlash();
 }
 
 export function updateControlsFade() {
@@ -106,10 +132,95 @@ export function wireControlsFade() {
   updateControlsFade();
 }
 
+const ACC = { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" }; // = var(--ease)
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const accAnim = new WeakMap(); // <details> -> running Animation
+const accClosing = new WeakSet(); // <details> held open while collapsing
+
+// An opening ancestor locked to a stale height would clip the growing child,
+// so drop its height lock and let it settle at its natural height.
+function accUnlockAncestors(d) {
+  for (let p = d.parentElement; p; p = p.parentElement) {
+    if (p.tagName !== "DETAILS" || !p.open || accClosing.has(p)) continue;
+    const anim = accAnim.get(p);
+    if (!anim) continue;
+    anim.cancel();
+    accAnim.delete(p);
+    p.classList.remove("acc-anim");
+  }
+}
+
+function accAnimate(d, from, to, fill, done) {
+  d.classList.add("acc-anim");
+  const anim = d.animate({ height: [`${from}px`, `${to}px`] }, { ...ACC, fill });
+  accAnim.set(d, anim);
+  anim.onfinish = () => {
+    if (accAnim.get(d) !== anim) return;
+    accAnim.delete(d);
+    done();
+    updateControlsFade();
+  };
+  return anim;
+}
+
+function accOpen(d) {
+  accUnlockAncestors(d);
+  const from = d.getBoundingClientRect().height;
+  d.open = true;
+  const to = d.getBoundingClientRect().height;
+  accAnimate(d, from, to, "none", () => d.classList.remove("acc-anim"));
+}
+
+function accCollapse(d) {
+  const from = d.getBoundingClientRect().height;
+  accAnim.get(d)?.cancel();
+  accAnim.delete(d);
+  d.classList.add("is-measuring");
+  const to = d.getBoundingClientRect().height;
+  d.classList.remove("is-measuring");
+  accClosing.add(d);
+  d.classList.add("acc-closing");
+  const anim = accAnimate(d, from, to, "forwards", () => {
+    accClosing.delete(d);
+    d.open = false;
+    anim.cancel();
+    d.classList.remove("acc-closing");
+    d.classList.remove("acc-anim");
+  });
+}
+
+// Reopen during a collapse: the <details> is still open, so its natural height
+// is the target and no intermediate closed frame is ever painted.
+function accExpand(d) {
+  const from = d.getBoundingClientRect().height;
+  accAnim.get(d)?.cancel();
+  accClosing.delete(d);
+  d.classList.remove("acc-closing");
+  const to = d.getBoundingClientRect().height;
+  accAnimate(d, from, to, "none", () => d.classList.remove("acc-anim"));
+}
+
+function wireAccordion(d) {
+  const summary = d.querySelector(":scope > summary");
+  if (!summary) return;
+  summary.addEventListener("click", (e) => {
+    if (reduceMotion.matches) return; // native, instant
+    e.preventDefault();
+    if (accClosing.has(d)) return accExpand(d);
+    if (d.open) accCollapse(d);
+    else accOpen(d);
+  });
+}
+
 // Keep the sidebar edge fade in sync when a collapsible card opens/closes.
 export function wireCardToggles() {
+  const canAnimate =
+    typeof Element.prototype.animate === "function" && CSS.supports("overflow", "clip");
   ["dd_params", "dd_engine", "dd_advanced"].forEach((id) => {
-    $(id)?.addEventListener("toggle", () => updateControlsFade());
+    const d = $(id);
+    if (!d) return;
+    d.addEventListener("toggle", () => updateControlsFade());
+    if (canAnimate) wireAccordion(d);
   });
 }
 

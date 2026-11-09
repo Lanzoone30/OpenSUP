@@ -1,34 +1,36 @@
-// Bilingual string table, mirrored by the Go table in ui/i18n/strings.go.
+// Bilingual string table.
 
-const VERSION = "2.3.0";
+// __APP_VERSION__ comes from project(VERSION) in CMakeLists.txt via vite.config.js.
+const VERSION = __APP_VERSION__;
 
 const Table = {
-  // -- Header --
   subtitle:       { en: "PGS Subtitle Encoder",           es: "PGS Subtitle Encoder" },
   version:        { en: "v" + VERSION,                    es: "v" + VERSION },
   windowTitle:    { en: "OpenSUP v" + VERSION,            es: "OpenSUP v" + VERSION },
 
-  // -- Project Scope --
   projectScope:   { en: "Project Scope",                  es: "Proyecto" },
-  selectBdn:      { en: "Select bdn.xml file",            es: "Seleccionar archivo bdn.xml" },
+  selectBdn:      { en: "Select BDN XML file",            es: "Seleccionar archivo BDN XML" },
   dropBdn:        { en: "Drag & drop a BDN XML file here", es: "Arrastra y suelta un archivo BDN XML aquí" },
+  dropBdnReplace: { en: "Drop to replace the current file", es: "Soltar reemplaza el archivo actual" },
   noFile:         { en: "No file selected",               es: "Ningún archivo seleccionado" },
-  setOutput:      { en: "Set output",                     es: "Establecer salida" },
+  setOutput:      { en: "Set SUP output",                  es: "Establecer salida SUP" },
   openOutputFolder:{ en: "Open output folder",             es: "Abrir carpeta de salida" },
+  outputReady:    { en: "Encoding finished — open the output folder", es: "Codificación terminada — abrir la carpeta de salida" },
   jumpToLive:     { en: "Jump to latest log entry",        es: "Ir al final del registro" },
   destNotSet:     { en: "Destination not set",            es: "Destino no establecido" },
   clearSelections:{ en: "Clear selections",               es: "Limpiar selecciones" },
   resolutionHint: { en: "Enable the \"Ignore resolution validation\" option to process anyway.", es: "Activa la opción \"Ignorar validación de resolución\" para procesar de todas maneras." },
 
-  // -- Parameters --
   parameters:     { en: "Parameters",                     es: "Parámetros" },
   advancedOptions:{ en: "Advanced Options",              es: "Opciones avanzadas" },
   colorSpace:     { en: "Color space",                    es: "Espacio de color" },
   colorSpaceTip:  { en: "Color matrix for YCbCr conversion. Recommended: BT.709 (HD/SDR).", es: "Matriz de color para conversión YCbCr. Recomendado: BT.709 (HD/SDR)." },
   quantizer:      { en: "Quantizer: ",                    es: "Quantizer: " },
+  quantQtzr:      { en: "Qtzr (high quality, fast)",      es: "Qtzr (alta calidad, rápido)" },
   quantHexTree:   { en: "HexTree (good, very fast)",      es: "HexTree (bueno, muy rápido)" },
   quantPiliq:     { en: "libimage (best, fast)",           es: "libimage (el mejor, rápido)" },
-  quantizerTip:   { en: "Image quantizer backend. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ]. Available here: 2 and 3. Recommended: PNGQ/LIQ for final output; HexTree for fast tests.", es: "Motor de cuantización. [0: QtzrUTC, 1: Pillow, 2: HexTree, 3: PNGQ/LIQ]. Disponibles aquí: 2 y 3. Recomendado: PNGQ/LIQ para la salida final; HexTree para pruebas rápidas." },
+  quantWu:        { en: "Wu (variance-optimal)",           es: "Wu (varianza óptima)" },
+  quantizerTip:   { en: "Image quantizer backend. [0: qtzr, 1: hextree, 2: libimage, 3: wu]. Recommended: libimage for final output; hextree or qtzr for fast tests.", es: "Motor de cuantización. [0: qtzr, 1: hextree, 2: libimage, 3: wu]. Recomendado: libimage para la salida final; hextree o qtzr para pruebas rápidas." },
   redrawPeriod:   { en: "Redraw period",                   es: "Periodo de redibujado" },
   redrawPeriodTip:{ en: "Insert anchors so decoders can catch up on long events. Range: 0 s or more (0.1 s steps). 0: disabled (recommended). For events over ~5 s try 1 s.", es: "Inserta anclajes para que los decodificadores alcancen eventos largos. Rango: 0 s o más (pasos de 0,1 s). 0: desactivado (recomendado). Para eventos de más de ~5 s prueba 1 s." },
   maxKbps:        { en: "Max bitrate",                              es: "Bitrate máximo" },
@@ -45,20 +47,18 @@ const Table = {
   extraAcq:       { en: "Extra acquisition",                    es: "Adquisición extra" },
   extraAcqTip:    { en: "Force acquisition after N palette updates (0-100). 2 recommended (default). 0 = disabled.", es: "Forzar adquisición tras N actualizaciones de paleta (0-100). Recomendado 2 (por defecto). 0 = desactivado." },
 
-  // -- Engine Options --
   engineOpts:     { en: "Engine Options",                  es: "Opciones del Motor" },
   allowNormal:    { en: "Allow normal case object redefinition.", es: "Permitir redefinición normal case" },
   preferNormal:   { en: "Prefer normal case object redefinition.", es: "Preferir redefinición normal case" },
   fullPalette:    { en: "Write the full palette.",         es: "Escribir la paleta completa." },
   bothFormatsTip: { en: "Generate both .sup and .pes/.mui output formats.", es: "Generar formatos .sup y .pes/.mui." },
-  bothFormats:    { en: "Generate both SUP and PES+MUI files.", es: "SUP + PES/MUI" },
+  bothFormats:    { en: "Generate both SUP and PES+MUI output.", es: "Generar salida SUP y PES+MUI." },
   overlapBuf:     { en: "Allow palette update buffering.",  es: "Permitir buffering de paleta" },
   alternateOids:  { en: "Use global object IDs 0/1 (interoperability)", es: "Usar IDs de objeto globales 0/1 (interoperabilidad)" },
   ignoreResolution: { en: "Ignore resolution validation.", es: "Ignorar validación de resolución." },
   tightOds:       { en: "Fit ODS box to text",               es: "Ajustar caja al texto" },
   singleObjectDs: { en: "One object per display set (Android TV compatibility)", es: "Un objeto por display set (compatibilidad Android TV)" },
 
-  // -- Activity Log --
   activityLog:    { en: "ACTIVITY LOG",                   es: "REGISTRO DE ACTIVIDAD" },
   copy:           { en: "Copy",                           es: "Copiar" },
   clear:          { en: "Clear",                          es: "Limpiar" },
@@ -66,13 +66,19 @@ const Table = {
   copyLog:        { en: "Copy log",                       es: "Copiar registro" },
   logLines:       { en: "[%1 lines]",                     es: "[%1 líneas]" },
   logLine:        { en: "[%1 line]",                      es: "[%1 línea]" },
+  logBdn:         { en: "BDN",                            es: "BDN" },
+  logOutput:      { en: "Output",                         es: "Salida" },
+  logEngine:      { en: "Engine",                         es: "Motor" },
+  logSettings:    { en: "Settings",                       es: "Ajustes" },
+  logMax:         { en: "max",                            es: "máx" },
+  none:           { en: "none",                           es: "ninguno" },
 
-  // -- Encode --
   progress:       { en: "Progress",                      es: "Progreso" },
   standingBy:     { en: "Standing by",                    es: "En espera" },
   working:        { en: "Working",                        es: "Procesando" },
   finished:       { en: "Finished",                       es: "Finalizado" },
   initEncode:     { en: "ENCODE",                          es: "PROCESAR" },
+  encodeRunning:  { en: "Encoding…",                       es: "Codificando…" },
   abort:          { en: "ABORT",                           es: "ABORTAR" },
   starting:       { en: "Encoding",                       es: "Codificando" },
   done:           { en: "Done",                            es: "Listo" },
@@ -83,12 +89,10 @@ const Table = {
   reqBdn:         { en: "BDN file",                       es: "Archivo BDN" },
   reqSupOutput:   { en: "SUP output",                     es: "Salida SUP" },
 
-  // -- Theme --
   themeSystem:    { en: "System",                         es: "Sistema" },
   themeLight:     { en: "Light",                          es: "Claro" },
   themeDark:      { en: "Dark",                           es: "Oscuro" },
 
-  // -- Checkbox tooltips --
   tipAllowNormal:  { en: "Update only one composition out of the two, whenever updating both is not possible due to time constraints. This exploits the PG object buffer capabilities as intended by the format designers. Stream shall NOT be Built or Rebuilt at the authoring stage.", es: "Actualizar solo una de las dos composiciones, cuando no sea posible actualizar ambas debido a limitaciones de tiempo. Esto aprovecha las capacidades del búfer de objetos PG tal como lo concibieron los diseñadores del formato. El stream NO debe ser Built ni Rebuilt en la etapa de autoría." },
   tipPreferNormal: { en: "Update only one composition out of the two, even when decoding time is sufficient to refresh both. It can reduce the bitrate, but the palette is not shared across composition objects whenever it occurs.", es: "Actualizar solo una de las dos composiciones, incluso cuando el tiempo de decodificación es suficiente para refrescar ambas. Puede reducir el bitrate, pero la paleta no se comparte entre los objetos de composición cuando esto ocurre." },
   tipFullPalette:  { en: "Some authoring suites meddle with the imported files and may mess up the palette assignments. Writing the full palette everytime ensures palette data consistency throughout the stream.", es: "Algunas suites de autoría manipulan los archivos importados y pueden alterar las asignaciones de paleta. Escribir la paleta completa cada vez garantiza la consistencia de los datos de paleta en todo el stream." },

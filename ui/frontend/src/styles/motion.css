@@ -1,4 +1,4 @@
-/* ── Load entrance animation ── */
+/* Load entrance animation */
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -15,7 +15,7 @@
 .log-panel>.log-card,
 .log-panel>.card-progress,
 .log-panel>.encode-row {
-  animation: fade-in-up 0.45s var(--ease-out) both;
+  animation: fade-in-up 0.45s var(--ease-out) backwards;
 }
 
 .card:nth-child(1) {
@@ -46,20 +46,31 @@
   animation-delay: 0.20s;
 }
 
-/* ── Reduced motion: keep state changes, drop decorative animation ── */
+/* Reduced motion: keep state changes, drop decorative animation */
 @media (prefers-reduced-motion: reduce) {
 
   .progress-fill,
   .progress-reveal,
-  .led-done,
   .dd-list.open,
   .seg-group::before,
   .seg-opt.active .seg-icon svg,
+  #logo,
   .card,
   .log-panel>.log-card,
   .log-panel>.card-progress,
   .log-panel>.encode-row {
     animation: none !important;
     transition: none !important;
+  }
+
+  .brand:hover #logo {
+    transform: none;
+    filter: none;
+  }
+
+  .drop-zone::before {
+    animation: none !important;
+    transition: none !important;
+    opacity: 0.85;
   }
 }

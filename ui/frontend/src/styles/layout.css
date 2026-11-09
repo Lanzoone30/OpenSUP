@@ -1,4 +1,4 @@
-/* ── Layout ── */
+/* Layout */
 #app {
   display: flex;
   flex-direction: column;
@@ -8,7 +8,7 @@
   overflow: hidden;
 }
 
-/* ── Header ── */
+/* Header */
 .header {
   display: flex;
   justify-content: space-between;
@@ -21,12 +21,12 @@
   align-self: stretch;
   min-height: 56px;
   background: linear-gradient(to bottom,
-      transparent 0%, var(--border-strong) 20%,
-      var(--border-strong) 80%, transparent 100%);
+      transparent 0%, var(--border) 20%,
+      var(--border) 80%, transparent 100%);
 }
 
 
-/* ── Two-column splitter ── */
+/* Two-column splitter */
 .main-grid {
   display: grid;
   grid-template-columns: 290px 1fr;

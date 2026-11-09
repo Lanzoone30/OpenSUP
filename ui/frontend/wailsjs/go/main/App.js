@@ -6,10 +6,6 @@ export function AbortEncode() {
   return window['go']['main']['App']['AbortEncode']();
 }
 
-export function GetTranslations(arg1) {
-  return window['go']['main']['App']['GetTranslations'](arg1);
-}
-
 export function LoadSettings() {
   return window['go']['main']['App']['LoadSettings']();
 }
@@ -36,8 +32,4 @@ export function SetOutput(arg1) {
 
 export function StartEncode(arg1) {
   return window['go']['main']['App']['StartEncode'](arg1);
-}
-
-export function Version() {
-  return window['go']['main']['App']['Version']();
 }

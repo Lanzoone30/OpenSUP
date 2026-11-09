@@ -1,9 +1,9 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
 //
-// Read-only inspection of existing .sup streams (spec 034): census counters
+// Read-only inspection of existing .sup streams: census counters
 // (oracle debug_stats) and structural compliance (oracle is_compliant /
 // test_diplayset / check_pts_dts_sanity). Nothing here re-emits a stream.
 

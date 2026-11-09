@@ -1,9 +1,9 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
 //
-// Reader for existing .sup streams (spec 034). Read-only: it never re-emits.
+// Reader for existing .sup streams. Read-only: it never re-emits.
 
 #pragma once
 
@@ -26,9 +26,11 @@ struct sup_stream_t {
     size_t trailing_bytes = 0;
     /// Structural parse problems (empty for a well-formed stream).
     std::vector<std::string> errors;
+    /// The last display set at EOF is missing its closing ENDS.
+    bool missing_final_ends = false;
 
     [[nodiscard]] bool well_formed() const noexcept {
-        return errors.empty() && trailing_bytes == 0;
+        return errors.empty() && trailing_bytes == 0 && !missing_final_ends;
     }
     /// Number of epochs (a stream always has at least one if non-empty).
     [[nodiscard]] size_t epochs() const noexcept;

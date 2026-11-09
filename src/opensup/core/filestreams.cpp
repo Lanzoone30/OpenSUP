@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -192,6 +192,15 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
             std::to_string(m_height) + ", continuing anyway.");
     }
 
+    if (m_fps.denominator() == 1001) {
+        logger_c::instance().warn(
+            "FrameRate " + fps_s + " is fractional NTSC: InTC/OutTC are read as "
+            "SMPTE non-drop-frame timecode (1 TC second = " +
+            std::to_string(common::tc_t::nominal_rate(m_fps)) +
+            " frames = 1.001 s). Timecodes written in real time by older "
+            "exporters (e.g. Subtitle Edit < 4.0.1) will drift.");
+    }
+
     auto path = std::filesystem::path(filepath);
     m_folder = path.parent_path().string();
 
@@ -226,7 +235,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         }
         if (graphics.empty()) continue;
 
-        // US2: on a multi-<Graphic> canvas every declared box must match the
+        // On a multi-<Graphic> canvas every declared box must match the
         // real PNG and the graphics must not overlap (oracle asserts, 306-317).
         if (graphics.size() > 1) {
             for (const auto& g : graphics) {
@@ -257,6 +266,25 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
                         return false;
                     }
                 }
+            }
+        } else if (std::error_code exists_ec;
+                   std::filesystem::exists(graphics[0].path, exists_ec)) {
+            // Single-graphic events keep the declared box, so an image smaller
+            // than it would be indexed out of bounds downstream.
+            int rw = 0, rh = 0, rc = 0;
+            if (!stbi_info(graphics[0].path.c_str(), &rw, &rh, &rc)) {
+                logger_c::instance().error(
+                    "Failed to read image header: " + graphics[0].path);
+                return false;
+            }
+            if (rw < graphics[0].width || rh < graphics[0].height) {
+                logger_c::instance().error(
+                    "Event " + std::string(in_tc) + ": graphic " +
+                    graphics[0].path + " is " + std::to_string(rw) + "x" +
+                    std::to_string(rh) + ", XML declares " +
+                    std::to_string(graphics[0].width) + "x" +
+                    std::to_string(graphics[0].height));
+                return false;
             }
         }
 

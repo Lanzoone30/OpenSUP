@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -16,17 +16,14 @@ namespace core {
 using common::logger_c;
 using common::fps_e;
 using media::pg_decoder_t;
-/// Defined in encode_epoch.cpp.
+// Defined in encode_epoch.cpp.
 void trim_transparent_padding(const std::vector<uint8_t>& rgba, int width, int height,
                               std::vector<uint8_t>& out, int& out_w, int& out_h,
                               int& offset_x, int& offset_y);
-/// Defined in encode_epoch.cpp.
 std::vector<uint8_t> crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay,
                                   int obj_w, int obj_h, int x0, int y0, int x1, int y1);
-/// Defined in encode_epoch.cpp.
 bool trim_rgba_rect(const std::vector<uint8_t>& rgba, int ax, int ay,
                     int obj_w, int obj_h, int& x0, int& y0, int& x1, int& y1);
-/// Defined in encode_epoch.cpp.
 void normalize_transparent_index(media::palette_t& palette, std::vector<uint8_t>& indexed);
 // Overlap pipeline: active only when m_overlap && m_windows.size() == 2.
 
@@ -408,8 +405,8 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 const int iy1 = std::min(ay + node.h,
                     static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
                 if (ix1 > ix0 && iy1 > iy0) {
-                    // Re-trim al contenido dentro de la ventana (oráculo `_crop`):
-                    // el rect del evento puede cubrir más que su alpha.
+                    // Re-trim to the content inside the window (oracle `_crop`):
+                    // the event rect may cover more than its alpha.
                     int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
                     if (trim_rgba_rect(node.rgba, ax, ay, node.w, node.h,
                                        tx0, ty0, tx1, ty1))
@@ -545,7 +542,7 @@ epoch_encoder_c::emit_epoch_from_nodes(
                 std::vector<uint8_t> sub;
                 int ow, oh, ox, oy;
                 int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
-                // Re-trim al contenido dentro de la ventana (oráculo `_crop`).
+                // Re-trim to the content inside the window (oracle `_crop`).
                 const bool has_content = covered &&
                     trim_rgba_rect(node.rgba, ax, ay, node.w, node.h,
                                    tx0, ty0, tx1, ty1);

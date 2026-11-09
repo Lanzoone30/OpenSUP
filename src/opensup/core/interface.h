@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -29,7 +29,7 @@ struct encode_result_t {
     int epochs = 0;
     int segments = 0;
     int64_t duration_ms = 0;
-    /// 034/US3: census of the emitted stream (filled from the renderer).
+    /// Census of the emitted stream (filled from the renderer).
     pg_counters_t counters {};
     int reuse_candidates = 0;
 };
@@ -41,13 +41,13 @@ struct encode_config_t {
     double fps = 24.0;
     int width = 1920;
     int height = 1080;
-    int quantizer_id = 3;  // SUPer ids: 2 = HexTree, 3 = LIQ
+    int quantizer_id = 2;  // 0 = Qtzr, 1 = HexTree, 2 = libimage (def), 3 = Wu
     bool overwrite = false;
     bool ignore_resolution = false;  // accept non-Blu-ray canvas sizes (experimental)
     bool both_formats = false;
     bool allow_normal_case = false;
-    // 032/D-032-5: surface flag is stored but the core rule is deferred to a
-    // behaviour spec (needs the decode-node buffer chain, render2.py:544).
+    // Surface flag is stored but not implemented: the core rule needs the
+    // decode-node buffer chain (render2.py:544).
     bool prefer_normal_case = false;
     bool overlap = false;
     bool alternate_oids = false;   // Legacy global 0/1 oid toggle (per-window oids by default)

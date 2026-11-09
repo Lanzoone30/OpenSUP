@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -101,9 +101,20 @@ static void alpha_over(std::vector<uint8_t>& dst, const uint8_t* src, int width,
     }
 }
 
-/// Sub-recorte del indexed del evento a la ventana [x0,y0,x1,y1) en coords
-/// absolutas: resta el origen (ax,ay) del bbox del evento; píxeles fuera del
-/// evento quedan 0xFF (transparente). Defined here, used by overlap.cpp too.
+/// Crop the event's indexed bitmap to the window [x0,y0,x1,y1) in absolute
+/// coordinates, converting to event-local offsets. Pixels outside the event
+/// become 0xFF (transparent). Also used by overlap.cpp.
+///
+/// @param indexed Event bitmap, indexed by palette entry.
+/// @param ax      Event bbox origin X in absolute coordinates.
+/// @param ay      Event bbox origin Y in absolute coordinates.
+/// @param obj_w   Event bitmap width.
+/// @param obj_h   Event bitmap height.
+/// @param x0      Window left edge (absolute).
+/// @param y0      Window top edge (absolute).
+/// @param x1      Window right edge (absolute, exclusive).
+/// @param y1      Window bottom edge (absolute, exclusive).
+/// @return Cropped bitmap, empty when the window is degenerate.
 std::vector<uint8_t>
 crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay, int obj_w, int obj_h,
              int x0, int y0, int x1, int y1)
@@ -122,10 +133,20 @@ crop_indexed(const std::vector<uint8_t>& indexed, int ax, int ay, int obj_w, int
     return out;
 }
 
-/// Recorta [x0,y0,x1,y1) (coords absolutas) al bbox de contenido no
-/// transparente (0xFF) del objeto indexado; false si no queda contenido.
-/// Emula el `_crop` del oráculo sobre la sub-matriz de la ventana. Defined
-/// here, used by overlap.cpp too.
+/// Crop [x0,y0,x1,y1) (absolute coordinates) to the non-transparent (0xFF)
+/// content bbox of the indexed object. Emulates the oracle's `_crop` over the
+/// window sub-matrix. Also used by overlap.cpp.
+///
+/// @param indexed Event bitmap, indexed by palette entry.
+/// @param ax      Event bbox origin X in absolute coordinates.
+/// @param ay      Event bbox origin Y in absolute coordinates.
+/// @param obj_w   Event bitmap width.
+/// @param obj_h   Event bitmap height.
+/// @param x0      Window left edge (absolute, updated to the content box).
+/// @param y0      Window top edge (absolute, updated to the content box).
+/// @param x1      Window right edge (absolute, exclusive; updated).
+/// @param y1      Window bottom edge (absolute, exclusive; updated).
+/// @return true when content remains, false when the box is empty.
 bool
 trim_indexed_rect(const std::vector<uint8_t>& indexed,
                   int ax, int ay, int obj_w, int obj_h,
@@ -150,7 +171,7 @@ trim_indexed_rect(const std::vector<uint8_t>& indexed,
     return true;
 }
 
-/// Igual que trim_indexed_rect pero sobre RGBA (alpha>0).
+/// Same as trim_indexed_rect but over RGBA (alpha>0).
 bool
 trim_rgba_rect(const std::vector<uint8_t>& rgba,
                int ax, int ay, int obj_w, int obj_h,
@@ -252,15 +273,21 @@ epoch_encoder_c::quantize_image(const std::vector<uint8_t>& rgba, int width, int
         return true;
     };
 
-    // Default (id 3) maps to the LIQ backend at index 0, keeping the stream
-    // byte-identical to the pre-032 encoding.
+    // id 2 (default) maps to LIQ index 0, keeping the stream byte-identical
+    // to the pre-032 encoding.
     int idx = media::optimiser_c::index_for(m_quantizer_id);
     size_t qid = idx < 0 ? 0u : static_cast<size_t>(idx);
     if (try_quantize(qid)) return true;
 
-    // Fall back to the other backend when the preferred one failed.
-    size_t fallback_id = qid ^ 1u;
-    return fallback_id < opt.size() && try_quantize(fallback_id);
+    // Fall back to the next backend in get_available() order (count varies).
+    for (size_t step = 1; step < opt.size(); step++) {
+        const size_t fallback_id = (qid + step) % opt.size();
+        logger_c::instance().warn(
+            "Quantizer " + opt[(qid + step - 1) % opt.size()]->name() +
+            " failed; falling back to " + opt[fallback_id]->name());
+        if (try_quantize(fallback_id)) return true;
+    }
+    return false;
 }
 
 epoch_timings_t
@@ -520,15 +547,15 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         false, palette_id, cobjects, in.timings.base_pts, dt.dts);
     result.push_back(std::make_shared<pcs_c>(std::move(pcs)));
 
-    // WDS: PTS = PCS_PTS - wipe duration.
-    // ponytail: no artificial nudge; the +1 decode guard in compute_ds_timing
-    // already keeps dts < pts (the oracle bumps decode_duration instead).
+    // WDS: PTS = PCS_PTS - wipe duration. No artificial nudge: the +1 decode
+    // guard in compute_ds_timing already keeps dts < pts (the oracle bumps
+    // decode_duration instead).
     double wds_pts = in.timings.base_pts - dt.wipe_duration;
     auto wds = wds_c::from_scratch(wds_windows, wds_pts, dt.dts);
     result.push_back(std::make_shared<wds_c>(std::move(wds)));
 
     // PDS: PTS = DTS (instant), or earlier in overlap mode (previous ENDS).
-    // Skipped for reused events — the palette is already in the decoder.
+    // Skipped for reused events: the palette is already in the decoder.
     double pds_pts = dt.dts;
     double pds_dts = dt.dts;
     if (m_overlap && !result_so_far.empty()) {
@@ -543,7 +570,6 @@ epoch_encoder_c::emit_event_segments(const event_emit_input_t& in,
         result.push_back(make_pds(in.palette, palette_id, pds_pts, pds_dts,
                                   palette_forced));
 
-        // Skipped for reused events — the object is already decoded.
         double ods_pts = dt.dts + obj_decode;
         std::vector<uint8_t> frame_idx;
         const std::vector<uint8_t>* ods_idx = &in.indexed;
@@ -595,8 +621,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // Layout windows for this epoch (may be empty: single-window emission
     // then falls back to per-object windows below).
     m_windows = windows;
-    // ponytail: >16 WDS entries per epoch (1<<20)-150 overflows the PCS window
-    // list; collapse to a single union window instead of emitting it.
+    // The decoder buffer holds 16 entries (1 MiB); a window at or above
+    // 1 MiB-150 B cannot fit, so collapse the layout into one union window.
     if (m_windows.size() >= 2) {
         bool overflow = false;
         for (const auto& w : m_windows)
@@ -657,8 +683,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 const int ix1 = std::min(cx + w, static_cast<int>(wd.h_pos) + static_cast<int>(wd.width));
                 const int iy1 = std::min(cy + h, static_cast<int>(wd.v_pos) + static_cast<int>(wd.height));
                 if (ix1 > ix0 && iy1 > iy0) {
-                    // La ventana puede recortar un evento más ancho: re-trim al
-                    // alpha>0 dentro de la ventana (oráculo `_crop`, no el rect).
+                    // The window may crop a wider event: re-trim to the
+                    // alpha>0 content inside the window (oracle `_crop`, not the rect).
                     int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
                     if (trim_rgba_rect(rgba, ev.x(), ev.y(), ev.width(), ev.height(),
                                        tx0, ty0, tx1, ty1))
@@ -676,7 +702,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     // Global oid alternation 0/1 across acquisitions (no per-window slots).
     int double_buffer = 1;
     // Per-window slot sizing and new-object mask: max (dy,dx) seen per window
-    // and which window got new content per event. Consumed by F2.
+    // and which window got new content per event.
     const size_t nwin = m_windows.empty() ? 1 : m_windows.size();
     // Per-window oid alternation (double buffering), default path.
     std::vector<int> double_buffer_db(nwin, static_cast<int>(nwin));
@@ -691,7 +717,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     };
     std::vector<window_object_t> window_objects(nwin);
 
-    // Track previous event for clear DS insertion
     double prev_tc_out = 0.0;
     int prev_pos_x = 0, prev_pos_y = 0, prev_obj_w = 0, prev_obj_h = 0;
     bool have_prev = false;
@@ -711,15 +736,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
     uint16_t prev_obj_id = 0;
 
     // Composite bitmap for the current group.
-    // Accumulates via alpha_over; compared against via compare_with_alpha.
     std::vector<uint8_t> compo_rgba;
     int compo_w = 0, compo_h = 0;
     int compo_x = 0, compo_y = 0;
     bool have_compo = false;
 
-    // Helper to emit a clear display set at a given PTS using a window
-    // geometry (previous event's window for inline emits, recorded geometry
-    // when flushing a buffered group).
+    // Emit a clear display set at a given PTS using a window geometry
+    // (previous event's window for inline emits, recorded geometry when
+    // flushing a buffered group).
     // Mid-stream clears pick WDS-vs-palette by fit; end-of-epoch clears by
     // the last-event duration (the caller passes that decision explicitly).
     enum class clear_mode_e { auto_fit, force_wds, force_palette };
@@ -767,7 +791,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                               pts, dts, palette_id);
             return;
         }
-        // PCS: NORMAL state, empty cobjects, no palette flag
         auto clear_pcs = pcs_c::from_scratch(
             static_cast<uint16_t>(m_width), static_cast<uint16_t>(m_height),
             static_cast<uint8_t>(fps_enum.to_pcsfps()),
@@ -781,10 +804,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         result.push_back(std::make_shared<ends_c>(std::move(clear_end)));
     };
 
-    // Group buffering (P4b): a run of SSIM-fused / byte-identical events sharing one composition is
-    // buffered and co-quantized at group end: 1 union ODS + per-event palette
-    // diffs. Before P4b, fused events emitted no bitmap at all, so fades were
-    // invisible.
+    // Group buffering: a run of SSIM-fused / byte-identical events sharing one
+    // composition is buffered and co-quantized at group end: 1 union ODS +
+    // per-event palette diffs.
     struct chain_event_t {
         std::vector<uint8_t> rgba;      // trimmed frame (raw, for co-quant)
         int w = 0, h = 0, crop_x = 0, crop_y = 0, ev_x = 0, ev_y = 0;
@@ -817,9 +839,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             frames.push_back(std::move(f));
         }
         media::group_solution_t sol;
+        int qid = media::optimiser_c::index_for(m_quantizer_id);
+        if (qid < 0) qid = 0;
         // Reserved slot 0xFF stays constant; -p only selects full-PDS output.
         const bool solved = media::solve_group(
-            frames, 254, sol, m_bt_matrix, m_liq_options);
+            frames, 254, sol, m_bt_matrix, m_liq_options, qid);
         if (!solved || sol.palettes.size() != chain.size()) {
             // Fallback: emit each event standalone (fresh ODS each).
             logger_c::instance().warn(
@@ -849,15 +873,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         for (size_t i = 0; i < chain.size(); i++) {
             auto& e = chain[i];
             epoch_timings_t ds_t;
-            // The undisplay clear is emitted only for gap (wipe) nodes —
-            // "zero unless there are no PG objects shown at some point in the
-            // epoch". Contiguous updates replace/refresh the composition with
-            // no clear (no blinking): the clear is emitted only when a real
-            // gap precedes the event.
+            // The undisplay clear is emitted only for gap (wipe) nodes:
+            // contiguous updates replace or refresh the composition with no
+            // clear (no blinking), so a clear needs a real gap before the event.
             if (e.has_clear && e.clear_pts < e.timings.base_pts)
                 emit_clear_ds(e.clear_pts, e.clear_w, e.clear_h, e.clear_x, e.clear_y);
             if (i == 0) {
-                // Group start: union bitmap + full palette.
                 event_emit_input_t in{e.w, e.h, e.crop_x, e.crop_y, e.ev_x, e.ev_y,
                                       e.ev_forced, e.comp_state, e.obj_id, window_for(e.ev_x, e.ev_y, e.crop_x, e.crop_y), palette_id,
                                       false, fps_enum, sol.palettes[0], sol.bitmap,
@@ -933,7 +954,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             continue;
         }
 
-        // Trim transparent padding to the opaque bounding box
         int trim_w, trim_h, trim_x, trim_y;
         std::vector<uint8_t> trimmed_rgba;
         trim_transparent_padding(rgba, ev.width(), ev.height(),
@@ -951,14 +971,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         double cross_percentage = 1.0;
         bool force_acquisition = false;
 
-        // Current event's absolute bbox in the window
         const int cur_x = ev.x() + crop_x;
         const int cur_y = ev.y() + crop_y;
         const bool bbox_matches_compo = have_compo &&
             (cur_x == compo_x && cur_y == compo_y && obj_w == compo_w && obj_h == compo_h);
 
         if (have_prev && !reusable && bbox_matches_compo) {
-            // Compare current trimmed bitmap against the group's accumulated composite
             // CTU: recursive area-weighted SSIM with a 0.325 discount for
             // identical regions.
             const auto [ctu_score, ctu_cross] = core::ctu_c::evaluate(compo_rgba, trimmed_rgba, obj_w, obj_h);
@@ -970,11 +988,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             double thr_score = m_quality.fuse_threshold(cross_percentage);
 
             if (ssim_score >= thr_score) {
-                // FUSE: similar enough — add to composite (alpha_over)
                 alpha_over(compo_rgba, trimmed_rgba.data(), obj_w, obj_h);
                 reusable = true;
             } else {
-                // BREAK: drifted too far — force acquisition, reset composite
                 force_acquisition = true;
             }
         } else if (have_prev && !reusable && !bbox_matches_compo) {
@@ -982,7 +998,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             force_acquisition = true;
         }
 
-        // Forced/redraw events always break the group
         if (k < forced_acq.size() && forced_acq[k]) {
             force_acquisition = true;
         }
@@ -1003,7 +1018,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         epoch_timings_t timings = compute_timings(ev.tc_in(),
             static_cast<uint64_t>(obj_w) * static_cast<uint64_t>(obj_h));
 
-        // Quantize the trimmed RGBA image
         palette_t palette;
         std::vector<uint8_t> indexed;
         bool quant_ok = quantize_image(trimmed_rgba, obj_w, obj_h, palette, indexed);
@@ -1018,7 +1032,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
 
     pcs_c::composition_state_e comp_state;
     bool emit_reusable = reusable; // refresh acquisition re-emits the ODS
-    // Layout window this event's object targets (multi-window Fase 1).
+    // Layout window this event's object targets.
     const uint8_t cur_window = window_for(ev.x(), ev.y(), crop_x, crop_y);
     // Slot sizing and new-object mask: the window slot grows to the max object
     // bbox seen; a non-reusable event brings new content to its window
@@ -1056,12 +1070,11 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         nc_margin = (dts_eff > prev_dts_end);
     }
 
-    // Normal case: when the epoch has two layout windows and the new event
-    // takes over a different window while the previous object is still on
-    // screen, this display set may redefine only that window as NORMAL instead
-    // of restarting the whole composition. Requires allow_normal_case and
-    // enough decode margin (dts_start_nc > dts_start, the nc_margin signal
-    // below). The other window's object stays on screen as a CObject reference.
+    // Normal case: with two layout windows, an event that takes over a
+    // different window while the previous object is still displayed may
+    // redefine only that window as NORMAL instead of restarting the whole
+    // composition. Requires allow_normal_case and enough decode margin; the
+    // other window's object stays on screen as a CObject reference.
     const bool normal_case =
         m_allow_normal_case && m_windows.size() == 2 && have_prev &&
         ev.tc_in() < prev_tc_out && cur_window != prev_window_id &&
@@ -1102,13 +1115,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         obj_id = prev_obj_id;
     }
 
-    // Composite tracking:
-    // - fuse (reusable via SSIM): already updated via alpha_over in the SSIM block
-    // - break/forced: reset composite to current trimmed bitmap
-    // Computed before the emit decision because the group lookahead needs the
-    // composite state left by this event.
+    // The group lookahead below needs the composite state left by this event,
+    // so update it before the emit decision.
     if (force_acquisition || (k < forced_acq.size() && forced_acq[k])) {
-        // BREAK: new group starts with current event
         compo_rgba = trimmed_rgba;
         compo_w = obj_w;
         compo_h = obj_h;
@@ -1116,7 +1125,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         compo_y = ev.y() + crop_y;
         have_compo = true;
     } else if (!have_compo) {
-        // First event: initialize composite
         compo_rgba = trimmed_rgba;
         compo_w = obj_w;
         compo_h = obj_h;
@@ -1162,7 +1170,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         }
     }
 
-    // Group lookahead (P4b): would the next event fuse into this composition?
+    // Group lookahead: would the next event fuse into this composition?
     // If so, current event is a group member and its emission is deferred
     // until the group ends.
     bool next_fuses = false;
@@ -1183,7 +1191,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 const int ny = nev.y() + ((nth > 0) ? nty : 0);
                 if (nx == compo_x && ny == compo_y &&
                     naw == compo_w && nah == compo_h) {
-                    // CTU for P4b lookahead
+                    // CTU for the group lookahead
                     const auto [nctu_score, nctu_cross] = core::ctu_c::evaluate(compo_rgba, ntrim, naw, nah);
                     const double nthr = m_quality.fuse_threshold(nctu_cross);
                     next_fuses = nctu_score >= nthr;
@@ -1196,7 +1204,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         comp_state != pcs_c::composition_state_e::acquisition &&
         (chain_active || next_fuses);
     if (is_member) {
-        // Defer: this event flows into the group's union bitmap.
         chain_event_t rec;
         rec.rgba = trimmed_rgba;
         rec.w = obj_w;
@@ -1236,7 +1243,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         if (have_prev && prev_tc_out < ev.tc_in())
             emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h,
                           prev_pos_x, prev_pos_y);
-        // Emit the full display set for this event.
         event_emit_input_t in{
             obj_w, obj_h, crop_x, crop_y, ev.x(), ev.y(), ev.forced(),
             comp_state, obj_id, window_for(ev.x(), ev.y(), crop_x, crop_y), palette_id, emit_reusable, fps_enum,
@@ -1282,7 +1288,7 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
                 std::vector<uint8_t> sub;
                 int ow, oh, ox, oy;
                 int tx0 = ix0, ty0 = iy0, tx1 = ix1, ty1 = iy1;
-                // Re-trim al contenido dentro de la ventana (oráculo `_crop`).
+                // Re-trim to the content inside the window (oracle `_crop`).
                 const bool has_content = covered &&
                     trim_indexed_rect(indexed, ax, ay, obj_w, obj_h,
                                       tx0, ty0, tx1, ty1);
@@ -1461,7 +1467,6 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_obj_id = obj_id;
         prev_window_id = cur_window;
 
-        // Save event data for next iteration's clear DS and decode-margin check
         prev_tc_out = ev.tc_out();
         prev_pos_x = ev.x() + crop_x;
         prev_pos_y = ev.y() + crop_y;
@@ -1470,16 +1475,14 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         prev_base_pts = timings.base_pts;
         prev_tc_in = ev.tc_in();
         prev_wipe_dur = timings.wipe_dur;
-        if (k == 0) epoch_write_dur = timings.decode_duration; // First node's write duration
+        if (k == 0) epoch_write_dur = timings.decode_duration;
         have_prev = true;
 
-        // Keep prev_trimmed for byte-exact fast path
         prev_trimmed = trimmed_rgba;
         prev_trim_w = obj_w;
         prev_trim_h = obj_h;
     }
 
-    // Final clear DS after the last event (end of epoch wipe)
     if (chain_active) {
         flush_chain();
         chain_active = false;
@@ -1497,11 +1500,9 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         const double last_frames = (prev_tc_out - prev_tc_in) * m_fps;
         const bool perform_wds_end = last_frames >=
             std::ceil((write_ticks + 10.0) / pg_decoder_t::FREQ * m_fps);
-        // The last event's redraw budget decides the wipe: a WDS wipe is used
-        // whenever it fits, otherwise a palette swap. Multi-window intermediate
-        // epochs take the WDS clear too (the oracle drops the merged
-        // composition instead of keeping it via a palette swap), so every
-        // content epoch ends bounded by a clear.
+        // Use the WDS wipe when the last event's redraw fits, otherwise a
+        // palette swap. Multi-window intermediate epochs take the WDS clear
+        // (the oracle drops the merged composition instead of keeping it).
         const bool use_palette_end = !perform_wds_end;
         emit_clear_ds(prev_tc_out, prev_obj_w, prev_obj_h, prev_pos_x, prev_pos_y,
                       use_palette_end ? clear_mode_e::force_palette
@@ -1516,12 +1517,12 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
         }
         logger_c::instance().log(common::log_level_e::hdebug, "Final clear DS at " + std::to_string(prev_tc_out));
     }
-    // align_palette_updates (overlap mode): buffered palette updates must
-    // keep a strictly monotonic DTS: a display
-    // set may never start decoding before the previous one finished. Shifting
-    // puts each PU DTS into (prev_dts_end+1 tick, next_dts); the same +1-tick
-    // rule applies over the emitted stream, pushing both timestamps of an
-    // offending segment forward (frame by frame if needed).
+    // align_palette_updates (overlap mode): buffered palette updates must keep
+    // a strictly monotonic DTS; a display set may never start decoding before
+    // the previous one finished. Shifting puts each PU DTS into
+    // (prev_dts_end+1 tick, next_dts); the same +1-tick rule applies over the
+    // emitted stream, pushing both timestamps of an offending segment forward
+    // (frame by frame if needed).
     if (m_overlap) {
         double last_dts = -1.0;
         for (auto& seg : result) {
@@ -1536,8 +1537,8 @@ epoch_encoder_c::encode_epoch(const std::vector<bdn_xml_event_c>& events,
             }
         }
     }
-    // Slot sizes accumulated over the epoch (find_acqs min_boxes) — diagnostic
-    // parity aid for F2 slot-based decode timing.
+    // Slot sizes accumulated over the epoch (find_acqs min_boxes), diagnostic
+    // parity aid for slot-based decode timing.
     for (size_t w = 0; w < min_boxes.size(); ++w) {
         logger_c::instance().log(common::log_level_e::hdebug,
             "min_boxes w" + std::to_string(w) + " dy=" + std::to_string(min_boxes[w].first) +

@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -48,8 +48,8 @@ struct window_definition_t {
 /// A composition object: image reference + placement/cropping on the plane.
 struct c_object_t {
     enum flags_e : uint8_t {
-        cropped  = 0x80,
-        forced   = 0x40,
+        cropped  = 0x40,
+        forced   = 0x80,
         standard = 0x00,
     };
 

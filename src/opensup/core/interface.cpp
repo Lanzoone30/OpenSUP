@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -19,6 +19,7 @@
 #include <fstream>
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 #include <future>
 #include <mutex>
 #include <set>
@@ -150,10 +151,12 @@ determine_windows(const std::vector<bdn_xml_event_c>& events, int width, int hei
 
 // Split a coarse epoch while the gap between consecutive events exceeds the
 // decode base of the epoch being closed; events accumulate from the end so the
-// closing layout is known before the boundary is decided.
+// closing layout is known before the boundary is decided. on_event fires once
+// per event so the caller can report progress on large files.
 static std::vector<std::vector<bdn_xml_event_c>>
 split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width, int height,
-                           bool single_object_ds) {
+                           bool single_object_ds,
+                           const std::function<void()>& on_event = {}) {
     const uint64_t container_area = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
     std::vector<std::vector<bdn_xml_event_c>> epochs;
     std::vector<bdn_xml_event_c> running;
@@ -169,12 +172,21 @@ split_group_by_decode_base(const std::vector<bdn_xml_event_c>& group, int width,
             }
         }
         running.insert(running.begin(), event);
+        if (on_event) on_event();
     }
     if (!running.empty())
         epochs.push_back(std::move(running));
 
     std::reverse(epochs.begin(), epochs.end());
     return epochs;
+}
+
+static std::string
+format_fps(double fps, bool dropframe) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(3) << fps
+        << " fps " << (dropframe ? "DF" : "NDF");
+    return oss.str();
 }
 
 bdn_render_c::bdn_render_c(const encode_config_t& config)
@@ -195,6 +207,7 @@ bdn_render_c::execute()
     }
 
     bdn_xml_c xml;
+    logger_c::instance().info("Reading BDN XML...");
     if (!xml.parse(m_config.input_path, m_config.ignore_resolution)) {
         result.error = "Failed to parse BDN XML: " + m_config.input_path;
         logger_c::instance().error(result.error);
@@ -207,8 +220,8 @@ bdn_render_c::execute()
 
     logger_c::instance().info("Input: " + std::to_string(xml.events().size()) +
                                " events, " + std::to_string(m_config.width) + "x" +
-                               std::to_string(m_config.height) +
-                               " @" + std::to_string(m_config.fps) + " fps");
+                               std::to_string(m_config.height) + " @ " +
+                               format_fps(m_config.fps, xml.dropframe()));
 
     // Split events into epochs: a gap shorter than a full-screen epoch start
     // (write + decode + write) keeps the events in one epoch, so back-to-back or
@@ -218,12 +231,32 @@ bdn_render_c::execute()
     const double copy_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RC) / media::pg_decoder_t::FREQ;
     const double decode_dur = std::ceil(screen_area * media::pg_decoder_t::FREQ / media::pg_decoder_t::RD) / media::pg_decoder_t::FREQ;
     const double dt_split = std::max(copy_dur, decode_dur) + copy_dur;
+    const size_t total_events = xml.events().size();
+    logger_c::instance().info("Grouping " + std::to_string(total_events) +
+                              " events into epochs and calculating windows...");
+    // Per-event percentages only pay off on large files; small ones finish
+    // between two UI frames.
+    size_t grouped_events = 0;
+    int next_grouping_pct = 25;
+    std::function<void()> on_grouped_event;
+    if (total_events > 500) {
+        on_grouped_event = [&]() {
+            ++grouped_events;
+            if (next_grouping_pct <= 75 &&
+                grouped_events * 100 >= total_events * static_cast<size_t>(next_grouping_pct)) {
+                logger_c::instance().info(
+                    "Grouping events: " + std::to_string(next_grouping_pct) + "% (" +
+                    std::to_string(grouped_events) + "/" + std::to_string(total_events) + ")");
+                next_grouping_pct += 25;
+            }
+        };
+    }
     auto coarse_groups = xml.groups(dt_split);
     // Each coarse group is split further by the layout-driven decode-base check.
     std::vector<std::vector<bdn_xml_event_c>> event_groups;
     for (const auto& group : coarse_groups) {
         auto sub = split_group_by_decode_base(group, m_config.width, m_config.height,
-                                              m_config.single_object_ds);
+                                              m_config.single_object_ds, on_grouped_event);
         for (auto& epoch : sub)
             event_groups.push_back(std::move(epoch));
     }
@@ -233,7 +266,6 @@ bdn_render_c::execute()
     logger_c::instance().info("Split into " + std::to_string(result.epochs) +
                                 " epoch(s)");
 
-    // Overwrite guard
     if (!m_config.overwrite && std::filesystem::exists(m_config.output_path)) {
         result.error = "Output file exists, use -y to overwrite";
         logger_c::instance().error(result.error);
@@ -253,6 +285,15 @@ bdn_render_c::execute()
         n_threads = 1;
     if (n_threads > total_epochs)
         n_threads = total_epochs;
+
+    logger_c::instance().info("Using " + std::to_string(n_threads) + " thread(s)");
+    // Epoch 0 tells the UI the wait is over; the pending state lasts until then.
+    if (m_config.progress_cb)
+        m_config.progress_cb(0, 0, total_epochs);
+    if (total_epochs > 0) {
+        logger_c::instance().info("Encoding epoch 1/" + std::to_string(total_epochs) +
+                                  " (" + std::to_string(event_groups[0].size()) + " events)...");
+    }
 
     std::vector<std::vector<std::shared_ptr<pg_segment_c>>> epoch_results(
         static_cast<size_t>(total_epochs));
@@ -293,7 +334,7 @@ bdn_render_c::execute()
         opts.ssim_tol = m_config.ssim_tol / 100.0;
         opts.insert_acquisitions = m_config.extra_acq;
         opts.alternate_oids = m_config.alternate_oids;
-        opts.tight_ods = m_config.tight_ods;
+        opts.tight_ods = m_config.tight_ods || m_config.single_object_ds;
         opts.bt_matrix = m_config.bt_matrix;
         opts.liq_quality = m_config.liq_quality;
         opts.liq_speed = m_config.liq_speed;
@@ -322,7 +363,6 @@ bdn_render_c::execute()
                 const int i = next_epoch.fetch_add(1);
                 if (i >= total_epochs)
                     break;
-                // Allow early exit if user aborted
                 if (aborted.load() ||
                     (m_config.abort_flag && m_config.abort_flag->load())) {
                     aborted.store(true);

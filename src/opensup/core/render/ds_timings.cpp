@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -38,8 +38,8 @@ constexpr int64_t kRc = static_cast<int64_t>(pg_decoder_t::RC);
 ds_timing_t
 compute_ds_timing(const ds_timing_input_t& in) noexcept
 {
-    // ponytail: wipe is the copy time of the summed area — one ceil at the end,
-    // not the sum of per-window ceils (matches the render2.py oracle).
+    // Wipe is the copy time of the summed area: one ceil at the end, not the
+    // sum of per-window ceils (matches the render2.py oracle).
     std::map<uint8_t, int64_t> win_area;
     int64_t total_area = 0;
     for (const auto& wd : in.windows) {

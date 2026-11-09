@@ -20,7 +20,7 @@
 }
 
 
-/* ── Right column: monitoring panel ── */
+/* Right column: monitoring panel */
 .log-panel {
   display: flex;
   flex-direction: column;
@@ -29,7 +29,6 @@
   min-width: 0;
 }
 
-/* Log card */
 .log-card {
   position: relative;
   display: flex;
@@ -68,9 +67,12 @@
   line-height: 1.6;
 }
 
+/* Equal-width buttons in both languages (EN/ES labels differ). */
 .log-buttons {
   margin-left: auto;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 6px;
 }
 
@@ -136,7 +138,7 @@
   border-color: var(--accent);
 }
 
-/* ── Log entries ── */
+/* Log entries */
 .log-entry {
   display: block;
   white-space: pre-wrap;
@@ -156,6 +158,23 @@
 
 .log-entry.info {
   color: var(--log-info);
+}
+
+/* Run summary: four metadata lines shown after the divider. */
+.log-entry.log-summary {
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  padding-left: 4px;
+  background: var(--accent-soft);
+}
+
+.log-entry.log-summary:hover {
+  background: var(--accent-soft);
+}
+
+.log-entry.log-sep {
+  color: var(--text-muted);
+  opacity: 0.45;
 }
 
 .log-entry.warn {

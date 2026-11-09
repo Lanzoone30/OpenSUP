@@ -1,4 +1,4 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
@@ -95,7 +95,7 @@ main(int argc, char** argv)
 
     core::bdn_render_c renderer(config);
     auto result = renderer.execute();
-    // 034/US3: census of the stream we just wrote, same counters as `stats`.
+    // Census of the stream we just wrote, same counters as `stats`.
     result.counters = core::count_pg_segments(renderer.segments());
     result.reuse_candidates = renderer.reuse_candidates();
 

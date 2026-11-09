@@ -1,11 +1,9 @@
-// Copyright (C) 2024-2026 Lanzoone30
+// Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // OpenSUP - PGS Encoder
 //
 // Port of brule's HexTree quantizer (MIT, (c) 2024 cubicibo).
-
-// The Python/numpy binding was removed; the C++ core is unchanged.
 //
 // --- Original MIT license (cubicibo/brule) ---
 /**
@@ -34,62 +32,15 @@
 #include <math.h>
 
 #include "opensup/media/hextree_impl.h"
+#include "opensup/media/dither.hpp"
 
-//None defined: use Atkinson dithering
-//#define USE_JJN_DITHERING
-//#define USE_SIERRA_DITHERING
+namespace dither = opensup::media::dither;
 
 #define MAX_DEPTH 8
 #define MAX_WIDTH 16
 #define DTYPE_ERROR float
 
-#define ERR_THRESH_SKIP (2)
-#define MAX_ERROR_COMPONENT (16)
-#define N_ACTIVE_ROWS_DIFFUSION (3)
-#define ERROR_ROW(y, rl) ((y) % N_ACTIVE_ROWS_DIFFUSION)*(rl)
-#define ERROR_ROW_LOC(y, rl, x) (ERROR_ROW(y, rl) + (x << 2))
-#define ADDERROR(d, e)  (d)[0] += (e)[0];\
-                        (d)[1] += (e)[1];\
-                        (d)[2] += (e)[2];\
-                        (d)[3] += (e)[3]
-#define ADDERRORF(d, e, f) (d)[0] += (e)[0]*(DTYPE_ERROR)f;\
-                           (d)[1] += (e)[1]*(DTYPE_ERROR)f;\
-                           (d)[2] += (e)[2]*(DTYPE_ERROR)f;\
-                           (d)[3] += (e)[3]*(DTYPE_ERROR)f
-
-#define CLIP(v) (v > 255 ? 255 : (v < 0 ? 0 : v))
-#define CLIPD(d) CLIP(lrint(d))
-#define MIN(a, b) (a < b ? a : b)
-#define MAX(a, b) (a > b ? a : b)
-#define ABS(a) (a < 0 ? -1*a : a)
-#define SIGN(a) (a < 0 ? -1 : 1)
 #define XBIT2ID(val, off, shift) (((val[shift] >> (MAX_DEPTH - 1 - off)) & 0x01) << shift)
-
-static void inline unpackRgba(const uint8_t *value, DTYPE_ERROR *prgba)
-{
-    prgba[3] = (DTYPE_ERROR)(value[3]);
-    if (value[3] > 0) {
-        prgba[2] = (DTYPE_ERROR)(value[2]);
-        prgba[1] = (DTYPE_ERROR)(value[1]);
-        prgba[0] = (DTYPE_ERROR)(value[0]);
-    } else {
-        prgba[2] = prgba[1] = prgba[0] = 0;
-    }
-}
-
-static void inline clipPackPack(const DTYPE_ERROR *rgba, int32_t *irgba, uint8_t *v)
-{
-    irgba[3] = v[3] = (uint8_t)CLIPD(rgba[3]);
-    if (irgba[3] > 0) {
-        irgba[2] = v[2] = (uint8_t)CLIPD(rgba[2]);
-        irgba[1] = v[1] = (uint8_t)CLIPD(rgba[1]);
-        irgba[0] = v[0] = (uint8_t)CLIPD(rgba[0]);
-    } else {
-        irgba[2] = v[2] = 0;
-        irgba[1] = v[1] = 0;
-        irgba[0] = v[0] = 0;
-    }
-}
 
 typedef struct rgba_leaf_s {
     DTYPE_ERROR rgba[4];
@@ -185,7 +136,7 @@ static int insert(void *vctx, const uint8_t *value)
             child->priv->depth = d;
             child->priv->ref = (void*)child;
 
-            unpackRgba(value, child->priv->rgba);
+            dither::unpackRgba(value, child->priv->rgba);
 
             ctx->leafs[ctx->nLeafs++] = (rgba_leaf_t*)child->priv;
             node->children[c] = child;
@@ -218,75 +169,11 @@ static int32_t inline testFetchColourLeaf(hexnode_t *cur, uint8_t *value)
         else
             break;
     }
-    //is leaf?
+    // is leaf?
     if (!memcmp(&cur->children[1], cur->children, sizeof(hexnode_t*)*(MAX_WIDTH-1)))
         return (int32_t)cur->priv->count;
     return -1;
 }
-
-#if defined(USE_JJN_DITHERING)
-# define DEN_DITHERING (48)
-static inline void diffuseJJN(DTYPE_ERROR *errors, DTYPE_ERROR *rgbaErr, uint32_t x, uint32_t y,
-                              uint32_t lineId, uint32_t rowLen, uint32_t width, size_t len, int direction)
-{
-    DTYPE_ERROR *pErrors;
-    if (x < width - 2 && x > 1) {
-        pErrors = &errors[ERROR_ROW_LOC(lineId, rowLen, x)];
-        ADDERRORF(pErrors + 4*direction, rgbaErr, 7);
-        ADDERRORF(pErrors + 8*direction, rgbaErr, 5);
-        if (y < len - width) {
-            pErrors = &errors[ERROR_ROW_LOC(lineId+1, rowLen, x)];
-            ADDERRORF(pErrors - 8, rgbaErr, 3);
-            ADDERRORF(pErrors - 4, rgbaErr, 5);
-            ADDERRORF(pErrors,     rgbaErr, 7);
-            ADDERRORF(pErrors + 4, rgbaErr, 5);
-            ADDERRORF(pErrors + 8, rgbaErr, 3);
-        }
-        if (y < len - 2*width) {
-            pErrors = &errors[ERROR_ROW_LOC(lineId+2, rowLen, x)];
-            ADDERRORF(pErrors - 8, rgbaErr, 1);
-            ADDERRORF(pErrors - 4, rgbaErr, 3);
-            ADDERRORF(pErrors,     rgbaErr, 5);
-            ADDERRORF(pErrors + 4, rgbaErr, 3);
-            ADDERRORF(pErrors + 8, rgbaErr, 1);
-        }
-    }
-}
-
-#elif defined(USE_SIERRA_DITHERING)
-# define DEN_DITHERING (32)
-static inline void diffuseSierra(DTYPE_ERROR *errors, DTYPE_ERROR *rgbaErr, uint32_t x, uint32_t y,
-                                 uint32_t lineId, uint32_t rowLen, uint32_t width, size_t len, int direction)
-{
-    DTYPE_ERROR *pErrors;
-    if (x < width - 2 && x > 1) {
-        pErrors = &errors[ERROR_ROW_LOC(lineId, rowLen, x)];
-        ADDERRORF(pErrors + 4*direction, rgbaErr, 8);
-        ADDERRORF(pErrors + 8*direction, rgbaErr, 4);
-        if (y < len - width) {
-            pErrors = &errors[ERROR_ROW_LOC(lineId+1, rowLen, x)];
-            ADDERRORF(pErrors - 8, rgbaErr, 2);
-            ADDERRORF(pErrors - 4, rgbaErr, 4);
-            ADDERRORF(pErrors,     rgbaErr, 8);
-            ADDERRORF(pErrors + 4, rgbaErr, 4);
-            ADDERRORF(pErrors + 8, rgbaErr, 2);
-        }
-        if (y < len - 2*width) {
-            pErrors = &errors[ERROR_ROW_LOC(lineId+2, rowLen, x)];
-            ADDERRORF(pErrors - 8, rgbaErr, 1);
-            ADDERRORF(pErrors - 4, rgbaErr, 2);
-            ADDERRORF(pErrors,     rgbaErr, 4);
-            ADDERRORF(pErrors + 4, rgbaErr, 2);
-            ADDERRORF(pErrors + 8, rgbaErr, 1);
-        }
-    }
-}
-
-#else //Atkinson
-# define DEN_DITHERING (8)
-#endif
-
-#define DITHDIV(x) ((x) / (DTYPE_ERROR)DEN_DITHERING)
 
 static inline uint32_t colorDist(const int32_t *v1, const int32_t *v2)
 {
@@ -306,7 +193,7 @@ static inline int16_t findClosestInPalette(const ctx_t *ctx, const int32_t *irgb
     for (int16_t paletteEntryId = 0; paletteEntryId < ctx->lutLen; ++paletteEntryId) {
         uint32_t dist = colorDist(ctx->paletteLUT[paletteEntryId], irgba);
         int32_t diff = (ctx->paletteLUT[paletteEntryId][3] - irgba[3]);
-        //dist = (uint32_t)((diff*diff)/(DTYPE_ERROR)1.5 + ((DTYPE_ERROR)dist*((irgba[3]*ctx->paletteLUT[paletteEntryId][3]/(DTYPE_ERROR)1953810))));
+        // dist = (uint32_t)((diff*diff)/(DTYPE_ERROR)1.5 + ((DTYPE_ERROR)dist*((irgba[3]*ctx->paletteLUT[paletteEntryId][3]/(DTYPE_ERROR)1953810))));
         dist = dist + 3*(uint32_t)(diff*diff);
         /*
         if (paletteEntryId == penalizedEntry)
@@ -320,85 +207,46 @@ static inline int16_t findClosestInPalette(const ctx_t *ctx, const int32_t *irgb
     return bestFitId;
 }
 
-static int generateDitheredBitmap( const void *vctx, uint8_t **bitmap, const uint8_t *rgba,
-                                   const size_t len, const int16_t plen, const uint32_t width )
+static int generateDitheredBitmap(const void *vctx, uint8_t **bitmap, const uint8_t *rgba,
+                                   const size_t len, const int16_t plen, const uint32_t width)
 {
     const ctx_t *ctx = (const ctx_t*)vctx;
-    const uint32_t rowLen = width << 2;
-    const uint32_t errArrLen = (width << 2) * N_ACTIVE_ROWS_DIFFUSION;
     *bitmap = (uint8_t*)malloc(len*sizeof(uint8_t));
     if (NULL == *bitmap)
         return -1;
-    DTYPE_ERROR *pErrors, *errors = (DTYPE_ERROR*)calloc(errArrLen, sizeof(DTYPE_ERROR));
-    if (NULL == errors)
-        return -1;
-    DTYPE_ERROR sErr, rgbaOrg[4], rgbaErr[4];
-    int32_t paletteEntryId, irgba[4] = {0, 0, 0, 0};
+    dither::atkinson_t diff(width);
+    float rgbaOrg[4];
+    int32_t irgba[4] = {0, 0, 0, 0};
     uint8_t crgba[4];
-    const uint8_t *rgbaPixel;
-    int direction = -1;
-    for (uint32_t y = 0, lineId = 0; y < len; y += width, ++lineId) {
-        uint32_t x;
-        if (direction < 0) {
-            direction = 1;
-            x = 0;
-        } else {
-            direction = -1;
-            x = width - 1;
-        }
-        for (uint32_t cnt = 0; cnt < width; ++cnt, x += direction) {
-            pErrors = &errors[ERROR_ROW_LOC(lineId, rowLen, x)];
-            rgbaPixel = &rgba[(y + x) << 2];
-            sErr = 0;
-            for (uint8_t k = 0; k < 4; k++) {
-                pErrors[k] = SIGN(pErrors[k])*MIN((DTYPE_ERROR)MAX_ERROR_COMPONENT, ABS(pErrors[k]));
-                sErr += pErrors[k]*pErrors[k];
-            }
-            unpackRgba(rgbaPixel, rgbaOrg);
-            if (sErr > (DTYPE_ERROR)ERR_THRESH_SKIP) {
-                //Add the residual error to the image pixel
-                ADDERROR(rgbaOrg, pErrors);
-                clipPackPack(rgbaOrg, irgba, crgba);
-                //Test if we have a match in the tree, returns -1 if none
+    for (size_t y = 0; y < len; y += width, diff.end_row()) {
+        diff.begin_row();
+        for (uint32_t cnt = 0; cnt < width; ++cnt, diff.advance()) {
+            const uint8_t *rgbaPixel = &rgba[(y + diff.x) << 2];
+            const float sErr = diff.load(rgbaPixel, rgbaOrg);
+            int32_t paletteEntryId;
+            if (sErr > dither::kErrThreshSkip) {
+                // Add the residual error to the image pixel
+                diff.add_error(rgbaOrg);
+                dither::clipPack(rgbaOrg, irgba, crgba);
+                // Test if we have a match in the tree, returns -1 if none
                 paletteEntryId = testFetchColourLeaf(ctx->root, crgba);
             } else {
-                //no error => colour is a leaf
+                // no error => colour is a leaf
                 paletteEntryId = fetchColour(ctx->root, rgbaPixel);
             }
-            //reset error accumulator of pixel
-            memset(pErrors, 0, sizeof(rgbaErr));
+            // reset error accumulator of pixel
+            diff.clear();
 
             if (paletteEntryId < 0) {
                 paletteEntryId = findClosestInPalette(ctx, irgba/*, fetchColour(ctx->root, rgbaPixel)*/);
             } else if (paletteEntryId >= plen) {
-                free(errors);
                 return -1;
             }
 
-            for (uint8_t k = 0; k < 4; k++)
-                rgbaErr[k] = DITHDIV(rgbaOrg[k] - (DTYPE_ERROR)ctx->paletteLUT[paletteEntryId][k]);
-
-            //simplified edges conditions
-#if defined(USE_JJN_DITHERING)
-            diffuseJJN(errors, rgbaErr, x, y, lineId, rowLen, width, len, direction);
-#elif defined(USE_SIERRA_DITHERING)
-            diffuseSierra(errors, rgbaErr, x, y, lineId, rowLen, width, len, direction);
-#else //Atkinson
-            if ((direction > 0 && x < width - 2) || (direction < 0 && x > 1)) {
-                ADDERROR(pErrors + 4*direction, rgbaErr);
-                ADDERROR(pErrors + 8*direction, rgbaErr);
-            }
-            if ((y < len - width) && (x < width - 1) && (x > 0)) {
-                pErrors = &errors[ERROR_ROW_LOC(lineId+1, rowLen, x)];
-                ADDERROR(pErrors - 4, rgbaErr);
-                ADDERROR(pErrors,     rgbaErr);
-                ADDERROR(pErrors + 4, rgbaErr);
-            }
-#endif
-            (*bitmap)[y + x] = paletteEntryId;
+            diff.diffuse(rgbaOrg, ctx->paletteLUT[paletteEntryId], y, len);
+            (*bitmap)[y + diff.x] = paletteEntryId;
         }
     }
-    free(errors);
     return 0;
 }
 
@@ -414,7 +262,7 @@ static int generateBitmap(const void* vctx, uint8_t** bitmap, const uint8_t* rgb
     for (size_t k = 0; k < len; k++) {
         value = (uint32_t)fetchColour(ctx->root, &rgba[k<<2]);
 
-        //All pixels are unmodified, all tree look-ups shall always lend on a leaf (value < plen)
+        // All pixels are unmodified, all tree look-ups shall always lend on a leaf (value < plen)
         if (value >= plen)
             return -1;
         (*bitmap)[k] = (uint8_t)value;
@@ -467,7 +315,7 @@ static int32_t reduceTo(void *ctx, unsigned int maxLeafs, uint8_t **palette)
                 --leafCnt;
             }
         }
-        //parent is now a leaf
+        // parent is now a leaf
         ++leafCnt;
     }
 
@@ -481,7 +329,7 @@ static int32_t reduceTo(void *ctx, unsigned int maxLeafs, uint8_t **palette)
         ref = (hexnode_t*)leaf->ref;
 
         if (leaf && ref) {
-            clipPackPack(leaf->rgba, pctx->paletteLUT[plen], &pal[plen << 2]);
+            dither::clipPack(leaf->rgba, pctx->paletteLUT[plen], &pal[plen << 2]);
             leaf->count = plen;
             ++plen;
         }

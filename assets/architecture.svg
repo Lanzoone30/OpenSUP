@@ -5362,15 +5362,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="1411" y="104" class="t-muted" font-size="9" text-anchor="middle">compose + reuse</text>
         </g>
 
-        <g id="node-quantizer" data-node-id="quantizer" data-node-label="Quantizer" tabindex="0" role="button" aria-label="Focus Quantizer, libimagequant / HexTree, C++ engine — child process › Per-epoch · N threads (∥)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="libimagequant / HexTree" data-node-context="C++ engine — child process › Per-epoch · N threads (∥)">
-          <title>Quantizer · libimagequant / HexTree · C++ engine — child process › Per-epoch · N threads (∥)</title>
+        <g id="node-quantizer" data-node-id="quantizer" data-node-label="Quantizer" tabindex="0" role="button" aria-label="Focus Quantizer, libimagequant, Qtzr, HexTree, Wu, C++ engine — child process › Per-epoch · N threads (∥)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="libimagequant, Qtzr, HexTree, Wu" data-node-context="C++ engine — child process › Per-epoch · N threads (∥)">
+          <title>Quantizer · libimagequant, Qtzr, HexTree, Wu · C++ engine — child process › Per-epoch · N threads (∥)</title>
           <rect x="1336" y="250" width="150" height="60" rx="8" class="c-mask"/>
           <rect x="1336" y="250" width="150" height="60" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5" data-oss-step="12"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1342 256) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1411" y="278" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Quantizer</text>
-        <text data-detail="context" x="1411" y="294" class="t-muted" font-size="9" text-anchor="middle">libimagequant / HexTree</text>
+          <text data-node-label="" data-detail-anchor="" x="1411" y="274" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Quantizer</text>
+        <text data-detail="context" x="1411" y="289" class="t-muted" font-size="9" text-anchor="middle">libimagequant · Qtzr</text>
+        <text x="1411" y="302" class="t-muted" font-size="9" text-anchor="middle">HexTree · Wu</text>
         </g>
 
         <g id="node-assemble" data-node-id="assemble" data-node-label="Assemble" tabindex="0" role="button" aria-label="Focus Assemble, fix composition id, C++ engine — child process" aria-pressed="false" data-node-kind="backend" data-node-sublabel="fix composition id" data-node-context="C++ engine — child process">

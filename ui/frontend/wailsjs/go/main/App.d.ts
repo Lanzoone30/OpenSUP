@@ -5,8 +5,6 @@ import {engine} from '../models';
 
 export function AbortEncode():Promise<void>;
 
-export function GetTranslations(arg1:number):Promise<Record<string, string>>;
-
 export function LoadSettings():Promise<config.Settings>;
 
 export function PhysicalCores():Promise<number>;
@@ -20,5 +18,3 @@ export function SelectBDN():Promise<string>;
 export function SetOutput(arg1:string):Promise<string>;
 
 export function StartEncode(arg1:engine.EncodeConfig):Promise<boolean>;
-
-export function Version():Promise<string>;

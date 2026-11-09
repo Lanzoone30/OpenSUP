@@ -15,14 +15,13 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:          "OpenSUP",
-		Width:          1000,
-		Height:         825,
-		DisableResize:  true,
-		MinWidth:       1000,
-		MinHeight:      825,
-		MaxWidth:       1130,
-		MaxHeight:      825,
+		Title:         "OpenSUP",
+		Width:         1000,
+		Height:        825,
+		DisableResize: false,
+		MinWidth:      800,
+		MinHeight:     600,
+		StartHidden:   true,
 		DragAndDrop: &options.DragAndDrop{
 			EnableFileDrop: true,
 		},
@@ -31,6 +30,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 248, G: 249, B: 250, A: 1},
 		OnStartup:        app.startup,
+		OnBeforeClose:    app.beforeClose,
 		Bind: []interface{}{
 			app,
 		},
