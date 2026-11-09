@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2024-2026 Lanzoone30
+# Copyright (C) 2026 Lanzoone30
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Spec 034 fixture: a tiny, deterministic .sup (1 epoch, 2 display sets) built
