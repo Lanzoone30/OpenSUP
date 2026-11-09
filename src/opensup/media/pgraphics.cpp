@@ -55,7 +55,7 @@ encode_rle(const std::vector<uint8_t>& bitmap, int width, int height)
                         out.push_back(pixel);
                         out.push_back(pixel);
                         if (run_len == 1) {
-                            // We wrote one extra, need to remove it
+                            // The run wrote one extra entry; drop it.
                             out.pop_back();
                         }
                         run_len = 0;

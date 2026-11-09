@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Reader for existing .sup streams (spec 034). Read-only: it never re-emits.
+// Reader for existing .sup streams. Read-only: it never re-emits.
 
 #pragma once
 

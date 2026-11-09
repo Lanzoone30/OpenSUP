@@ -5,8 +5,6 @@
 //
 // Port of brule's HexTree quantizer (MIT, (c) 2024 cubicibo).
 
-// The Python/numpy binding was removed; the C++ core is unchanged.
-
 #pragma once
 
 #include <cstdint>

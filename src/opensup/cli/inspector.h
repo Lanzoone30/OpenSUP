@@ -3,8 +3,8 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Read-only CLI: `validate`, `inspect` and `stats` over an existing .sup
-// (spec 034). Dispatched from main() before the encode parser.
+// Read-only CLI: `validate`, `inspect` and `stats` over an existing .sup.
+// Dispatched from main() before the encode parser.
 
 #pragma once
 

@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Census counters for a flat PGS segment list (spec 034, US3). Mirrors the
+// Census counters for a flat PGS segment list. Mirrors the
 // oracle debug_stats; the encode side counts its own output here.
 
 #pragma once

@@ -201,7 +201,7 @@ private:
     std::string m_bt_matrix = "bt709";
     // Normal case needs two windows: it redefines one, keeps the other's object up.
     bool m_allow_normal_case = false;
-    // 032/D-032-5: flag + storage only. The faithful oracle rule
+    // Flag + storage only. The faithful oracle rule
     // (render2.py:544, j_nc > j / prefer) needs the decode-node buffer chain,
     // which this encoder does not model; allow alone already behaves as
     // prefer-always for the modelled cases, so -k widens to a no-op here.

@@ -235,7 +235,7 @@ bdn_xml_c::parse(const std::string& filepath, bool ignore_resolution)
         }
         if (graphics.empty()) continue;
 
-        // US2: on a multi-<Graphic> canvas every declared box must match the
+        // On a multi-<Graphic> canvas every declared box must match the
         // real PNG and the graphics must not overlap (oracle asserts, 306-317).
         if (graphics.size() > 1) {
             for (const auto& g : graphics) {

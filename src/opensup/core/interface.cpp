@@ -266,7 +266,6 @@ bdn_render_c::execute()
     logger_c::instance().info("Split into " + std::to_string(result.epochs) +
                                 " epoch(s)");
 
-    // Overwrite guard
     if (!m_config.overwrite && std::filesystem::exists(m_config.output_path)) {
         result.error = "Output file exists, use -y to overwrite";
         logger_c::instance().error(result.error);
@@ -364,7 +363,6 @@ bdn_render_c::execute()
                 const int i = next_epoch.fetch_add(1);
                 if (i >= total_epochs)
                     break;
-                // Allow early exit if user aborted
                 if (aborted.load() ||
                     (m_config.abort_flag && m_config.abort_flag->load())) {
                     aborted.store(true);

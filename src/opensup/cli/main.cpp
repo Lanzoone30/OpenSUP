@@ -95,7 +95,7 @@ main(int argc, char** argv)
 
     core::bdn_render_c renderer(config);
     auto result = renderer.execute();
-    // 034/US3: census of the stream we just wrote, same counters as `stats`.
+    // Census of the stream we just wrote, same counters as `stats`.
     result.counters = core::count_pg_segments(renderer.segments());
     result.reuse_candidates = renderer.reuse_candidates();
 

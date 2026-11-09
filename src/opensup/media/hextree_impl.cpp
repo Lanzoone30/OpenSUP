@@ -4,8 +4,6 @@
 // OpenSUP - PGS Encoder
 //
 // Port of brule's HexTree quantizer (MIT, (c) 2024 cubicibo).
-
-// The Python/numpy binding was removed; the C++ core is unchanged.
 //
 // --- Original MIT license (cubicibo/brule) ---
 /**
@@ -171,7 +169,7 @@ static int32_t inline testFetchColourLeaf(hexnode_t *cur, uint8_t *value)
         else
             break;
     }
-    //is leaf?
+    // is leaf?
     if (!memcmp(&cur->children[1], cur->children, sizeof(hexnode_t*)*(MAX_WIDTH-1)))
         return (int32_t)cur->priv->count;
     return -1;
@@ -195,7 +193,7 @@ static inline int16_t findClosestInPalette(const ctx_t *ctx, const int32_t *irgb
     for (int16_t paletteEntryId = 0; paletteEntryId < ctx->lutLen; ++paletteEntryId) {
         uint32_t dist = colorDist(ctx->paletteLUT[paletteEntryId], irgba);
         int32_t diff = (ctx->paletteLUT[paletteEntryId][3] - irgba[3]);
-        //dist = (uint32_t)((diff*diff)/(DTYPE_ERROR)1.5 + ((DTYPE_ERROR)dist*((irgba[3]*ctx->paletteLUT[paletteEntryId][3]/(DTYPE_ERROR)1953810))));
+        // dist = (uint32_t)((diff*diff)/(DTYPE_ERROR)1.5 + ((DTYPE_ERROR)dist*((irgba[3]*ctx->paletteLUT[paletteEntryId][3]/(DTYPE_ERROR)1953810))));
         dist = dist + 3*(uint32_t)(diff*diff);
         /*
         if (paletteEntryId == penalizedEntry)
@@ -227,16 +225,16 @@ static int generateDitheredBitmap(const void *vctx, uint8_t **bitmap, const uint
             const float sErr = diff.load(rgbaPixel, rgbaOrg);
             int32_t paletteEntryId;
             if (sErr > dither::kErrThreshSkip) {
-                //Add the residual error to the image pixel
+                // Add the residual error to the image pixel
                 diff.add_error(rgbaOrg);
                 dither::clipPack(rgbaOrg, irgba, crgba);
-                //Test if we have a match in the tree, returns -1 if none
+                // Test if we have a match in the tree, returns -1 if none
                 paletteEntryId = testFetchColourLeaf(ctx->root, crgba);
             } else {
-                //no error => colour is a leaf
+                // no error => colour is a leaf
                 paletteEntryId = fetchColour(ctx->root, rgbaPixel);
             }
-            //reset error accumulator of pixel
+            // reset error accumulator of pixel
             diff.clear();
 
             if (paletteEntryId < 0) {
@@ -264,7 +262,7 @@ static int generateBitmap(const void* vctx, uint8_t** bitmap, const uint8_t* rgb
     for (size_t k = 0; k < len; k++) {
         value = (uint32_t)fetchColour(ctx->root, &rgba[k<<2]);
 
-        //All pixels are unmodified, all tree look-ups shall always lend on a leaf (value < plen)
+        // All pixels are unmodified, all tree look-ups shall always lend on a leaf (value < plen)
         if (value >= plen)
             return -1;
         (*bitmap)[k] = (uint8_t)value;
@@ -317,7 +315,7 @@ static int32_t reduceTo(void *ctx, unsigned int maxLeafs, uint8_t **palette)
                 --leafCnt;
             }
         }
-        //parent is now a leaf
+        // parent is now a leaf
         ++leafCnt;
     }
 

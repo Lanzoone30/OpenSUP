@@ -228,7 +228,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                 common::fps_e::from_pcsfps(static_cast<int32_t>(fpcs->fps())).to_double();
             frame_duration = static_cast<uint32_t>(std::floor(media::pg_decoder_t::FREQ / fps));
 
-            // --- epoch level (oracle is_compliant / check_pts_dts_sanity) --------
+            // epoch level (oracle is_compliant / check_pts_dts_sanity)
             if (anchor == first &&
                 (static_cast<uint8_t>(fpcs->composition_state()) & 0x80) == 0)
                 add(first, true, "epoch/start", "first display set of the epoch is not an Epoch Start");
@@ -292,7 +292,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             }
             const uint8_t state = static_cast<uint8_t>(pcs->composition_state());
 
-            // --- test_diplayset -------------------------------------------------
+            // test_diplayset
             if (ds.segments.empty() || ds.segments[0]->type() != segment_type_e::pcs)
                 add(ep[kd], true, "test_diplayset/order", "PCS is not the first segment");
             if (pcs->n_objects() > 2 || pcs->n_objects() != pcs->cobjects.size())
@@ -324,7 +324,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             if (!trailing && (!ends_present || ds.segments.back()->type() != segment_type_e::end))
                 add(ep[kd], true, "test_diplayset/end", "ENDS is missing or not the last segment");
 
-            // --- segments in stream order (oracle is_compliant) -------------------
+            // segments in stream order (oracle is_compliant)
             if (state != 0) { // acquisition: past objects/palettes must not be accessed
                 ods_filled.clear();
                 pals.clear();
@@ -476,7 +476,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                 }
             }
 
-            // --- composition objects (oracle placement/expiry rules) --------------
+            // composition objects (oracle placement/expiry rules)
             if (auto* wds = wds_of(ds)) {
                 for (auto& cobj : pcs->cobjects) {
                     auto sit = slots.find(cobj.o_id);
@@ -521,7 +521,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
                 }
             }
 
-            // --- composition number / duplicate PTS (soft) -----------------------
+            // composition number / duplicate PTS (soft)
             if (kd > 0) {
                 if ((state & 0x80) != 0)
                     add(ep[kd], true, "epoch/start", "epoch start in the middle of an epoch");
@@ -531,7 +531,7 @@ validate_report_t validate(sup_stream_t& stream, int max_kbps)
             }
             prev_pcs_id = pcs->composition_n();
 
-            // --- check_pts_dts_sanity --------------------------------------------
+            // check_pts_dts_sanity
             const int64_t ds_pts = pcs->tpts();
             const int64_t ds_dts = pcs->tdts();
             bool ds_comply = md(ds_dts, prev_dts) <= PTS_DIFF_BOUND &&
