@@ -30,7 +30,7 @@ include(GNUInstallDirs)
 option(BUILD_TESTS "Build unit tests" ON)
 option(OPENSUP_USE_EXTERNAL_LIBIMAGEQUANT "Use system-installed libimagequant" ON)
 
-# ── libimagequant: cross-platform quantizer ──
+# libimagequant: cross-platform quantizer
 set(LIBIMAGEQUANT_INCLUDE_DIRS "" CACHE STRING "libimagequant include path")
 set(LIBIMAGEQUANT_LIBRARIES "" CACHE STRING "libimagequant library path")
 
@@ -94,7 +94,7 @@ else()
 
     add_custom_command(
         OUTPUT "${LIBIMAGEQUANT_STATIC_LIB}"
-        # ponytail: --no-default-features disables rayon threading which crashes
+        # --no-default-features disables rayon threading which crashes
         # on Windows (MinGW-w64 + Rust runtime incompatibility)
         COMMAND cargo build --release --lib --no-default-features ${LIBIMAGEQUANT_CARGO_TARGET} --target-dir="${LIBIMAGEQUANT_BUILD_DIR}"
         WORKING_DIRECTORY "${LIBIMAGEQUANT_SRC_DIR}/imagequant-sys"
@@ -121,7 +121,7 @@ else()
     endif()
 endif()
 
-# ── pugixml: XML parsing (HEADER-ONLY para compilación cruzada) ──
+# pugixml: XML parsing (HEADER-ONLY for cross-compilation)
 include(FetchContent)
 FetchContent_Declare(
     pugixml
@@ -130,18 +130,18 @@ FetchContent_Declare(
 )
 FetchContent_GetProperties(pugixml)
 if(NOT pugixml_POPULATED)
-    # ponytail: FetchContent_Populate legacy — MakeAvailable no soporta EXCLUDE_FROM_ALL
+    # FetchContent_Populate legacy: MakeAvailable does not support EXCLUDE_FROM_ALL
     if(POLICY CMP0169)
         cmake_policy(SET CMP0169 OLD)
     endif()
     FetchContent_Populate(pugixml)
-    # ponytail: EXCLUDE_FROM_ALL evita que pugixml instale sus .hpp/.a/cmake en el package
+    # EXCLUDE_FROM_ALL keeps pugixml from installing its .hpp/.a/cmake files into the package
     add_subdirectory(${pugixml_SOURCE_DIR} ${pugixml_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 set(PUGIXML_INCLUDE_DIRS "${pugixml_SOURCE_DIR}/src")
 set(PUGIXML_LIBRARIES pugixml)
 
-# ── CLI11: header-only CLI parsing ──
+# CLI11: header-only CLI parsing
 include(FetchContent)
 FetchContent_Declare(cli11_proj QUIET
   GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
@@ -160,7 +160,7 @@ if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-# ── Windows: install + CPack (CLI engine only; Wails packages the GUI) ──
+# Windows: install + CPack (CLI engine only; Wails packages the GUI)
 if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
     # CLI .exe — used as the embedded engine in the Wails app
     install(TARGETS opensup_cli
