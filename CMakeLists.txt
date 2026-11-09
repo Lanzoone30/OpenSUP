@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(OpenSUP
-  VERSION 2.3.0
+  VERSION 2.4.0
   DESCRIPTION "PGS subtitle encoder for Blu-ray"
   LANGUAGES CXX C
 )
