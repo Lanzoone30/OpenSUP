@@ -27,7 +27,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CompilerWarnings)
 include(GNUInstallDirs)
 
-option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_TESTS "Build unit tests" OFF)
 option(OPENSUP_USE_EXTERNAL_LIBIMAGEQUANT "Use system-installed libimagequant" ON)
 
 # libimagequant: cross-platform quantizer
