@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// 034/T004-T006: validate / inspect / stats over the versioned .sup fixture.
+// Validate / inspect / stats over the versioned .sup fixture.
 // GREEN on the known-good stream, RED once the test poisons the bytes.
 // The same counters must come out of the read path and the encode path.
 

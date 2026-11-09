@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// FR-007: every display set is exactly one PCS followed by its payload and a
+// Every display set is exactly one PCS followed by its payload and a
 // closing END. A refresh re-send used to leak a bare `ODS, END` pair (its own
 // display set without a PCS), which no decoder can parse.
 #include <gtest/gtest.h>

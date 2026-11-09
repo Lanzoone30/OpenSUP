@@ -1,4 +1,4 @@
-// D7: composition objects (cobjs) per display set must match the oracle.
+// Composition objects (cobjs) per display set must match the oracle.
 // Port re-acquires graphics reusing fewer objects than the oracle retains.
 #include <gtest/gtest.h>
 
@@ -177,13 +177,13 @@ TEST(D7CobjsReacqParity, AnOverlap) {
     expect_parity("nc_cpp_an_ov.sup", "nc_py_an_ov.sup");
 }
 
-// Third D7 case: the --allow-normal variant must re-list the same cobjs as the
-// oracle (same re-adquisition reuse rule, no overlap merging).
+// Third case: the --allow-normal variant must re-list the same cobjs as the
+// oracle (same re-acquisition reuse rule, no overlap merging).
 TEST(D7CobjsReacqParity, AnNormal) {
     expect_parity("nc_cpp_an.sup", "nc_py_an.sup");
 }
 
-// T005/T010: bateria 1 base mode. Encodes the local ENIGMA-1080p fixture and
+// Battery 1 base mode. Encodes the local ENIGMA-1080p fixture and
 // compares cobjs per display set against the oracle; the acquisition PCS must
 // list only the windows the event composites.
 TEST(Bateria1CobjsParity, Base) {
@@ -221,7 +221,7 @@ TEST(Bateria1CobjsParity, Base) {
     EXPECT_EQ(divergent, 0) << "DS divergentes=" << divergent << "\n" << rep.str();
 }
 
-// T006: display-set geometry (WDS bboxes + ODS sizes). The ncbd fixture has
+// Display-set geometry (WDS bboxes + ODS sizes). The ncbd fixture has
 // two <Graphic> per event; the parser composes their union canvas, so the port
 // geometry now matches the oracle byte-for-byte (no skip).
 TEST(DFGsReacqParity, Geometry) {

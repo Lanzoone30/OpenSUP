@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// FR-006 palette-wipe parity. When the cleared window's redraw cannot fit the
+// Palette-wipe parity. When the cleared window's redraw cannot fit the
 // frame budget the clear display set becomes a palette wipe (PCS with
 // palette_update_flag + an all-transparent PDS + END) instead of a WDS wipe.
 #include <gtest/gtest.h>

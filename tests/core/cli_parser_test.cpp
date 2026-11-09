@@ -85,8 +85,8 @@ TEST(CliParser, DefaultFlagsStayOff) {
 }
 
 TEST(CliParser, ThreadsDefaultAuto) {
-    // R5 (feature 010): sin -j el default del CLI es 0 = auto (hardware
-    // concurrency), como recomienda la UI (i18n.js:30) — no secuencial.
+    // Without -j the CLI defaults to 0 = auto (hardware concurrency), as the
+    // UI recommends (i18n.js:30), not sequential.
     cli_options_t opts;  // no -j flag
     const auto cfg = options_to_config(opts);
     EXPECT_EQ(cfg.threads, 0);
@@ -214,7 +214,7 @@ TEST(CliParser, QuantizerAvailableIdsStaySilent) {
     }
 }
 
-// --- 032: flag surface (shorts, aliases, prefer-normal) ---
+// 032: flag surface (shorts, aliases, prefer-normal)
 
 /// Run parse_args over argv, collecting warnings emitted while parsing.
 cli_options_t

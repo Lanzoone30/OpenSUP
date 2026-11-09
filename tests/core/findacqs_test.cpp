@@ -3,11 +3,11 @@
 //
 // OpenSUP - PGS Encoder
 //
-// F1 (D4): find_acqs decode-margin signals (SUPer render2.py:1073-1135).
+// find_acqs decode-margin signals (SUPer render2.py:1073-1135).
 // Unit tests pin the ported formula: valid gate (render2.py:1132), dtl
 // normalized by the previous node duration (margin = prev_dt/fps, :1125,
 // :1133). The stream-level no-regression is gated by the full suite plus
-// byte-identical fixture hashes (specs/006 tasks T001/T013).
+// byte-identical fixture hashes.
 #include <gtest/gtest.h>
 #include "opensup/core/render/epoch_encoder.h"
 namespace opensup {

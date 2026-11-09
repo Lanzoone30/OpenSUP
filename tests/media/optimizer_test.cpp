@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// P4b: group co-quantization (union bitmap + per-frame palette diffs).
+// Group co-quantization (union bitmap + per-frame palette diffs).
 
 #include <gtest/gtest.h>
 #include <thread>

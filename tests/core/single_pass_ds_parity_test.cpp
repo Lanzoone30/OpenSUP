@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Feature 028: a single-pass epoch that crosses a layout-window boundary must
+// A single-pass epoch that crosses a layout-window boundary must
 // emit exactly one display set per event. A 200x60 object at (100,100) is cut
 // by the y=131 gap between two layout windows, so both windows run an emit
 // for the same event. The merge keeps the first PCS but lets the second
@@ -125,8 +125,8 @@ TEST(SinglePassDsParity, ContentDisplaySetPresentsAtTcIn) {
     }
 }
 
-// --- T020: end-to-end BDN parity against the SUPer oracle (counts, not byte
-// parity: the oracle was rendered at 1920x1080 vs the BDN's 1350x1080). ---
+// End-to-end BDN parity against the SUPer oracle (counts, not byte
+// parity: the oracle was rendered at 1920x1080 vs the BDN's 1350x1080).
 
 struct sup_stats_t {
     int segments = 0;
@@ -190,7 +190,7 @@ TEST(SinglePassDsParity, BdnSinglePassMatchesOracleOff) {
 
     // 1350x1080: allowed explicitly with the ignore-resolution flag.
     // Buffering OFF = single-pass: no --overlap, no --allow-normal (defaults
-    // compression 80, acqrate 100, extra-acq 2), como temp/phase28_cli.
+    // compression 80, acqrate 100, extra-acq 2), as in temp/phase28_cli.
     encode_config_t cfg;
     cfg.input_path = bdn;
     cfg.output_path = std::string(OPENDSUP_TEST_OUTPUT_DIR) + "/bdn_single_pass.sup";

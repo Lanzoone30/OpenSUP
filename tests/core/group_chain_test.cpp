@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// P4b: SSIM-fused event runs are co-quantized into one union ODS plus a chain
+// SSIM-fused event runs are co-quantized into one union ODS plus a chain
 // of palette updates (the fade becomes visible between palette swaps).
 
 #include <gtest/gtest.h>
@@ -20,9 +20,9 @@ namespace {
 
 TEST(GroupChain, FusedEventsGetPaletteChain) {
     // synth_similar.xml: 3 consecutive same-size events with a subtle text
-    // fade. Before P4b, the fused events emitted PCS+WDS+ENDS only, so the
-    // fade never reached the decoder. P4b replaces them with real palette
-    // updates on a shared union bitmap.
+    // fade. Without group co-quantization the fused events emit PCS+WDS+ENDS
+    // only, so the fade never reaches the decoder; the group chain adds real
+    // palette updates on a shared union bitmap.
     // Compression 100 keeps the run NORMAL; at 80 the reusable events are
     // acquired instead (reference-oracle cadence), bypassing the chain.
     encode_config_t cfg;

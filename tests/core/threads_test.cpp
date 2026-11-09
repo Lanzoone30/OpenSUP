@@ -54,7 +54,7 @@ TEST(Threads, DeterministicAcrossWorkerCounts) {
     cfg4.output_path = out4;
     cfg4.threads = 4;
 
-    // 0 = auto (hardware concurrency): must stay deterministic too (T051).
+    // 0 = auto (hardware concurrency): must stay deterministic too.
     encode_config_t cfg0 = cfg1;
     cfg0.output_path = out0;
     cfg0.threads = 0;

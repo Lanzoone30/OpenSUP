@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// F2 (US1/US3): ahead/allow_overlaps pipeline (SUPer render2.py:286-313,
+// Ahead/allow_overlaps pipeline (SUPer render2.py:286-313,
 // :409-453). With --overlap the chain emission follows SUPer's undisplay
 // rule (clear only on gap nodes, render2.py:859) and the emitted stream
 // keeps a strictly monotonic DTS (align_palette_updates, render2.py:286-313).
@@ -101,7 +101,7 @@ TEST(Ahead, ContiguousChainEmitsNoClear) {
     EXPECT_EQ(count_clear_ds(off.segments()), 1);
 }
 TEST(Ahead, OverlapChangesStreamButNotDefault) {
-    // FR-6: default output is untouched by the overlap pipeline; the flag
+    // Default output is untouched by the overlap pipeline; the flag
     // must actually activate it (different stream) and stay deterministic.
     auto on1 = encode_similar(OPENDSUP_TEST_OUTPUT_DIR "/ahead_d1.sup", true);
     auto on2 = encode_similar(OPENDSUP_TEST_OUTPUT_DIR "/ahead_d2.sup", true);
@@ -114,7 +114,7 @@ TEST(Ahead, OverlapChangesStreamButNotDefault) {
 } // namespace
 
 TEST(Ahead, ShiftForwardOverlayMergesAcq) {
-    // US2 (render2.py:315-408): an acquisition that does not fit (gap < write
+    // render2.py:315-408: an acquisition that does not fit (gap < write
     // duration) is shifted forward into the best previous node of the other
     // window. opensup_multiwindow_merge.xml: ev1 window A, ev2 window B only
     // 40ms later — ev2's decode collides, so the acquisition moves to ev1 and
@@ -137,7 +137,7 @@ TEST(Ahead, ShiftForwardOverlayMergesAcq) {
         << "non-overlap keeps the independent acquisition (no shift)";
 }
 TEST(Ahead, ShiftForwardOverlayBlocked) {
-    // US2 acceptance scenario 2: an acquisition that fits (gap large enough)
+    // Acceptance scenario 2: an acquisition that fits (gap large enough)
     // is NOT shifted — shift_forward_overlay only moves acquisitions whose
     // decode collides (absolutes && !acqs). opensup_multiwindow.xml has a
     // 2.48s gap, so ev2 stays an independent ACQUISITION.
@@ -150,7 +150,7 @@ TEST(Ahead, ShiftForwardOverlayBlocked) {
         << "acquisition that fits must not be shifted";
 }
 TEST(Ahead, OverlapEpochStartAndClearInvariants) {
-    // US1/US2 parity with SUPer (render2.py:228,588,1064):
+    // Parity with SUPer (render2.py:228,588,1064):
     //  - exactly one EpochStart, on the first display set;
     //  - no two PCS share a PTS (pgstream.py:221);
     //  - the end-of-epoch clear lands after the last show, not on its PTS.

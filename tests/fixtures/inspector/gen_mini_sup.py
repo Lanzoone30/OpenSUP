@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Lanzoone30
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Spec 034 fixture: a tiny, deterministic .sup (1 epoch, 2 display sets) built
+# Fixture: a tiny, deterministic .sup (1 epoch, 2 display sets) built
 # with the PGS byte layout the port's segment structs read/write. Regenerate:
 #   python3 tests/fixtures/inspector/gen_mini_sup.py
 import struct

@@ -3,9 +3,9 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Spec 037: cada display set multi-ventana lleva exactamente UN PDS con la
-// paleta fusionada de las ventanas (p_id == pal_id del PCS, p_vn secuencial
-// por stream, DTS no-regresivo en el stream).
+// Each multi-window display set carries exactly ONE PDS with the
+// merged window palette (p_id == PCS pal_id, p_vn sequential per stream,
+// non-regressive DTS in the stream).
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <memory>
@@ -35,7 +35,7 @@ std::vector<std::shared_ptr<pg_segment_c>> render_nc(bool overlap) {
     return render.segments();
 }
 
-// Un display set empieza en cada PCS del stream.
+// A display set starts at every PCS in the stream.
 std::vector<std::vector<std::shared_ptr<pg_segment_c>>> split_ds(
     const std::vector<std::shared_ptr<pg_segment_c>>& segs)
 {

@@ -1,9 +1,9 @@
-// 031: gap-clears del oraculo en modo overlap. Un hueco >= 1 frame antes de un
-// evento inserta un DS NORMAL (PCS 0 cobjs + WDS layout completo + ENDS); la
-// adquisicion siguiente lista solo las ventanas que compone el evento (D-030-1).
-// Los bbox de WDS/ODS siguen divergiendo. 033 (parser multi-<Graphic>) queda
-// fuera de este fixture (ENIGMA-1080p es single-graphic por evento), asi que la
-// re-evaluacion post-033 deja la residencia intacta: 30 DS, fuera del gate.
+// Oracle gap-clears in overlap mode. A gap >= 1 frame before an event inserts
+// a NORMAL DS (PCS 0 objects + full WDS layout + ENDS); the next acquisition
+// lists only the windows the event composes.
+// WDS/ODS bboxes still diverge. The multi-<Graphic> parser is out of this
+// fixture (ENIGMA-1080p is single-graphic per event), so re-evaluation leaves
+// residency intact: 30 DS, outside the gate.
 #include <gtest/gtest.h>
 
 #include <array>
@@ -95,8 +95,8 @@ std::vector<ds_t> scan_sup(const std::string& path) {
     return sets;
 }
 
-// Gap PTS del oraculo (bateria 1, 1080p): 20 huecos que la adquisicion previa
-// no cubre. Ordenados por PTS en streaming.
+// Oracle gap PTS (battery 1, 1080p): 20 gaps the previous acquisition does
+// not cover. Sorted by PTS in stream order.
 const uint64_t kGapPts[] = {
     4392000,    5076000,    16959600,   25246800,   26017200,
     26251200,   26431200,   27097200,   27273600,   27457200,
@@ -123,7 +123,7 @@ bool fixture_ready() {
            std::ifstream(oracle_path()).good();
 }
 
-// Encodes the local bateria 1 fixture in overlap mode; each test case gets its
+// Encodes the local battery 1 fixture in overlap mode; each test case gets its
 // own output file so parallel ctest workers do not race.
 const std::vector<ds_t>& port_sets(const std::string& tag) {
     static std::vector<std::pair<std::string, std::vector<ds_t>>> cache;
@@ -149,7 +149,7 @@ TEST(OverlapGapClear, DsCountAndComposition) {
     const auto& port = port_sets("composition");
     const auto orac = scan_sup(oracle_path());
 
-    // Los 20 gap-clears deben existir como DS NORMAL de 0 cobjs.
+    // The 20 gap-clears must exist as NORMAL DS with 0 cobjs.
     for (uint64_t gap : kGapPts) {
         const auto it = std::find_if(port.begin(), port.end(),
                                      [gap](const ds_t& s) { return s.pts == gap; });
@@ -160,8 +160,8 @@ TEST(OverlapGapClear, DsCountAndComposition) {
 
     ASSERT_EQ(port.size(), orac.size()) << "cantidad de display sets difiere";
 
-    // Paridad de composicion por DS: estado + numero de cobjs. WDS/ODS bbox y el
-    // oid concreto de la ACQ post-clear se cubren aparte.
+    // Per-DS composition parity: state + number of cobjs. WDS/ODS bbox and the
+    // concrete oid of the post-clear ACQ are covered separately.
     int divergent = 0;
     std::ostringstream rep;
     for (size_t k = 0; k < orac.size(); ++k) {
@@ -191,10 +191,10 @@ TEST(OverlapGapClear, WdsOdsGeometry) {
         ++divergent;
         rep << "DS=" << k + 1 << " pts=" << orac[k].pts << " WDS/ODS divergen\n";
     }
-    // Los bbox de WDS/ODS divergen en un puñado de DS desde antes de 031.
-    // Re-evaluado tras 033: sigue divergiendo (residencia no cubierta por el
-    // parser multi-<Graphic>), asi que el gate queda fuera hasta una spec de
-    // geometria WDS/ODS. No es una regresion del gap-clear.
+    // WDS/ODS bboxes diverge in a handful of DS. Re-evaluated with the
+    // multi-<Graphic> parser: still diverging (residency not covered by that
+    // parser), so the gate stays out until the WDS/ODS geometry is fixed.
+    // This is not a gap-clear regression.
     if (divergent > 0)
         GTEST_SKIP() << "WDS/ODS divergen en " << divergent
                      << " DS (re-evaluado post-033: sin resolver), gap-clears intactos";

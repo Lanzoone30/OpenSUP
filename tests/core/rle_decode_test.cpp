@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// 034/T002 (US4): decode_rle must invert encode_rle for every payload shape.
+// decode_rle must invert encode_rle for every payload shape.
 
 #include <gtest/gtest.h>
 

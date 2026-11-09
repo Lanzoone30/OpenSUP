@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Feature 029 / D6: the MUI writer must round-trip timestamps. A --withsup
+// The MUI writer must round-trip timestamps. A --withsup
 // encode is decoded with the oracle reader (scenaristream.TSPair.from_mui);
 // every MUI record's PTS/DTS must match the twin .sup segment. Today the port
 // writes the PTS unshifted, so the oracle decodes garbage: 0 legible.

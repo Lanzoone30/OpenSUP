@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Multi-window emission (Fase 1 / feature 003): with a split layout epoch,
+// Multi-window emission: with a split layout epoch,
 // each object must be emitted against its own layout window (window_id from
 // the window containing the object), not the hardcoded window 0.
 #include <gtest/gtest.h>

@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// F2 (spec 026): default oid scheme is per-window double buffering —
+// Default oid scheme is per-window double buffering:
 // db[w] = abs(n - db[w]), oid = wid + db[w] (render2.py:844, 749-750).
 // --alternate-oids restores the legacy global {0,1} toggle across
 // acquisitions (any window count). The normal case reference keeps the
@@ -106,10 +106,10 @@ TEST(DbOids, MultiWindowReadquisitionAlternatesPerWindow) {
 }
 
 TEST(DbOids, NormalCaseRefFirstWithAlternate) {
-    // FR-3 (render2.py:786-792, sorted f_is_first_cobj): the normal case puts
-    // the kept (id_skipped) CObject FIRST in the composition list. The sort is
-    // unconditional in SUPer — with AND without alternate_oids (010 R2). The
-    // reference never alternates (uses the on-screen oid).
+    // Normal case (render2.py:786-792, sorted f_is_first_cobj): the kept
+    // (id_skipped) CObject goes FIRST in the composition list. The sort is
+    // unconditional in SUPer, with AND without alternate_oids. The reference
+    // never alternates (uses the on-screen oid).
     auto encode_nc = [](const std::string& out, bool alt) {
         encode_config_t cfg;
         cfg.input_path = OPENDSUP_FIXTURES_DIR "/opensup_normalcase.xml";
@@ -151,8 +151,8 @@ TEST(DbOids, NormalCaseRefFirstWithAlternate) {
 }
 
 TEST(DbOids, OverlapPathAlternatesPerWindow) {
-    // F2/FR-4: the overlap pipeline (encode_epoch_overlap + emit_epoch_from_nodes)
-    // must follow the same oid scheme as the single-pass path — per-window by
+    // The overlap pipeline (encode_epoch_overlap + emit_epoch_from_nodes)
+    // must follow the same oid scheme as the single-pass path: per-window by
     // default, legacy global {0,1} toggle with --alternate-oids.
     // opensup_multiwindow_merge.xml has two events in different windows 40ms
     // apart (shift_forward_overlay path); each window acquires once, so both

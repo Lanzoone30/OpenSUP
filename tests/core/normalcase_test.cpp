@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// Normal case (Fase 2 / feature 003): with two layout windows and an
+// Normal case: with two layout windows and an
 // overlapping event that takes over the other window, allow_normal_case
 // redefines that window as NORMAL instead of restarting the whole
 // composition (render2.py:513-544).
@@ -128,7 +128,7 @@ TEST(NormalCase, RefreshKeepsOtherWindowObject) {
     EXPECT_EQ(fresh->h_pos, 1000u);
     EXPECT_EQ(fresh->v_pos, 400u);
 
-    // R2 parity (render2.py:786-792, sorted f_is_first_cobj): the kept
+    // Parity (render2.py:786-792, sorted f_is_first_cobj): the kept
     // window-0 reference CObject comes FIRST in the composition, also without
     // alternate_oids (default), not appended after the new object.
     EXPECT_EQ(last->cobjects[0].window_id, 0u);
@@ -176,7 +176,7 @@ TEST(NormalCase, RequiresTwoOverlappingWindows) {
 }
 
 TEST(NormalCase, OverlapRefreshKeepsOtherWindowObject) {
-    // FR-3 diagnostic (010 R3): overlap + allow_normal_case + 2 windows. The
+    // Diagnostic: overlap + allow_normal_case + 2 windows. The
     // overlap pipeline (encode_epoch_overlap + emit_epoch_from_nodes) builds
     // epoch_node_t without the normal_case_ref fields, so the question is
     // whether the NORMAL display set still conserves the other window's object
@@ -229,7 +229,7 @@ TEST(NormalCase, OverlapRefreshKeepsOtherWindowObject) {
     dump_pcs(single, "single");
     dump_pcs(ovl, "overlap");
 
-    // Parity expectation (010 R3): the overlap pipeline must conserve the
+    // Parity expectation: the overlap pipeline must conserve the
     // still-displayed window-0 object (2nd CObject reference) on the NORMAL
     // display set, exactly like the single-pass path. (Byte-level parity with
     // the non-overlap stream is NOT expected — ahead/overlap legitimately

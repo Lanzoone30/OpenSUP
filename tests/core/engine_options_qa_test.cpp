@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// 039/T008: engine option flags change the stream as the oracle does.
+// Engine option flags change the stream as the oracle does.
 #include <gtest/gtest.h>
 
 #include <algorithm>

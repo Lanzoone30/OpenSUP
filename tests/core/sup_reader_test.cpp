@@ -3,7 +3,7 @@
 //
 // OpenSUP - PGS Encoder
 //
-// 034/T001: the .sup reader maps bytes back to the existing segment structs.
+// The .sup reader maps bytes back to the existing segment structs.
 
 #include <gtest/gtest.h>
 

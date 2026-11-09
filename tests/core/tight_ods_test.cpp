@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Lanzoone30
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 042/D-042-6: --tight-ods sizes each ODS to its event content.
+// --tight-ods sizes each ODS to its event content.
 #include <gtest/gtest.h>
 
 #include <algorithm>

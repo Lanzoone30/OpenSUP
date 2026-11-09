@@ -4,7 +4,7 @@
 // OpenSUP - PGS Encoder
 //
 // Parameter parity with SUPer: ssim_tol and acqrate (refresh rate).
-// CTU parity: separated regions break like SUPer (D2).
+// CTU parity: separated regions break like SUPer.
 
 #include <gtest/gtest.h>
 #include <string>
@@ -40,7 +40,7 @@ static size_t stream_hash(const std::vector<std::shared_ptr<pg_segment_c>>& segs
 }
 
 TEST(SSIMTol, ExtremesDoNotShiftBaseThreshold) {
-    // D1 regression: SUPer applies ssim_offset ONLY inside thr_score
+    // Regression: SUPer applies ssim_offset ONLY inside thr_score
     // (render2.py:1366: -0.008333*(1-ssim_offset)), never to the base SSIM
     // threshold. synth_ssimband.xml: flat gray 128 vs 155 scores 0.9820,
     // which fuses with the correct threshold (0.9778) but would break if
@@ -97,7 +97,7 @@ TEST(AcqRate, DroughtAccumulationEnablesLateRefresh) {
 }
 
 TEST(CTU, SeparatedRegionsBreakLikeSUPer) {
-    // D2 regression: SUPer CTU (render2.py:1186-1245) discounts identical regions
+    // Regression: SUPer CTU (render2.py:1186-1245) discounts identical regions
     // by 0.325 so a diverging region is not diluted by unchanged ones.
     // Fixture: two spatially separated bands (top 60px identical gray=128,
     // bottom 60px noise delta=40). Flat SSIM fuses (score > thr), CTU breaks.
